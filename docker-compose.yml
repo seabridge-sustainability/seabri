@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  openseabri:
+    build: .
+    ports:
+      - "3000:3000"      # Web UI
+      - "18790:18790"    # Gateway WebSocket
+    environment:
+      # Required: your Anthropic API key
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - VITE_ANTHROPIC_API_KEY=${VITE_ANTHROPIC_API_KEY:-}
+
+      # Optional: SeaBridgeAI backend integration
+      # Uncomment and fill in to enable quantitative risk data
+      # - SEABRIDGE_API_URL=${SEABRIDGE_API_URL:-}
+      # - SEABRIDGE_API_KEY=${SEABRIDGE_API_KEY:-}
+      # - VITE_SEABRIDGE_API_URL=${VITE_SEABRIDGE_API_URL:-}
+
+      # Optional: communication channels
+      # - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+      # - DISCORD_TOKEN=${DISCORD_TOKEN:-}
+
+      # Optional: web search for research loop
+      # - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+
+      # Gateway configuration
+      - GATEWAY_PORT=18790
+    volumes:
+      # Persist workspace (memory, skills, research findings) across restarts
+      - openseabri-workspace:/root/.openseabri
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # OPTIONAL: Uncomment to run alongside the SeaBridgeAI backend
+  # ─────────────────────────────────────────────────────────────
+  # seabridge-backend:
+  #   image: seabridgeai/backend:latest
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - MONGODB_URL=${MONGODB_URL}
+  #     - DATABASE_NAME=${DATABASE_NAME}
+  #     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - SECRET_KEY=${SECRET_KEY}
+  #   restart: unless-stopped
+  # ─────────────────────────────────────────────────────────────
+
+volumes:
+  openseabri-workspace:
+    driver: local

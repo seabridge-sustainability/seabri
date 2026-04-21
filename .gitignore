@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+.vite/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Runtime data (session state, cron jobs, findings, memory, telemetry)
+.openseabri/
+data/
+findings/
+research/findings/
+research/discarded/
+research/reports/
+research/trajectories/
+gateway/memory/*.db
+gateway/sessions/*.json
+gateway/cron/state.json
+telemetry/*.db
+
+# Test output
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Daemon
+*.pid
+daemon.log
+
+# Skills hub cache
+skills/.hub-cache/

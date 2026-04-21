@@ -1,0 +1,18 @@
+[Unit]
+Description=OpenSeaBri Gateway
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={{NODE_PATH}} {{GATEWAY_PATH}}
+WorkingDirectory={{OPENSEABRI_ROOT}}
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=openseabri-gateway
+Environment=NODE_ENV=production
+User={{USER}}
+
+[Install]
+WantedBy=default.target
