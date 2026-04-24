@@ -1,0 +1,271 @@
+{
+  "colors": {
+    "all": [
+      {
+        "hex": "#e5e5e5",
+        "rgb": {
+          "r": 229,
+          "g": 229,
+          "b": 229,
+          "a": 1
+        },
+        "hsl": {
+          "h": 0,
+          "s": 0,
+          "l": 90
+        },
+        "count": 87,
+        "contexts": [
+          "text",
+          "border"
+        ]
+      },
+      {
+        "hex": "#a3a3a3",
+        "rgb": {
+          "r": 163,
+          "g": 163,
+          "b": 163,
+          "a": 1
+        },
+        "hsl": {
+          "h": 0,
+          "s": 0,
+          "l": 64
+        },
+        "count": 31,
+        "contexts": [
+          "text",
+          "border"
+        ]
+      },
+      {
+        "hex": "#737373",
+        "rgb": {
+          "r": 115,
+          "g": 115,
+          "b": 115,
+          "a": 1
+        },
+        "hsl": {
+          "h": 0,
+          "s": 0,
+          "l": 45
+        },
+        "count": 30,
+        "contexts": [
+          "background",
+          "text",
+          "border"
+        ]
+      },
+      {
+        "hex": "#f5f5f5",
+        "rgb": {
+          "r": 245,
+          "g": 245,
+          "b": 245,
+          "a": 1
+        },
+        "hsl": {
+          "h": 0,
+          "s": 0,
+          "l": 96
+        },
+        "count": 24,
+        "contexts": [
+          "text",
+          "border"
+        ]
+      },
+      {
+        "hex": "#0a0a0a",
+        "rgb": {
+          "r": 10,
+          "g": 10,
+          "b": 10,
+          "a": 1
+        },
+        "hsl": {
+          "h": 0,
+          "s": 0,
+          "l": 4
+        },
+        "count": 15,
+        "contexts": [
+          "background",
+          "text",
+          "border"
+        ]
+      },
+      {
+        "hex": "#222222",
+        "rgb": {
+          "r": 34,
+          "g": 34,
+          "b": 34,
+          "a": 1
+        },
+        "hsl": {
+          "h": 0,
+          "s": 0,
+          "l": 13
+        },
+        "count": 11,
+        "contexts": [
+          "border"
+        ]
+      },
+      {
+        "hex": "#22c55e",
+        "rgb": {
+          "r": 34,
+          "g": 197,
+          "b": 94,
+          "a": 1
+        },
+        "hsl": {
+          "h": 142,
+          "s": 71,
+          "l": 45
+        },
+        "count": 5,
+        "contexts": [
+          "text",
+          "border"
+        ]
+      },
+      {
+        "hex": "#16a34a",
+        "rgb": {
+          "r": 22,
+          "g": 163,
+          "b": 74,
+          "a": 1
+        },
+        "hsl": {
+          "h": 142,
+          "s": 76,
+          "l": 36
+        },
+        "count": 2,
+        "contexts": [
+          "border",
+          "background"
+        ]
+      }
+    ]
+  },
+  "regions": [
+    {
+      "role": "nav",
+      "tag": "nav",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 67
+      },
+      "heading": null,
+      "buttonCount": 0,
+      "cardCount": 0,
+      "className": null
+    },
+    {
+      "role": "content",
+      "tag": "section",
+      "bounds": {
+        "x": 40,
+        "y": -520,
+        "w": 1200,
+        "h": 622.53125
+      },
+      "heading": "Your personal\nsustainability intelligence.",
+      "buttonCount": 0,
+      "cardCount": 0,
+      "className": null
+    },
+    {
+      "role": "hero",
+      "tag": "section",
+      "bounds": {
+        "x": 40,
+        "y": 102.53125,
+        "w": 1200,
+        "h": 769.25
+      },
+      "heading": "Eighteen agents. One sustainability focus.",
+      "buttonCount": 8,
+      "cardCount": 0,
+      "className": null
+    },
+    {
+      "role": "footer",
+      "tag": "footer",
+      "bounds": {
+        "x": 0,
+        "y": 871.78125,
+        "w": 1280,
+        "h": 85.5
+      },
+      "heading": null,
+      "buttonCount": 0,
+      "cardCount": 0,
+      "className": null
+    }
+  ],
+  "componentClusters": [
+    {
+      "kind": "button",
+      "structuralHash": "button>span>div>div>div",
+      "instanceCount": 8,
+      "variants": [
+        {
+          "css": {
+            "background": "rgb(17, 17, 17)",
+            "color": "rgb(229, 229, 229)",
+            "padding": "20px 20px 20px 20px",
+            "borderRadius": "12px",
+            "border": "1px 1px 1px 4px solid rgb(34, 34, 34)",
+            "fontSize": "13.3333px",
+            "fontWeight": "400"
+          },
+          "instanceCount": 8
+        }
+      ]
+    }
+  ],
+  "accessibility": {
+    "remediation": []
+  },
+  "cssHealth": {
+    "sheets": [],
+    "totalBytes": 0,
+    "usedBytes": 0,
+    "unusedBytes": 0,
+    "unusedPercent": 0,
+    "importantCount": 0,
+    "duplicates": 0,
+    "vendorPrefixes": {
+      "webkit": 0,
+      "moz": 0,
+      "ms": 0,
+      "o": 0
+    },
+    "keyframes": [],
+    "specificity": {
+      "max": [
+        0,
+        0,
+        0
+      ],
+      "average": [
+        0,
+        0,
+        0
+      ],
+      "count": 0
+    },
+    "issues": []
+  }
+}

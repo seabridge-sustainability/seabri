@@ -15,6 +15,11 @@
         "FALKORDB_PASSWORD": ""
       },
       "description": "Query cross-repo graphify knowledge graphs via OpenCypher"
+    },
+    "designlang": {
+      "command": "npx",
+      "args": ["designlang", "mcp", "--out", "./design"],
+      "description": "Live design token server — colors, typography, spacing, components"
     }
   }
 }

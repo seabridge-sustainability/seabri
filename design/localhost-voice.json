@@ -1,0 +1,78 @@
+{
+  "tone": "friendly",
+  "pronoun": "you-only",
+  "headingStyle": "Sentence case",
+  "headingLengthClass": "balanced",
+  "ctaVerbs": [
+    {
+      "value": "get",
+      "count": 2
+    },
+    {
+      "value": "climate",
+      "count": 1
+    },
+    {
+      "value": "nature",
+      "count": 1
+    },
+    {
+      "value": "investment",
+      "count": 1
+    },
+    {
+      "value": "build",
+      "count": 1
+    },
+    {
+      "value": "explore",
+      "count": 1
+    },
+    {
+      "value": "start",
+      "count": 1
+    }
+  ],
+  "buttonPatterns": [
+    {
+      "value": "🌊\nclimate risk\nhow climate change threatens what you own\nunderstand how flooding, wildfire, heat, drought, and sea level rise affect your home, farm, business,",
+      "count": 1
+    },
+    {
+      "value": "🌿\nnature & biodiversity\nhow your activities depend on and impact nature\nunderstand water stress, forest dependencies, soil health, pollinator risk, and how the",
+      "count": 1
+    },
+    {
+      "value": "📋\nsustainability reporting\nwhat you need to disclose, to whom, by when\nnavigate climate and nature disclosure requirements. get plain-language action lists for",
+      "count": 1
+    },
+    {
+      "value": "🔍\ninvestment risk screening\nsustainability risks in what you own or are buying\nscreen investments for physical climate risk, transition risk, nature dependenci",
+      "count": 1
+    },
+    {
+      "value": "🏠\nhome & community\nsustainability decisions for your home and neighborhood\nget practical guidance on energy efficiency, solar and storage, flood and fire prepa",
+      "count": 1
+    },
+    {
+      "value": "🎯\nnet zero & decarbonization\nbuilding a credible path to zero emissions\nset credible emissions reduction targets, build real decarbonization roadmaps, and unde",
+      "count": 1
+    },
+    {
+      "value": "🌾\nnatural capital & land\nincome from nature: credits, conservation, regenerative practices\nexplore carbon credits, biodiversity credits, regenerative agricultu",
+      "count": 1
+    },
+    {
+      "value": "🌍\ngeneral sustainability\nany question, any topic, any person\nstart here if you're not sure which specialist you need. any sustainability question welcome — fro",
+      "count": 1
+    }
+  ],
+  "sampleHeadings": [
+    "Your personal\nsustainability intelligence.",
+    "Eighteen agents. One sustainability focus."
+  ],
+  "stats": {
+    "buttons": 8,
+    "headings": 2
+  }
+}
