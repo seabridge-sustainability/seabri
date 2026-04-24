@@ -1,3 +1,11 @@
+---
+id: home-resilience-audit
+name: Home Resilience Audit
+description: Assess a home's exposure to climate hazards, prioritize upgrades by cost/benefit, and stack tax credits and financing.
+complianceTags: [GENERAL]
+costTier: free
+---
+
 # Home Resilience Audit
 
 A practical guide for homeowners who want to assess their home's exposure to climate risks, prioritize improvements intelligently, and take advantage of tax credits and financing to pay for them.

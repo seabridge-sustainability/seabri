@@ -2,6 +2,10 @@
 
 **Your personal sustainability intelligence system. Free and open source.**
 
+> **Positioning.** OpenSeaBri is the consumer AI sustainability agent for **individuals, homeowners, and small businesses** — finding the most sustainable alternative for any product, identifying climate and nature exposure, navigating policy coverage, and turning environmental risk into real decisions anyone can act on, immediately.
+>
+> **This is NOT the enterprise product.** For the enterprise execution platform used by startups, companies, and investors (climate/nature risk assessment, energy efficiency, due diligence, regulatory reporting end-to-end), see [SeaBridgeAI Enterprise](https://github.com/seabridge-sustainability/manageesg-backend). OpenSeaBri optionally consumes a curated subset of Enterprise agents via the `/api/v1/openseabri/*` proxy catalog when connected.
+
 ---
 
 On the night his neighborhood flooded — when his family sat watching the water rise while the conference he had spent two years building toward happened without him — Alejandro almost gave up.
@@ -111,21 +115,103 @@ The status badge in the UI and `seabri status` show whether you're connected.
 OpenSeaBri ships with 8 starter sustainability methodology skills. Add more from the community or write your own.
 
 ```bash
-seabri skills          # List available skills
-ls skills/             # Browse skill files
+seabri skills list         # List available skills
+seabri skills show <id>    # Show skill detail
+seabri skills create <id>  # Scaffold a new skill
+ls skills/                 # Browse skill files
 ```
 
-Skills are Markdown files encoding sustainability methodologies in plain language. Anyone can write one and contribute it.
+Skills are Markdown files encoding sustainability methodologies in plain language. Anyone can write one and contribute it. New skills can also be generated automatically after complex conversations.
 
 ---
 
 ## Research Loop
 
-Set your research agenda in `research.md`. OpenSeaBri runs autonomous research cycles and saves findings to `research/findings/`.
+Set your research agenda in `research/program.md`. OpenSeaBri runs autonomous research cycles, scores findings for relevance / source quality / actionability, and saves only the high-quality ones to `research/findings/`.
 
 ```bash
-seabri research        # Run a research cycle now
-# Or let it run overnight automatically via cron
+seabri research                # Run a single research cycle now
+seabri research --overnight    # Long-running overnight run with a fixed time budget per topic
+seabri research --parallel 4   # Spawn parallel research subagents across topics
+seabri research --report       # Summarize last run's findings
+seabri research --mutate       # Let the agent propose edits to research/program.md
+```
+
+The program is human-editable Markdown. The agent may also evolve it over time based on what worked — every mutation is recorded so you can review and revert.
+
+---
+
+## Power Features
+
+### Sessions and slash commands
+
+Every channel (CLI, WebSocket UI, Telegram) shares the same slash command surface:
+
+| Command | What it does |
+|---|---|
+| `/new` | Start a fresh session |
+| `/reset` | Clear history, keep the current agent |
+| `/compact` | Compress history to save context |
+| `/status` | Show current agent, session, turn count |
+| `/think` | Ask the agent to reason step-by-step on the next turn |
+| `/switch <agent-id>` | Change specialist agent mid-conversation |
+| `/persona <id>` \| `/persona off` | Switch tone or clear it |
+| `/skills` \| `/memory` \| `/agents` | Quick inspection |
+| `/quit` \| `/exit` | End session (CLI) |
+
+### Session search
+
+Past conversations are indexed. Use FTS5 when `better-sqlite3` is available; otherwise a JSON fallback keeps search working.
+
+```bash
+seabri search "flood insurance non-renewal"
+seabri search --rebuild    # Rebuild the index
+```
+
+### Cron scheduler
+
+Natural-language recurring tasks delivered to any channel:
+
+```bash
+seabri cron add "daily water stress briefing at 8am"
+seabri cron list
+seabri cron pause <id> | resume <id> | remove <id>
+```
+
+### Daemon
+
+Keep the gateway running in the background. Supported on macOS (launchd), Linux (systemd), and Windows (Task Scheduler via `node-windows` when installed).
+
+```bash
+seabri onboard --install-daemon
+seabri daemon install | status | uninstall
+```
+
+### DM security: pairing codes and policy
+
+Unknown senders on DM channels (e.g. Telegram) receive a pairing code rather than immediate access. Policy controls per-channel pairing requirement and per-sender agent preference.
+
+```bash
+seabri pairing list
+seabri pairing approve <senderId> <code>
+seabri pairing revoke  <senderId>
+seabri policy show
+seabri policy set-agent  <senderId> <agentId>
+seabri policy set-allow  <senderId> true|false
+```
+
+### Migrate from OpenClaw
+
+```bash
+seabri migrate --from <openclaw-workspace>           # Merge by default
+seabri migrate --from <openclaw-workspace> --dry-run # Preview only
+seabri migrate --from <openclaw-workspace> --replace # Overwrite
+```
+
+### Doctor
+
+```bash
+seabri doctor    # Config, API keys, model, daemon, policy, channels, integrations
 ```
 
 ---

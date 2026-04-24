@@ -47,9 +47,9 @@ A skill is a `SKILL.md` file that encodes a real sustainability methodology in p
 An agent is a specialized AI assistant with deep expertise in a sustainability area.
 
 **How to add an agent:**
-1. Add the agent definition to `src/App.jsx` following the existing pattern
-2. Add the system prompt to `gateway/agents/agents.ts`
-3. Add the agent config to `gateway/config.ts`
+1. Add the agent system prompt to `gateway/agents/agents.ts` following the existing pattern
+2. Add the agent config entry (id, name, icon) to `gateway/config.ts`
+3. Add the agent card to `src/App.tsx` for the web UI
 4. Write a skill file for the methodology the agent uses
 
 **What makes a good agent:**

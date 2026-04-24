@@ -1,0 +1,7 @@
+{
+  "defaultAgent": "general",
+  "perSender": {},
+  "channels": {
+    "telegram": { "requirePairing": true }
+  }
+}

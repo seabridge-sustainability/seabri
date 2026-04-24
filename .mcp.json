@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "falkordb": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@falkordb/mcpserver@latest"
+      ],
+      "env": {
+        "FALKORDB_HOST": "localhost",
+        "FALKORDB_PORT": "6380",
+        "FALKORDB_USERNAME": "",
+        "FALKORDB_PASSWORD": ""
+      },
+      "description": "Query cross-repo graphify knowledge graphs via OpenCypher"
+    }
+  }
+}

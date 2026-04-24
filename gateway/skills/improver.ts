@@ -3,6 +3,12 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { ANTHROPIC_API_KEY } from '../config.js'
 import { invalidateSkillCache } from './loader.js'
+import {
+  COMPLIANCE_TAGS,
+  parseFrontmatter,
+  validateFrontmatter,
+  SkillValidationError,
+} from './schema.js'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5'
@@ -43,7 +49,15 @@ Agent used: ${agentId}
 
 Evaluate: Did this task require a novel methodology, multi-step reasoning process, or specialized knowledge structure that would help future similar questions? Answer yes only if there is a reusable, teachable approach — not just a one-off answer.
 
-If yes: Write a SKILL.md file for this methodology in this exact format:
+If yes: Write a SKILL.md file for this methodology in this EXACT format. The file MUST begin with a YAML frontmatter block. The complianceTags field is MANDATORY and MUST be a non-empty inline array containing only values from this allowed list: ${COMPLIANCE_TAGS.join(', ')}. Use GENERAL only if no specific framework applies.
+
+---
+name: [Skill Name]
+description: [one-line description]
+complianceTags: [TAG1, TAG2]
+evidenceSource: [primary data source, e.g. "CSRD Delegated Act Annex I"]
+costTier: low
+---
 
 # [Skill Name]
 
@@ -92,11 +106,24 @@ If no methodology worth saving: respond with exactly the text "SKIP" and nothing
     if (!textBlock) return
 
     const text = textBlock.text.trim()
-    if (text === 'SKIP' || !text.startsWith('#')) return
+    if (text === 'SKIP') return
 
-    // Extract skill name from first heading
-    const nameMatch = text.match(/^#\s+(.+)/)
-    if (!nameMatch) return
+    // Compliance gate: every generated skill MUST carry valid YAML frontmatter
+    // with a recognised complianceTags entry. This is the enforcement point
+    // that keeps OpenSeaBri sustainability-only — skills that drift into
+    // general-purpose territory are rejected before hitting disk.
+    const parsed = parseFrontmatter(text)
+    if (!parsed) {
+      console.warn('[Skills] Self-improvement rejected: missing YAML frontmatter')
+      return
+    }
+
+    // Extract skill name from the body's first heading for the directory slug
+    const nameMatch = parsed.body.match(/^#\s+(.+)/m)
+    if (!nameMatch) {
+      console.warn('[Skills] Self-improvement rejected: missing body heading')
+      return
+    }
 
     const skillName = nameMatch[1]
       .trim()
@@ -106,6 +133,15 @@ If no methodology worth saving: respond with exactly the text "SKIP" and nothing
       .slice(0, 50)
 
     if (!skillName) return
+
+    try {
+      validateFrontmatter(parsed.raw, skillName)
+    } catch (err) {
+      const reason =
+        err instanceof SkillValidationError ? err.message : String(err)
+      console.warn(`[Skills] Self-improvement rejected: ${reason}`)
+      return
+    }
 
     // Check if skill already exists — append update note rather than overwrite
     const skillDir = resolve(SKILLS_DIR, skillName)

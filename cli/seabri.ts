@@ -2,7 +2,8 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import ora from 'ora'
-import { resolve } from 'path'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { homedir } from 'os'
 import { mkdir, writeFile, readFile, access } from 'fs/promises'
 
@@ -19,7 +20,7 @@ const WORKSPACE_DIR =
   process.env.OPENSEABRI_WORKSPACE || resolve(homedir(), '.openseabri', 'workspace')
 
 // Paths derived from this file's location: cli/ → openseabri/
-const OPENSEABRI_ROOT = resolve(new URL(import.meta.url).pathname, '..', '..')
+const OPENSEABRI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const RESEARCH_DIR = resolve(OPENSEABRI_ROOT, 'research')
 
 const AGENTS = [
@@ -390,12 +391,17 @@ async function cmdDoctor(): Promise<void> {
   }
 
   // 6. Session search index
-  process.stdout.write('Session search index...        ')
-  const searchIndex = resolve(WORKSPACE_DIR, 'search-index.json')
-  if (await fileExists(searchIndex)) {
-    console.log(chalk.green('PASS'))
-  } else {
-    console.log(chalk.gray('INFO  — No sessions indexed yet'))
+  process.stdout.write('Session search backend...      ')
+  try {
+    const { activeBackend } = await import('../gateway/memory/search.js')
+    const backend = await activeBackend()
+    if (backend === 'fts5') {
+      console.log(chalk.green(`PASS  — FTS5 (better-sqlite3)`))
+    } else {
+      console.log(chalk.gray('INFO  — JSON fallback (install better-sqlite3 for FTS5)'))
+    }
+  } catch (err: unknown) {
+    console.log(chalk.yellow(`WARN  — ${(err as Error).message}`))
   }
 
   // 7. Cron jobs configured
@@ -435,6 +441,112 @@ async function cmdDoctor(): Promise<void> {
     console.log(chalk.gray(`INFO  — No program.md yet (create at ${programFile})`))
   }
 
+  // 10. DM policy schema
+  process.stdout.write('DM policy schema...            ')
+  try {
+    const { loadPolicy } = await import('../gateway/security/policy.js')
+    const policy = await loadPolicy(true)
+    const issues: string[] = []
+    if (typeof policy.defaultAgent !== 'string' || !policy.defaultAgent) {
+      issues.push('defaultAgent missing')
+    }
+    if (!AGENTS.find((a) => a.id === policy.defaultAgent)) {
+      issues.push(`defaultAgent '${policy.defaultAgent}' not in agent list`)
+    }
+    if (typeof policy.perSender !== 'object' || policy.perSender === null) {
+      issues.push('perSender must be an object')
+    }
+    if (typeof policy.channels !== 'object' || policy.channels === null) {
+      issues.push('channels must be an object')
+    }
+    for (const [channel, cfg] of Object.entries(policy.channels || {})) {
+      if (cfg.requirePairing !== undefined && typeof cfg.requirePairing !== 'boolean') {
+        issues.push(`channels.${channel}.requirePairing must be boolean`)
+      }
+      if (cfg.allowedAgents !== undefined) {
+        if (!Array.isArray(cfg.allowedAgents)) {
+          issues.push(`channels.${channel}.allowedAgents must be array`)
+        } else {
+          for (const id of cfg.allowedAgents) {
+            if (!AGENTS.find((a) => a.id === id)) {
+              issues.push(`channels.${channel}.allowedAgents: unknown agent '${id}'`)
+            }
+          }
+        }
+      }
+    }
+    if (issues.length === 0) {
+      console.log(chalk.green('PASS'))
+    } else {
+      console.log(chalk.yellow(`WARN  — ${issues[0]}${issues.length > 1 ? ` (+${issues.length - 1} more)` : ''}`))
+    }
+  } catch (err: unknown) {
+    console.log(chalk.yellow(`WARN  — ${(err as Error).message}`))
+  }
+
+  // 11. Per-sender agent references
+  process.stdout.write('Per-sender agent refs...       ')
+  try {
+    const { loadPolicy } = await import('../gateway/security/policy.js')
+    const policy = await loadPolicy()
+    const unknown: string[] = []
+    for (const [sender, cfg] of Object.entries(policy.perSender || {})) {
+      if (cfg.agent && !AGENTS.find((a) => a.id === cfg.agent)) {
+        unknown.push(`${sender}→${cfg.agent}`)
+      }
+    }
+    if (unknown.length === 0) {
+      console.log(chalk.green('PASS'))
+    } else {
+      console.log(chalk.yellow(`WARN  — unknown agent: ${unknown.slice(0, 3).join(', ')}`))
+    }
+  } catch {
+    console.log(chalk.gray('INFO  — no per-sender overrides'))
+  }
+
+  // 12. SEABRIDGE_API_URL well-formed
+  process.stdout.write('Config URLs well-formed...     ')
+  const urlIssues: string[] = []
+  if (SEABRIDGE_API_URL) {
+    try {
+      const u = new URL(SEABRIDGE_API_URL)
+      if (!['http:', 'https:'].includes(u.protocol)) {
+        urlIssues.push(`SEABRIDGE_API_URL protocol '${u.protocol}' invalid`)
+      }
+    } catch {
+      urlIssues.push(`SEABRIDGE_API_URL '${SEABRIDGE_API_URL}' is not a valid URL`)
+    }
+  }
+  if (urlIssues.length === 0) {
+    console.log(chalk.green('PASS'))
+  } else {
+    console.log(chalk.yellow(`WARN  — ${urlIssues[0]}`))
+  }
+
+  // 13. Optional dependencies summary
+  process.stdout.write('Optional deps...               ')
+  const optionals: Array<{ name: string; pkg: string }> = [
+    { name: 'FTS5 search', pkg: 'better-sqlite3' },
+    { name: 'Telegram', pkg: 'node-telegram-bot-api' },
+    { name: 'Windows daemon', pkg: 'node-windows' },
+  ]
+  const present: string[] = []
+  const missing: string[] = []
+  for (const opt of optionals) {
+    try {
+      const pkgSpec = opt.pkg
+      await import(pkgSpec)
+      present.push(opt.name)
+    } catch {
+      missing.push(opt.name)
+    }
+  }
+  if (missing.length === 0) {
+    console.log(chalk.green(`PASS  — all ${present.length} optional deps available`))
+  } else {
+    console.log(chalk.gray(`INFO  — ${present.length} present, missing: ${missing.join(', ')}`))
+  }
+
   console.log()
 }
 
@@ -470,17 +582,36 @@ function cmdAgents(): void {
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-async function cmdSearch(query: string): Promise<void> {
+async function cmdSearch(query: string, opts: { rebuild?: boolean } = {}): Promise<void> {
+  if (opts.rebuild) {
+    const rebuildSpinner = ora('Rebuilding search index...').start()
+    try {
+      const { rebuildSearchIndex } = await import('../gateway/memory/search.js')
+      const { backend, indexed } = await rebuildSearchIndex()
+      rebuildSpinner.succeed(
+        `Rebuilt ${chalk.cyan(backend.toUpperCase())} index (${indexed} session${indexed === 1 ? '' : 's'}).`,
+      )
+    } catch (err: unknown) {
+      rebuildSpinner.fail()
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(chalk.red(`Rebuild failed: ${message}`))
+      return
+    }
+  }
+
   if (!query.trim()) {
+    if (opts.rebuild) return
     console.error(chalk.red('Query cannot be empty.'))
     process.exit(1)
   }
 
   const spinner = ora(`Searching sessions for "${query}"...`).start()
   try {
-    const { searchSessions } = await import('../gateway/memory/search.js')
+    const { searchSessions, activeBackend } = await import('../gateway/memory/search.js')
+    const backend = await activeBackend()
     const results = await searchSessions(query)
     spinner.stop()
+    console.log(chalk.gray(`(backend: ${backend})`))
 
     if (results.length === 0) {
       console.log(chalk.gray('\nNo sessions found matching that query.\n'))
@@ -738,6 +869,7 @@ async function cmdResearch(options: {
   overnight?: boolean
   report?: boolean
   parallel?: string
+  mutate?: boolean
 }): Promise<void> {
   if (options.report) {
     await cmdResearchReport()
@@ -745,7 +877,10 @@ async function cmdResearch(options: {
   }
 
   if (options.overnight) {
-    await cmdResearchOvernight(options.parallel ? parseInt(options.parallel, 10) : 1)
+    await cmdResearchOvernight(
+      options.parallel ? parseInt(options.parallel, 10) : 1,
+      { noMutate: options.mutate === false }
+    )
     return
   }
 
@@ -770,7 +905,10 @@ async function cmdResearch(options: {
   }
 }
 
-async function cmdResearchOvernight(parallel: number = 1): Promise<void> {
+async function cmdResearchOvernight(
+  parallel: number = 1,
+  opts: { noMutate?: boolean } = {}
+): Promise<void> {
   if (!ANTHROPIC_API_KEY) {
     console.error(chalk.red('ANTHROPIC_API_KEY is required for research.'))
     process.exit(1)
@@ -797,7 +935,8 @@ async function cmdResearchOvernight(parallel: number = 1): Promise<void> {
     const report = await runOvernightResearch(
       ANTHROPIC_API_KEY,
       process.env.OPENSEABRI_MODEL || 'claude-haiku-4-5-20251001',
-      (progress: string) => console.log(chalk.gray(`  ${progress}`))
+      (progress: string) => console.log(chalk.gray(`  ${progress}`)),
+      { noMutate: !!opts.noMutate }
     )
 
     console.log(chalk.bold.green('\n✅ Research complete!\n'))
@@ -914,6 +1053,114 @@ async function cmdPairingList(): Promise<void> {
   }
 }
 
+// ─── Policy ───────────────────────────────────────────────────────────────────
+
+async function cmdPolicySetAgent(senderId: string, agentId: string): Promise<void> {
+  if (!senderId || !agentId) {
+    console.error(chalk.red('Usage: seabri policy set-agent <senderId> <agentId>'))
+    process.exit(1)
+  }
+  try {
+    const { setPreferredAgent } = await import('../gateway/security/policy.js')
+    await setPreferredAgent(senderId, agentId)
+    console.log(chalk.green(`\n✅ Sender ${senderId} will now route to agent: ${agentId}\n`))
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(chalk.red(`Could not set preferred agent: ${message}`))
+  }
+}
+
+async function cmdPolicySetAllow(senderId: string, allowRaw: string): Promise<void> {
+  if (!senderId || !allowRaw) {
+    console.error(chalk.red('Usage: seabri policy set-allow <senderId> <true|false>'))
+    process.exit(1)
+  }
+  const normalized = allowRaw.toLowerCase()
+  if (normalized !== 'true' && normalized !== 'false') {
+    console.error(chalk.red('Value must be "true" or "false".'))
+    process.exit(1)
+  }
+  const allow = normalized === 'true'
+  try {
+    const { setSenderAllow } = await import('../gateway/security/policy.js')
+    await setSenderAllow(senderId, allow)
+    const verb = allow ? 'allowed' : 'denied'
+    console.log(chalk.green(`\n✅ Sender ${senderId} is now ${verb}.\n`))
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(chalk.red(`Could not update allow flag: ${message}`))
+  }
+}
+
+async function cmdPolicyClear(senderId: string): Promise<void> {
+  if (!senderId) {
+    console.error(chalk.red('Usage: seabri policy clear <senderId>'))
+    process.exit(1)
+  }
+  try {
+    const { clearSenderPolicy } = await import('../gateway/security/policy.js')
+    await clearSenderPolicy(senderId)
+    console.log(chalk.green(`\n✅ Policy entry for ${senderId} cleared.\n`))
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(chalk.red(`Could not clear policy: ${message}`))
+  }
+}
+
+async function cmdPolicyShow(): Promise<void> {
+  try {
+    const { loadPolicy, policyPath } = await import('../gateway/security/policy.js')
+    const policy = await loadPolicy(true)
+    const path = await policyPath()
+    console.log(chalk.bold('\nOpenSeaBri Policy\n'))
+    console.log(`Source: ${chalk.cyan(path.active)}${path.usingDefaults ? chalk.gray(' (defaults)') : ''}`)
+    console.log(`Default agent: ${chalk.cyan(policy.defaultAgent)}`)
+
+    const senderIds = Object.keys(policy.perSender)
+    if (senderIds.length === 0) {
+      console.log(chalk.gray('\nNo per-sender overrides.'))
+    } else {
+      console.log(chalk.bold(`\nPer-sender (${senderIds.length})`))
+      for (const id of senderIds) {
+        const entry = policy.perSender[id]
+        const parts: string[] = []
+        if (entry.agent) parts.push(`agent=${entry.agent}`)
+        if (entry.allow === false) parts.push(chalk.red('allow=false'))
+        if (entry.allow === true) parts.push('allow=true')
+        if (entry.note) parts.push(`note="${entry.note}"`)
+        console.log(`  ${chalk.cyan(id)} — ${parts.join(' · ') || chalk.gray('(empty)')}`)
+      }
+    }
+
+    const channels = Object.keys(policy.channels)
+    if (channels.length > 0) {
+      console.log(chalk.bold('\nChannels'))
+      for (const ch of channels) {
+        const cp = policy.channels[ch]
+        const parts: string[] = []
+        if (cp.requirePairing !== undefined) parts.push(`requirePairing=${cp.requirePairing}`)
+        if (cp.allowedAgents?.length) parts.push(`allowedAgents=[${cp.allowedAgents.join(', ')}]`)
+        console.log(`  ${chalk.cyan(ch)} — ${parts.join(' · ') || chalk.gray('(defaults)')}`)
+      }
+    }
+    console.log()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(chalk.red(`Could not show policy: ${message}`))
+  }
+}
+
+async function cmdPolicyPath(): Promise<void> {
+  try {
+    const { policyPath } = await import('../gateway/security/policy.js')
+    const path = await policyPath()
+    console.log(`\n${chalk.cyan(path.active)}${path.usingDefaults ? chalk.gray(' (built-in defaults)') : ''}\n`)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(chalk.red(`Could not resolve policy path: ${message}`))
+  }
+}
+
 // ─── Daemon ───────────────────────────────────────────────────────────────────
 
 async function cmdDaemonInstall(): Promise<void> {
@@ -943,7 +1190,7 @@ async function cmdDaemonUninstall(): Promise<void> {
 async function cmdDaemonStatus(): Promise<void> {
   try {
     const { getDaemonStatus } = await import('../daemon/install.js')
-    const status = getDaemonStatus()
+    const status = await getDaemonStatus()
     console.log(chalk.bold('\nDaemon Status\n'))
     const supported = status.method !== 'none'
     console.log(`  Platform:  ${status.platform}`)
@@ -1091,10 +1338,11 @@ program
 // ── Search ────────────────────────────────────────────────────────────────────
 
 program
-  .command('search <query>')
+  .command('search [query]')
   .description('Search past conversations by keyword')
-  .action((query: string) => {
-    cmdSearch(query).catch((err: unknown) => {
+  .option('--rebuild', 'Rebuild the search index before searching')
+  .action((query: string | undefined, opts: { rebuild?: boolean }) => {
+    cmdSearch(query ?? '', opts).catch((err: unknown) => {
       console.error(chalk.red(String(err)))
       process.exit(1)
     })
@@ -1240,7 +1488,8 @@ program
   .option('--overnight', 'Run a full overnight research session (up to 8 hours)')
   .option('--report', 'Show the last research report')
   .option('--parallel <n>', 'Number of parallel research tracks (overnight only)')
-  .action((options: { overnight?: boolean; report?: boolean; parallel?: string }) => {
+  .option('--no-mutate', 'Do not self-modify research/program.md')
+  .action((options: { overnight?: boolean; report?: boolean; parallel?: string; mutate?: boolean }) => {
     cmdResearch(options).catch((err: unknown) => {
       console.error(chalk.red(String(err)))
       process.exit(1)
@@ -1286,6 +1535,70 @@ pairingCmd
 // Default pairing action — list
 pairingCmd.action(() => {
   cmdPairingList().catch((err: unknown) => {
+    console.error(chalk.red(String(err)))
+    process.exit(1)
+  })
+})
+
+// ── Policy ────────────────────────────────────────────────────────────────────
+
+const policyCmd = program
+  .command('policy')
+  .description('Inspect and configure DM / channel routing policy')
+
+policyCmd
+  .command('set-agent <senderId> <agentId>')
+  .description('Route a sender to a specific agent')
+  .action((senderId: string, agentId: string) => {
+    cmdPolicySetAgent(senderId, agentId).catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+policyCmd
+  .command('set-allow <senderId> <value>')
+  .description('Allow (true) or deny (false) a sender explicitly')
+  .action((senderId: string, value: string) => {
+    cmdPolicySetAllow(senderId, value).catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+policyCmd
+  .command('clear <senderId>')
+  .description('Remove the per-sender policy entry')
+  .action((senderId: string) => {
+    cmdPolicyClear(senderId).catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+policyCmd
+  .command('show')
+  .description('Show active policy')
+  .action(() => {
+    cmdPolicyShow().catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+policyCmd
+  .command('path')
+  .description('Show which policy file is currently active')
+  .action(() => {
+    cmdPolicyPath().catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+// Default policy action — show
+policyCmd.action(() => {
+  cmdPolicyShow().catch((err: unknown) => {
     console.error(chalk.red(String(err)))
     process.exit(1)
   })
@@ -1351,6 +1664,170 @@ program
   .command('update')
   .description('Show update instructions')
   .action(cmdUpdate)
+
+// ── MCP server ────────────────────────────────────────────────────────────────
+
+program
+  .command('mcp-serve')
+  .description('Run OpenSeaBri as an MCP stdio server (for Claude Desktop and other MCP clients)')
+  .action(async () => {
+    try {
+      const { serveStdio } = await import('../gateway/mcp/server.js')
+      await serveStdio()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      process.stderr.write(`[mcp] fatal: ${message}\n`)
+      process.exit(1)
+    }
+  })
+
+// ── Ask (panel / subagent spawning) ───────────────────────────────────────────
+
+program
+  .command('ask <question...>')
+  .description('Ask a question — optionally fan it out to a panel of specialists in parallel')
+  .option('--panel [agents]', 'Consult multiple specialists in parallel (comma-separated ids, or "all")')
+  .option('--lead <id>', 'Lead agent used to synthesize the panel (default: general)')
+  .option('--agent <id>', 'Single agent id (when not using --panel)')
+  .option('--no-synthesize', 'Skip synthesis; show individual responses')
+  .option('--timeout <ms>', 'Per-specialist timeout in milliseconds (default: 90000)')
+  .action(async (
+    questionParts: string[],
+    opts: { panel?: string | boolean; lead?: string; agent?: string; synthesize?: boolean; timeout?: string }
+  ) => {
+    try {
+      const question = questionParts.join(' ').trim()
+      if (!question) {
+        console.error(chalk.red('Please provide a question.'))
+        process.exit(1)
+      }
+
+      if (opts.panel !== undefined) {
+        const { consultPanel } = await import('../gateway/agents/subagent.js')
+        const { AGENTS } = await import('../gateway/config.js')
+        const panelArg = typeof opts.panel === 'string' ? opts.panel : 'all'
+        const agentIds =
+          panelArg === 'all' || panelArg === 'true'
+            ? AGENTS.map((a) => a.id)
+            : panelArg.split(',').map((s) => s.trim()).filter(Boolean)
+
+        const result = await consultPanel(question, {
+          agentIds,
+          leadAgentId: opts.lead ?? 'general',
+          synthesize: opts.synthesize !== false,
+          timeoutMs: opts.timeout ? Number(opts.timeout) : undefined,
+          onProgress: (msg: string) => console.error(chalk.dim(`[panel] ${msg}`)),
+        })
+        console.log(result.synthesis)
+        console.error(
+          chalk.dim(
+            `\n— ${result.responses.filter((r) => !r.error).length}/${result.responses.length} specialists responded in ${Math.round(result.totalDurationMs / 1000)}s`
+          )
+        )
+      } else {
+        const { routeMessage } = await import('../gateway/agents/router.js')
+        const answer = await routeMessage(opts.agent ?? 'general', question, [])
+        console.log(answer)
+      }
+    } catch (err: unknown) {
+      console.error(chalk.red(err instanceof Error ? err.message : String(err)))
+      process.exit(1)
+    }
+  })
+
+// ── Company context ───────────────────────────────────────────────────────────
+
+program
+  .command('company [subcommand] [value...]')
+  .description('Manage company context used by bridge data (companyId, sector, assetId)')
+  .addHelpText('after', `
+Subcommands:
+  show                   Show current company context (default)
+  set <companyId>        Set the company ID
+  sector <name>          Set the sector name
+  asset <assetId>        Set the asset ID
+  clear                  Clear all company context fields
+
+Examples:
+  seabri company show
+  seabri company set acme-corp-001
+  seabri company sector "Real Estate"
+  seabri company asset warehouse-miami-001
+  seabri company clear`)
+  .action(async (subcommand: string | undefined, valueArr: string[]) => {
+    try {
+      const { loadUserConfig, setUserConfigField } = await import('../gateway/user_config.js')
+      const sub = (subcommand ?? 'show').toLowerCase()
+      const val = valueArr.join(' ').trim()
+
+      if (sub === 'show' || !sub) {
+        const cfg = await loadUserConfig()
+        console.log(chalk.bold('Company context:'))
+        console.log(`  companyId: ${cfg.companyId ? chalk.green(cfg.companyId) : chalk.dim('(not set)')}`)
+        console.log(`  assetId:   ${cfg.assetId ? chalk.green(cfg.assetId) : chalk.dim('(not set)')}`)
+        console.log(`  sector:    ${cfg.sector ? chalk.green(cfg.sector) : chalk.dim('(not set)')}`)
+        console.log()
+        console.log(chalk.dim('Use `seabri company set <id>` to configure company-specific bridge data.'))
+        return
+      }
+
+      if (sub === 'set') {
+        if (!val) { console.error(chalk.red('Usage: seabri company set <companyId>')); process.exit(1) }
+        await setUserConfigField('companyId', val)
+        console.log(chalk.green(`✓ Company ID set to "${val}".`))
+        return
+      }
+
+      if (sub === 'sector') {
+        if (!val) { console.error(chalk.red('Usage: seabri company sector <sector-name>')); process.exit(1) }
+        await setUserConfigField('sector', val)
+        console.log(chalk.green(`✓ Sector set to "${val}".`))
+        return
+      }
+
+      if (sub === 'asset') {
+        if (!val) { console.error(chalk.red('Usage: seabri company asset <assetId>')); process.exit(1) }
+        await setUserConfigField('assetId', val)
+        console.log(chalk.green(`✓ Asset ID set to "${val}".`))
+        return
+      }
+
+      if (sub === 'clear') {
+        await setUserConfigField('companyId', undefined)
+        await setUserConfigField('assetId', undefined)
+        await setUserConfigField('sector', undefined)
+        console.log(chalk.green('✓ Company context cleared.'))
+        return
+      }
+
+      console.error(chalk.red(`Unknown subcommand: ${sub}`))
+      console.error(chalk.dim('Run `seabri company --help` for usage.'))
+      process.exit(1)
+    } catch (err: unknown) {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    }
+  })
+
+// ── Migrate ───────────────────────────────────────────────────────────────────
+
+program
+  .command('migrate')
+  .description('Import workspace data from OpenClaw, Hermes, or another OpenSeaBri install')
+  .requiredOption('--from <path>', 'Source workspace directory (e.g. ~/.openclaw or ~/.hermes)')
+  .option('--merge', 'Merge into existing workspace (default)')
+  .option('--replace', 'Overwrite destination files instead of merging')
+  .option('--dry-run', 'Report what would be copied without writing')
+  .action(async (opts: { from: string; merge?: boolean; replace?: boolean; dryRun?: boolean }) => {
+    try {
+      const { runMigration, printMigrationReport } = await import('./migrate.js')
+      const report = await runMigration(opts)
+      printMigrationReport(report, opts)
+    } catch (err: unknown) {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    }
+  })
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(chalk.red(String(err)))

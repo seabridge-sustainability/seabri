@@ -148,3 +148,239 @@ export async function getTransitionRiskData(companyId: string): Promise<any> {
     return null
   }
 }
+
+/**
+ * Fetch sustainability targets for an asset.
+ * Path parameter is asset_id (targets are bound to assets, not companies).
+ * Optional filters: category, target_status, limit.
+ * Returns raw response data, or null on error.
+ */
+export async function getTargets(
+  assetId: string,
+  opts: { category?: string; status?: string; limit?: number } = {}
+): Promise<any> {
+  try {
+    const params: Record<string, string | number> = {}
+    if (opts.category) params.category = opts.category
+    if (opts.status) params.target_status = opts.status
+    if (opts.limit) params.limit = opts.limit
+    const { data } = await client.get(`/openseabri/targets/${assetId}`, {
+      params,
+    })
+    return data
+  } catch (err) {
+    console.warn('[OpenSeaBri] Could not fetch targets:', err)
+    return null
+  }
+}
+
+/**
+ * Fetch the materiality assessment for a company.
+ * Year is optional; backend defaults to the current year when omitted.
+ * Returns raw response data, or null on error.
+ */
+export async function getMateriality(
+  companyId: string,
+  year?: string
+): Promise<any> {
+  try {
+    const params: Record<string, string> = {}
+    if (year) params.year = year
+    const { data } = await client.get(`/openseabri/materiality/${companyId}`, {
+      params,
+    })
+    return data
+  } catch (err) {
+    console.warn('[OpenSeaBri] Could not fetch materiality assessment:', err)
+    return null
+  }
+}
+
+/**
+ * Fetch the persisted regulation monitoring report for a company.
+ * Year is optional; backend defaults to the current year when omitted.
+ * Returns raw response data ({ status, report } when completed), or null on error.
+ * Does NOT trigger a live agent run — only returns previously persisted reports.
+ */
+export async function getRegulationMonitoring(
+  companyId: string,
+  year?: string
+): Promise<any> {
+  try {
+    const params: Record<string, string> = {}
+    if (year) params.year = year
+    const { data } = await client.get(
+      `/openseabri/regulation-monitoring/${companyId}`,
+      { params }
+    )
+    return data
+  } catch (err) {
+    console.warn(
+      '[OpenSeaBri] Could not fetch regulation monitoring report:',
+      err
+    )
+    return null
+  }
+}
+
+// ── Agent execution surface ────────────────────────────────────────────────
+//
+// The endpoints below target the /openseabri/agent/* execution tier exposed
+// by the SeaBridgeAI backend. They are read-tier except for runAgent(), which
+// requires a minted HMAC approval token sent as X-OpenSeaBri-Run-Approval.
+// All functions follow the existing "return null on error" convention and
+// never throw — callers can treat null as "unavailable / denied / not found".
+
+/**
+ * List executable agents and their current gating state (kill switch,
+ * approval_required, allow-list). Returns raw response data, or null on error.
+ */
+export async function listAgents(): Promise<any> {
+  try {
+    const { data } = await client.get(`/openseabri/agent/catalog`)
+    return data
+  } catch (err) {
+    console.warn('[OpenSeaBri] Could not fetch agent catalog:', err)
+    return null
+  }
+}
+
+/**
+ * Fetch the latest cached run result for an agent/scope pair.
+ *
+ * The scope path segment is agent-specific:
+ *   - esg_brief : sector          (e.g. "General")
+ *   - insights  : company_id      (with assistant_type passed via `opts.params`)
+ *
+ * Optional query parameters are forwarded verbatim so callers can supply
+ * agent-specific discriminators (e.g. { assistant_type: "climate_risk" }).
+ *
+ * Returns raw response data, or null on error (including 404 when no
+ * cached result exists).
+ */
+export async function getAgentLatest(
+  name: string,
+  scope: string,
+  opts: { params?: Record<string, string | number> } = {}
+): Promise<any> {
+  try {
+    const { data } = await client.get(
+      `/openseabri/agent/${name}/latest/${scope}`,
+      { params: opts.params }
+    )
+    return data
+  } catch (err) {
+    console.warn(`[OpenSeaBri] Could not fetch latest result for ${name}:`, err)
+    return null
+  }
+}
+
+/**
+ * Trigger an agent run synchronously. Requires a minted HMAC approval token
+ * (see the backend _mint_approval_token helper) supplied as the
+ * X-OpenSeaBri-Run-Approval header.
+ *
+ * The body schema is agent-specific and must include acknowledge_paid: true
+ * when the run would dispatch a paid LLM call. Callers are responsible for
+ * constructing the correct body shape — this method is a thin pass-through.
+ *
+ * Returns raw response data on success, or null on any error (403 scope
+ * mismatch, 401 bad token, 503 kill switch / secret unset, 422 validation).
+ */
+export async function runAgent(
+  name: string,
+  body: Record<string, unknown>,
+  approvalToken: string
+): Promise<any> {
+  try {
+    const { data } = await client.post(
+      `/openseabri/agent/${name}/run`,
+      body,
+      { headers: { 'X-OpenSeaBri-Run-Approval': approvalToken } }
+    )
+    return data
+  } catch (err) {
+    console.warn(`[OpenSeaBri] Agent run failed for ${name}:`, err)
+    return null
+  }
+}
+
+/**
+ * Fetch a specific past run by run_id for the given agent. Returns raw
+ * response data, or null on error (including 404 when the run has aged out
+ * of the cache or the agent is outside the execution allow-list).
+ */
+export async function getAgentRun(name: string, runId: string): Promise<any> {
+  try {
+    const { data } = await client.get(
+      `/openseabri/agent/${name}/run/${runId}`
+    )
+    return data
+  } catch (err) {
+    console.warn(`[OpenSeaBri] Could not fetch run ${runId} for ${name}:`, err)
+    return null
+  }
+}
+
+// ── MCP proxy surface ──────────────────────────────────────────────────────
+//
+// The endpoints below target /openseabri/mcp/*, which proxies the seabridge_ai
+// MCPToolRouter (stdio/SSE transports across Axion, Sequential Thinking,
+// MongoDB, AWS S3, Tavily). Discovery routes are read-tier; callMcpTool
+// requires an HMAC approval token minted with scope="mcp".
+
+/**
+ * List configured MCP servers and their connection state.
+ * Returns raw response data, or null on error.
+ */
+export async function listMcpServers(): Promise<any> {
+  try {
+    const { data } = await client.get(`/openseabri/mcp/servers`)
+    return data
+  } catch (err) {
+    console.warn('[OpenSeaBri] Could not fetch MCP servers:', err)
+    return null
+  }
+}
+
+/**
+ * List all MCP tools available across connected servers. Each entry includes
+ * name, description, input_schema, and server_id.
+ * Returns raw response data, or null on error.
+ */
+export async function listMcpTools(): Promise<any> {
+  try {
+    const { data } = await client.get(`/openseabri/mcp/tools`)
+    return data
+  } catch (err) {
+    console.warn('[OpenSeaBri] Could not fetch MCP tools:', err)
+    return null
+  }
+}
+
+/**
+ * Invoke an MCP tool by name. Requires an HMAC approval token minted with
+ * scope="mcp" (see backend _mint_approval_token), supplied as the
+ * X-OpenSeaBri-Run-Approval header. Body must set acknowledge_paid: true —
+ * some MCP tools dispatch paid third-party API calls.
+ *
+ * Returns raw response data on success, or null on any error (401 bad token,
+ * 403 scope mismatch, 503 kill switch / MCP disabled, 500 tool failure).
+ */
+export async function callMcpTool(
+  toolName: string,
+  args: Record<string, unknown>,
+  approvalToken: string
+): Promise<any> {
+  try {
+    const { data } = await client.post(
+      `/openseabri/mcp/call`,
+      { tool_name: toolName, arguments: args, acknowledge_paid: true },
+      { headers: { 'X-OpenSeaBri-Run-Approval': approvalToken } }
+    )
+    return data
+  } catch (err) {
+    console.warn(`[OpenSeaBri] MCP call failed for ${toolName}:`, err)
+    return null
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "falkordb"
+  ],
+  "enableAllProjectMcpServers": true
+}

@@ -15,7 +15,9 @@ export const SEABRIDGE_API_URL = process.env.SEABRIDGE_API_URL || 'http://localh
 export const SEABRIDGE_API_KEY = process.env.SEABRIDGE_API_KEY || ''
 export const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || ''
 export const TAVILY_API_KEY = process.env.TAVILY_API_KEY || ''
-export const MODEL = process.env.OPENSEABRI_MODEL || 'claude-sonnet-4-5'
+export const NASA_FIRMS_KEY = process.env.NASA_FIRMS_KEY || ''
+export const AIRNOW_KEY = process.env.AIRNOW_KEY || ''
+export const MODEL = process.env.OPENSEABRI_MODEL || 'claude-sonnet-4-6'
 
 export const AGENTS = [
   { id: 'climate-risk', name: 'Climate Risk', icon: '🌊' },

@@ -1,3 +1,11 @@
+---
+id: wildfire-risk-assessment
+name: Wildfire Risk Assessment
+description: Assess wildfire risk for a property, reduce it through defensible-space measures, and protect insurability.
+complianceTags: [TCFD, TNFD]
+costTier: free
+---
+
 # Wildfire Risk Assessment
 
 A practical guide for homeowners, farmers, and rural businesses in fire-prone areas — how to find your risk, reduce it, protect your insurance, and make sound financial decisions about properties where wildfire is a real threat.

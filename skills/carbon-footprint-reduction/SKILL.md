@@ -1,3 +1,11 @@
+---
+id: carbon-footprint-reduction
+name: Carbon Footprint Reduction
+description: Locate the emissions that actually matter for a household or small business and sequence reductions by impact.
+complianceTags: [GHG_PROTOCOL, GENERAL]
+costTier: free
+---
+
 # Carbon Footprint Reduction
 
 A practical guide for individuals, households, and small businesses who want to understand where their emissions actually come from — and which actions make a real difference.

@@ -68,3 +68,9 @@ daemon.log
 
 # Skills hub cache
 skills/.hub-cache/
+
+# graphify outputs (added by graphify setup)
+graphify-out/cache/
+graphify-out/manifest.json
+graphify-out/cost.json
+graphify-obsidian/

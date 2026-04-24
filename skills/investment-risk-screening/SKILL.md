@@ -1,3 +1,11 @@
+---
+id: investment-risk-screening
+name: Investment Risk Screening
+description: Assess climate and nature risks in investments — physical hazards, transition forces, and what lenders/institutional investors expect.
+complianceTags: [TCFD, SFDR]
+costTier: free
+---
+
 # Investment Risk Screening
 
 How to assess climate and nature risks in investments — from physical hazards affecting specific assets to the economic forces reshaping entire industries — and what lenders and institutional investors actually expect to see.

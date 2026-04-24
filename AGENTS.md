@@ -211,6 +211,24 @@ Available agent identifiers: `climate-risk`, `nature-biodiversity`, `sustainabil
 
 OpenSeaBri has a Telegram integration for quick questions on the go. Once connected, you can message the bot directly and specify which agent to use, or let the general agent route your question. Contact your OpenSeaBri administrator for the bot link.
 
+Unknown senders on DM channels receive a pairing code before any agent will respond. An administrator approves the sender with `seabri pairing approve <senderId> <code>`. Per-sender agent preferences and allow/deny rules live in `seabri policy`.
+
+---
+
+## Working With Agents Across Sessions
+
+Every channel (CLI, web, Telegram) shares the same slash command surface for managing a conversation:
+
+- `/switch <agent-id>` — change the specialist agent mid-conversation
+- `/persona <id>` or `/persona off` — adopt a tone (e.g. plain-language vs. expert depth) or clear it
+- `/new`, `/reset`, `/compact` — start fresh, clear history, or compress long history
+- `/status`, `/agents`, `/skills`, `/memory` — inspect what the agent knows and who is available
+- `/think` — ask the agent to reason step-by-step on the next turn
+
+Past conversations are searchable with `seabri search "<query>"`. Recurring tasks (daily briefings, weekly summaries) can be scheduled with `seabri cron add "<natural language schedule>"` and delivered to any channel.
+
+See `TOOLS.md` for the full capability reference and `README.md` for the power-feature CLI surface (sessions, daemon, migrate, doctor, research loop).
+
 ---
 
 ## SeaBridgeAI Integration

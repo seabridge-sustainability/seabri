@@ -1,5 +1,4 @@
 import { TELEGRAM_TOKEN, AGENTS } from '../config.js'
-import { getAgentName } from '../agents/agents.js'
 import { routeMessage } from '../agents/router.js'
 import {
   isApproved,
@@ -7,11 +6,10 @@ import {
   verifyPairingCode,
   approveSender,
 } from '../security/pairing.js'
+import { getPreferredAgent, isAllowed, requiresPairing } from '../security/policy.js'
+import { buildAdditionalContext, handleSlashCommand, type ChannelState } from './shared_commands.js'
 
-interface UserState {
-  agentId: string
-  history: Array<{ role: string; content: string }>
-}
+interface UserState extends ChannelState {}
 
 // Imported lazily to avoid crash when package is missing
 type TelegramBot = {
@@ -83,9 +81,10 @@ export async function startTelegramChannel(): Promise<void> {
   // Per-user state
   const userStates = new Map<number, UserState>()
 
-  function getState(userId: number): UserState {
+  async function getState(userId: number): Promise<UserState> {
     if (!userStates.has(userId)) {
-      userStates.set(userId, { agentId: 'general', history: [] })
+      const agentId = await getPreferredAgent(String(userId))
+      userStates.set(userId, { agentId, history: [], personalityId: null, thinkMode: false })
     }
     return userStates.get(userId)!
   }
@@ -114,10 +113,17 @@ export async function startTelegramChannel(): Promise<void> {
 
     if (!text) return
 
-    // Pairing gate — unknown senders must pair before access
+    // Policy allow/deny check
+    if (!(await isAllowed(senderId, 'telegram'))) {
+      await safeSend(chatId, '⛔ Access denied by policy.')
+      return
+    }
+
+    // Pairing gate — unknown senders must pair before access (if channel requires)
+    const pairingNeeded = await requiresPairing('telegram')
     const approved = await isApproved(senderId)
 
-    if (!approved) {
+    if (pairingNeeded && !approved) {
       // /pair XXXXXX — check pairing code
       if (text.startsWith('/pair ')) {
         const code = text.replace('/pair ', '').trim()
@@ -145,79 +151,29 @@ export async function startTelegramChannel(): Promise<void> {
       return
     }
 
-    // /start
+    // /start — Telegram-specific welcome
     if (text === '/start') {
       await safeSend(chatId, buildWelcomeText())
       return
     }
 
-    // /agents
-    if (text === '/agents') {
-      await safeSend(chatId, buildAgentListText())
-      return
-    }
+    const state = await getState(chatId)
 
-    // /status
-    if (text === '/status') {
-      const state = getState(chatId)
-      const agentName = getAgentName(state.agentId)
-      const agentEntry = AGENTS.find((a) => a.id === state.agentId)
-      const icon = agentEntry?.icon ?? '🌍'
-      await safeSend(
-        chatId,
-        `*Status*\n\nCurrent agent: ${icon} ${agentName}\nConversation turns: ${Math.floor(state.history.length / 2)}`
-      )
-      return
-    }
-
-    // /new — reset conversation
-    if (text === '/new') {
-      const state = getState(chatId)
-      state.history = []
-      await safeSend(chatId, '🌱 Started a fresh conversation. How can I help?')
-      return
-    }
-
-    // /switch <agent-id>
-    if (text.startsWith('/switch')) {
-      const parts = text.split(/\s+/)
-      const requestedId = parts[1]?.trim()
-
-      if (!requestedId) {
-        await safeSend(chatId, buildAgentListText())
-        return
-      }
-
-      const found = AGENTS.find((a) => a.id === requestedId)
-      if (!found) {
-        await safeSend(
-          chatId,
-          `Unknown agent: \`${requestedId}\`\n\n` + buildAgentListText()
-        )
-        return
-      }
-
-      const state = getState(chatId)
-      state.agentId = found.id
-      state.history = [] // Fresh context on switch
-      await safeSend(chatId, `${found.icon} Switched to *${found.name}*. How can I help?`)
-      return
-    }
-
-    // Ignore other bot commands
+    // Delegate all other slash commands to shared dispatcher
     if (text.startsWith('/')) {
-      await safeSend(
-        chatId,
-        'Unknown command. Available: /start · /agents · /switch <id> · /status · /new'
-      )
-      return
+      const result = await handleSlashCommand(state, text)
+      if (result.handled) {
+        if (result.reply) await safeSend(chatId, result.reply)
+        return
+      }
     }
 
     // Regular message — route to agent
-    const state = getState(chatId)
-
     try {
-      const response = await routeMessage(state.agentId, text, state.history)
+      const additional = await buildAdditionalContext(state)
+      const response = await routeMessage(state.agentId, text, state.history, additional)
+
+      if (state.thinkMode) state.thinkMode = false
 
       state.history.push({ role: 'user', content: text })
       state.history.push({ role: 'assistant', content: response })

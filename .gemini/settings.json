@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "berry": {
+      "args": [
+        "mcp",
+        "--server",
+        "classic"
+      ],
+      "command": "berry",
+      "env": {
+        "BERRY_SERVICE_URL": "http://52.191.234.157:8000",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "OPENAI_BASE_URL": "http://20.232.57.156/v1",
+        "STRAWBERRY_SERVICE_URL": "http://52.191.234.157:8000"
+      }
+    }
+  }
+}

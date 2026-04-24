@@ -10,7 +10,7 @@ export interface DaemonStatus {
   installed: boolean
   running: boolean
   platform: NodeJS.Platform
-  method: 'launchd' | 'systemd' | 'none'
+  method: 'launchd' | 'systemd' | 'scm' | 'none'
   configPath?: string
 }
 
@@ -143,6 +143,9 @@ export async function installDaemon(): Promise<void> {
     await installLaunchd()
   } else if (process.platform === 'linux') {
     await installSystemd()
+  } else if (process.platform === 'win32') {
+    const { installScm } = await import('./windows.js')
+    await installScm()
   } else {
     throw new Error(`Daemon installation not supported on ${process.platform}. Run the gateway manually: seabri gateway`)
   }
@@ -153,16 +156,29 @@ export async function uninstallDaemon(): Promise<void> {
     await uninstallLaunchd()
   } else if (process.platform === 'linux') {
     await uninstallSystemd()
+  } else if (process.platform === 'win32') {
+    const { uninstallScm } = await import('./windows.js')
+    await uninstallScm()
   } else {
     throw new Error(`Daemon uninstallation not supported on ${process.platform}`)
   }
 }
 
-export function getDaemonStatus(): DaemonStatus {
+export async function getDaemonStatus(): Promise<DaemonStatus> {
   if (process.platform === 'darwin') {
     return checkLaunchdStatus()
   } else if (process.platform === 'linux') {
     return checkSystemdStatus()
+  } else if (process.platform === 'win32') {
+    const { checkScmStatus } = await import('./windows.js')
+    const s = await checkScmStatus()
+    return {
+      installed: s.installed,
+      running: s.running,
+      platform: 'win32',
+      method: 'scm',
+      configPath: s.configPath,
+    }
   }
   return { installed: false, running: false, platform: process.platform, method: 'none' }
 }

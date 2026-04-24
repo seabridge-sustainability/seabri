@@ -1,3 +1,11 @@
+---
+id: nature-dependency-screening
+name: Nature Dependency Screening
+description: Identify how a business depends on ecosystem services and what happens when those natural systems degrade.
+complianceTags: [TNFD]
+costTier: free
+---
+
 # Nature Dependency Screening
 
 A practical guide for farmers, small businesses, and any operation with a physical supply chain who wants to understand how their business depends on the natural world, and what happens when those natural systems are stressed or lost.

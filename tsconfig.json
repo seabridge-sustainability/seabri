@@ -20,6 +20,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "cli", "gateway", "research", "daemon", "types"],
+  "include": ["src", "cli", "gateway", "research", "daemon", "bridge", "integrations", "types", "tests"],
   "exclude": ["node_modules", "dist"]
 }

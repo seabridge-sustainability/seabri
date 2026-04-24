@@ -1,3 +1,11 @@
+---
+id: net-zero-roadmap
+name: Net Zero Roadmap
+description: Measure, reduce, and eliminate GHG emissions for SMBs without expensive consultants — SBTi-aligned.
+complianceTags: [SBTi, GHG_PROTOCOL]
+costTier: free
+---
+
 # Net Zero Roadmap
 
 A practical guide for small and medium businesses and organizations starting on the path to measure, reduce, and eventually eliminate their greenhouse gas emissions — without paying for expensive consultants to do work you can do yourself.

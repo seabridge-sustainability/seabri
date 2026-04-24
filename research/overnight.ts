@@ -1,17 +1,18 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { scoreFinding, type QualityScore } from './scorer.js'
+import { type QualityScore } from './scorer.js'
+import { runPool } from './worker.js'
+import { mutateProgram, deriveMutationFromReport } from './program_mutator.js'
 
-const OPENSEABRI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const RESEARCH_DIR = resolve(OPENSEABRI_ROOT, 'openseabri', 'research')
-const FINDINGS_DIR = resolve(OPENSEABRI_ROOT, 'openseabri', 'research', 'findings')
-const DISCARDED_DIR = resolve(OPENSEABRI_ROOT, 'openseabri', 'research', 'discarded')
+const RESEARCH_DIR = resolve(dirname(fileURLToPath(import.meta.url)))
+const FINDINGS_DIR = resolve(RESEARCH_DIR, 'findings')
+const DISCARDED_DIR = resolve(RESEARCH_DIR, 'discarded')
 const PROGRAM_FILE = resolve(RESEARCH_DIR, 'program.md')
 
 const OVERNIGHT_BUDGET_MS = 8 * 60 * 60 * 1000   // 8 hours
 const EXPERIMENT_BUDGET_MS = 15 * 60 * 1000        // 15 min per experiment
-const QUALITY_THRESHOLD = 6.0
+const CONCURRENCY = 3
 
 export interface Experiment {
   id: string
@@ -64,74 +65,6 @@ function extractTopics(programContent: string): Array<{ topic: string; section: 
   return topics
 }
 
-async function runExperiment(
-  topic: string,
-  section: string,
-  apiKey: string,
-  model: string
-): Promise<Experiment> {
-  const id = `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-  const experiment: Experiment = {
-    id,
-    topic,
-    section,
-    startedAt: Date.now(),
-    kept: false,
-  }
-
-  try {
-    const prompt = `You are a sustainability research agent. Research the following topic and provide a detailed finding.
-
-Topic: ${topic}
-Section: ${section}
-
-Provide:
-1. Key finding (2-3 sentences, factual and specific)
-2. Data sources or evidence
-3. Practical implications
-4. Confidence level (high/medium/low) and why
-
-Be specific with numbers, dates, and named sources where possible.`
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-
-    if (!response.ok) {
-      experiment.completedAt = Date.now()
-      return experiment
-    }
-
-    const data = (await response.json()) as { content: Array<{ type: string; text: string }> }
-    const textBlock = data.content.find((c) => c.type === 'text')
-    if (!textBlock) {
-      experiment.completedAt = Date.now()
-      return experiment
-    }
-
-    experiment.finding = textBlock.text
-    experiment.completedAt = Date.now()
-
-    const score = await scoreFinding(topic, [textBlock.text], section)
-    experiment.score = score
-    experiment.kept = score.keep
-  } catch {
-    experiment.completedAt = Date.now()
-  }
-
-  return experiment
-}
-
 async function saveFinding(experiment: Experiment): Promise<void> {
   const date = new Date().toISOString().split('T')[0]
   const slug = experiment.topic
@@ -165,20 +98,6 @@ ${experiment.finding ?? 'No finding recorded.'}
   } else {
     await mkdir(DISCARDED_DIR, { recursive: true })
     await writeFile(resolve(DISCARDED_DIR, filename), content, 'utf-8')
-  }
-}
-
-async function appendStrategyNote(notes: string[]): Promise<void> {
-  if (notes.length === 0) return
-
-  try {
-    const existing = await readFile(PROGRAM_FILE, 'utf-8')
-    const date = new Date().toISOString().split('T')[0]
-    const noteBlock = `\n\n---\n\n## Strategy Notes — ${date}\n\n${notes.map((n) => `- ${n}`).join('\n')}\n`
-
-    await writeFile(PROGRAM_FILE, existing + noteBlock, 'utf-8')
-  } catch {
-    // Non-fatal
   }
 }
 
@@ -252,10 +171,15 @@ ${report.strategyNotes.length === 0 ? '_No notes generated._' : report.strategyN
   return filepath
 }
 
+export interface OvernightOptions {
+  noMutate?: boolean
+}
+
 export async function runOvernightResearch(
   apiKey: string,
   model: string,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  options: OvernightOptions = {}
 ): Promise<OvernightReport> {
   const log = (msg: string) => {
     console.log(`[Overnight] ${msg}`)
@@ -292,46 +216,68 @@ export async function runOvernightResearch(
     }
   }
 
-  log(`Found ${topics.length} topics to research`)
+  log(`Found ${topics.length} topics to research (concurrency=${CONCURRENCY})`)
 
-  const budgetEnd = Date.now() + OVERNIGHT_BUDGET_MS
-  const experiments: Experiment[] = []
-  let topicIndex = 0
+  const deadline = Date.now() + OVERNIGHT_BUDGET_MS
+  const tasks = topics.map(({ topic, section }) => ({ topic, section }))
 
-  while (Date.now() < budgetEnd && topicIndex < topics.length) {
-    const { topic, section } = topics[topicIndex]
-    log(`Researching: ${topic} (${section})`)
-
-    const experimentDeadline = Date.now() + EXPERIMENT_BUDGET_MS
-    const experiment = await Promise.race([
-      runExperiment(topic, section, apiKey, model),
-      new Promise<Experiment>((resolve) =>
-        setTimeout(() => resolve({
-          id: `timeout_${topicIndex}`,
-          topic,
-          section,
-          startedAt: Date.now(),
-          completedAt: Date.now(),
-          kept: false,
-        }), experimentDeadline - Date.now())
-      ),
-    ])
-
-    experiments.push(experiment)
-
-    if (experiment.finding) {
-      await saveFinding(experiment)
-      const status = experiment.kept ? 'kept' : 'discarded'
-      log(`${topic}: ${status} (score: ${experiment.score?.overall.toFixed(1) ?? 'N/A'})`)
-    } else {
-      log(`${topic}: no finding generated`)
+  const results = await runPool(
+    tasks,
+    apiKey,
+    model,
+    EXPERIMENT_BUDGET_MS,
+    CONCURRENCY,
+    deadline,
+    async (r) => {
+      if (r.finding) {
+        const experiment: Experiment = {
+          id: r.id,
+          topic: r.topic,
+          section: r.section,
+          startedAt: r.startedAt,
+          completedAt: r.completedAt,
+          finding: r.finding,
+          score: r.score,
+          kept: r.kept,
+        }
+        await saveFinding(experiment)
+        log(`${r.topic}: ${r.kept ? 'kept' : 'discarded'} (score: ${r.score?.overall.toFixed(1) ?? 'N/A'})`)
+      } else {
+        const detail = r.timedOut ? ' (timed out)' : r.error ? ` (${r.error})` : ''
+        log(`${r.topic}: no finding${detail}`)
+      }
     }
+  )
 
-    topicIndex++
-  }
+  const experiments: Experiment[] = results.map((r) => ({
+    id: r.id,
+    topic: r.topic,
+    section: r.section,
+    startedAt: r.startedAt,
+    completedAt: r.completedAt,
+    finding: r.finding,
+    score: r.score,
+    kept: r.kept,
+  }))
 
   const report = await generateReport(experiments)
-  await appendStrategyNote(report.strategyNotes)
+
+  if (options.noMutate) {
+    log('program.md mutation skipped (--no-mutate)')
+  } else if (report.strategyNotes.length > 0) {
+    try {
+      const mutation = await mutateProgram(deriveMutationFromReport(report.strategyNotes))
+      if (mutation.updated) {
+        log(`program.md updated (backup: ${mutation.backupPath ?? 'none'})`)
+      } else if (mutation.reason) {
+        log(`program.md not modified: ${mutation.reason}`)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      log(`program.md mutation failed: ${message}`)
+    }
+  }
+
   const reportPath = await saveReport(report)
 
   log(`Research complete. Report saved to ${reportPath}`)

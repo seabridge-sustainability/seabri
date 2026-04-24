@@ -11,11 +11,13 @@
     "preview": "vite preview",
     "cli": "tsx cli/seabri.ts",
     "gateway": "tsx gateway/index.ts",
-    "research": "tsx research/loop.ts",
+    "research": "tsx research/overnight.ts",
+    "canvas:seed": "tsx scripts/dev-canvas-seed.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:node": "tsx --test tests/*.test.mts",
     "e2e": "playwright test"
   },
   "dependencies": {
@@ -33,7 +35,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "uuid": "^14.0.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zustand": "^5.0.12"
   },
   "optionalDependencies": {
     "node-windows": "^1.0.0-beta.8"

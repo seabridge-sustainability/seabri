@@ -1,12 +1,19 @@
 import { WebSocketServer, WebSocket } from 'ws'
+import { createServer, type IncomingMessage as HttpIncomingMessage, type ServerResponse } from 'http'
 import { GATEWAY_PORT, TELEGRAM_TOKEN, SEABRIDGE_API_URL, SEABRIDGE_API_KEY, ANTHROPIC_API_KEY } from './config.js'
 import { initWorkspace, maybeNudgeUserModel } from './memory/memory.js'
 import { routeMessage } from './agents/router.js'
 import { startTelegramChannel } from './channels/telegram.js'
 import { getOrCreateSession, updateSession, resetSession, type Session } from './sessions/index.js'
 import { indexSession } from './memory/search.js'
+import { consultPanel } from './agents/subagent.js'
 import { startAllCronJobs } from './cron/index.js'
+import { startEnabledPresets } from './cron/presets.js'
+import { createApprovalTokenFactory } from './cron/approval.js'
 import { buildSkillsContext } from './skills/loader.js'
+import { listPersonalities, loadPersonality, getPersonalityPrompt, copyBuiltinToUser } from './personalities/loader.js'
+import { handleAttachmentRequest } from './attachments/http.js'
+import { startCanvasServer, stopCanvasServer } from './canvas/server.js'
 
 const VERSION = '0.1.0'
 
@@ -91,6 +98,31 @@ async function startGateway(): Promise<void> {
     // Non-fatal — cron scheduler failure doesn't block gateway
   }
 
+  // Start compliance-tagged cron presets (regulation monitoring etc.).
+  // Skipped silently when OPENSEABRI_RUN_SECRET is unset — presets cannot
+  // mint HMAC approval tokens without it.
+  try {
+    const factory = createApprovalTokenFactory()
+    if (factory) {
+      await startEnabledPresets(factory)
+    } else {
+      console.warn('[Gateway] OPENSEABRI_RUN_SECRET unset — cron presets disabled')
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn(`[Gateway] Cron presets warning: ${message}`)
+  }
+
+  // Optionally start canvas WS broadcast hub (A2UI / Live Canvas).
+  // No-op when OPENSEABRI_CANVAS_WS_PORT is unset — matches the tryImport
+  // fallback pattern used for telegram/discord.
+  try {
+    await startCanvasServer()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn(`[Gateway] Canvas start warning: ${message}`)
+  }
+
   // Optionally start Telegram
   let telegramActive = false
   if (TELEGRAM_TOKEN) {
@@ -103,13 +135,28 @@ async function startGateway(): Promise<void> {
     }
   }
 
-  // Start WebSocket server
-  let wss: WebSocketServer
-  try {
-    wss = new WebSocketServer({ port: GATEWAY_PORT })
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    if (message.includes('EADDRINUSE')) {
+  // Shared HTTP server — serves the attachment store over /attachments/* and
+  // hosts the WebSocket upgrade on the same port so the gateway keeps a single
+  // loopback-bound listener.
+  const httpServer = createServer(async (req: HttpIncomingMessage, res: ServerResponse) => {
+    try {
+      if (await handleAttachmentRequest(req, res)) return
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+      res.end('Not Found')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`[Gateway] HTTP handler error: ${message}`)
+      if (!res.headersSent) {
+        res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
+      }
+      if (!res.writableEnded) res.end('Internal Server Error')
+    }
+  })
+
+  const wss = new WebSocketServer({ server: httpServer })
+
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
       console.error(
         `\x1b[31mError: Port ${GATEWAY_PORT} is already in use.\x1b[0m\n` +
           `Another instance of the gateway may be running.\n` +
@@ -117,9 +164,10 @@ async function startGateway(): Promise<void> {
       )
       process.exit(1)
     }
-    console.error(`\x1b[31mFailed to start WebSocket server: ${message}\x1b[0m`)
-    process.exit(1)
-  }
+    console.error(`\x1b[31m[Gateway] HTTP server error: ${err.message}\x1b[0m`)
+  })
+
+  await new Promise<void>((resolve) => httpServer.listen(GATEWAY_PORT, resolve))
 
   printBanner(seaBridgeConnected, telegramActive)
 
@@ -186,13 +234,60 @@ async function startGateway(): Promise<void> {
       if (command === '/think') {
         const thinkContent = parts.slice(1).join(' ')
         if (!thinkContent) return 'Usage: /think <your question>'
+        const personaPrompt = await getPersonalityPrompt(state.session.personalityId)
+        const extra = ['Use extended reasoning. Show your work.', personaPrompt]
+          .filter(Boolean)
+          .join('\n\n---\n\n')
         const response = await routeMessage(
           state.session.agentId,
           `Think step by step about: ${thinkContent}`,
           state.session.history,
-          'Use extended reasoning. Show your work.'
+          extra
         )
         return response
+      }
+
+      if (command === '/persona' || command === '/personality') {
+        const sub = (parts[1] ?? 'current').toLowerCase()
+
+        if (sub === 'list') {
+          const all = await listPersonalities()
+          if (all.length === 0) return 'No personalities available.'
+          const active = state.session.personalityId ?? 'default'
+          const lines = all.map((p) => {
+            const marker = p.id === active ? '* ' : '  '
+            const src = p.source === 'user' ? ' (user)' : ''
+            return `${marker}${p.id}${src} — ${p.description}`
+          })
+          return `Personalities:\n${lines.join('\n')}`
+        }
+
+        if (sub === 'current') {
+          const id = state.session.personalityId ?? 'default'
+          const p = await loadPersonality(id)
+          if (!p) return `No personality matching "${id}".`
+          return `Current personality: ${p.name} (${p.id})\n${p.description}`
+        }
+
+        if (sub === 'use' || sub === 'set') {
+          const target = (parts[2] ?? '').toLowerCase()
+          if (!target) return 'Usage: /persona use <id>'
+          const p = await loadPersonality(target)
+          if (!p) return `Unknown personality: ${target}. Try /persona list.`
+          state.session.personalityId = p.id
+          await updateSession(state.session)
+          return `Personality set to ${p.name} (${p.id}).`
+        }
+
+        if (sub === 'edit') {
+          const target = (parts[2] ?? '').toLowerCase()
+          if (!target) return 'Usage: /persona edit <id>'
+          const dest = await copyBuiltinToUser(target)
+          if (!dest) return `Cannot edit "${target}" — not a built-in personality, or not found.`
+          return `Copied to ${dest}. Edit the file and changes will hot-reload.`
+        }
+
+        return 'Usage: /persona [list|current|use <id>|edit <id>]'
       }
 
       if (command === '/usage') {
@@ -201,8 +296,30 @@ async function startGateway(): Promise<void> {
         return `Session turns: ${turns}\nEstimated context characters: ${totalChars.toLocaleString()}`
       }
 
+      if (command === '/agents') {
+        const { AGENTS: agentList } = await import('./config.js')
+        const lines = agentList.map((a: { icon: string; id: string; name: string }) => `${a.icon} \`${a.id}\` — ${a.name}`)
+        return `Available agents:\n\n${lines.join('\n')}`
+      }
+
       if (command === '/skills') {
         return await buildSkillsContext()
+      }
+
+      if (command === '/panel') {
+        const question = parts.slice(1).join(' ')
+        if (!question) return 'Usage: /panel <your question>'
+        try {
+          const result = await consultPanel(question, {
+            conversationHistory: state.session.history,
+          })
+          const successCount = result.responses.filter((r) => !r.error).length
+          const secs = Math.round(result.totalDurationMs / 1000)
+          return `Panel synthesis — ${successCount}/${result.responses.length} specialists, ${secs}s\n\n${result.synthesis}`
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err)
+          return `Panel consultation failed: ${message}`
+        }
       }
 
       if (command === '/memory') {
@@ -210,6 +327,46 @@ async function startGateway(): Promise<void> {
         const memory = await readMemory()
         const user = await readUser()
         return `Memory:\n${memory}\n\nUser profile:\n${user}`
+      }
+
+      if (command === '/company') {
+        const { loadUserConfig, setUserConfigField } = await import('./user_config.js')
+        const sub = (parts[1] ?? '').toLowerCase()
+        const subVal = parts.slice(2).join(' ').trim()
+
+        if (!sub || sub === 'show') {
+          const cfg = await loadUserConfig()
+          return [
+            'Company context:',
+            `  companyId: ${cfg.companyId ?? '(not set)'}`,
+            `  assetId:   ${cfg.assetId ?? '(not set)'}`,
+            `  sector:    ${cfg.sector ?? '(not set)'}`,
+            '',
+            'Commands: /company set <id> | sector <name> | asset <id> | clear',
+          ].join('\n')
+        }
+        if (sub === 'set') {
+          if (!subVal) return 'Usage: /company set <companyId>'
+          await setUserConfigField('companyId', subVal)
+          return `Company ID set to "${subVal}".`
+        }
+        if (sub === 'sector') {
+          if (!subVal) return 'Usage: /company sector <sector-name>'
+          await setUserConfigField('sector', subVal)
+          return `Sector set to "${subVal}".`
+        }
+        if (sub === 'asset') {
+          if (!subVal) return 'Usage: /company asset <assetId>'
+          await setUserConfigField('assetId', subVal)
+          return `Asset ID set to "${subVal}".`
+        }
+        if (sub === 'clear') {
+          await setUserConfigField('companyId', undefined)
+          await setUserConfigField('assetId', undefined)
+          await setUserConfigField('sector', undefined)
+          return 'Company context cleared.'
+        }
+        return 'Usage: /company [show|set <id>|sector <name>|asset <id>|clear]'
       }
 
       return null // Not a slash command
@@ -282,7 +439,20 @@ async function startGateway(): Promise<void> {
         ws.send(JSON.stringify({ type: 'thinking' }))
 
         try {
-          const response = await routeMessage(state.session.agentId, content, state.session.history)
+          const personaPrompt = await getPersonalityPrompt(state.session.personalityId)
+
+          // Stream tokens to the client as they arrive from the API
+          const response = await routeMessage(
+            state.session.agentId,
+            content,
+            state.session.history,
+            personaPrompt || undefined,
+            (token: string) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'token', content: token }))
+              }
+            }
+          )
 
           state.session.history.push({ role: 'user', content })
           state.session.history.push({ role: 'assistant', content: response })
@@ -293,15 +463,6 @@ async function startGateway(): Promise<void> {
           // Periodically nudge user model learning
           if (ANTHROPIC_API_KEY) {
             maybeNudgeUserModel(state.session.turnCount, state.session.history, ANTHROPIC_API_KEY).catch(() => {})
-          }
-
-          // Stream response character by character
-          for (const char of response) {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'token', content: char }))
-            } else {
-              break
-            }
           }
 
           if (ws.readyState === WebSocket.OPEN) {
@@ -343,9 +504,12 @@ async function startGateway(): Promise<void> {
   // Graceful shutdown
   function shutdown(): void {
     console.log('\n[Gateway] Shutting down...')
+    stopCanvasServer().catch(() => {})
     wss.close(() => {
-      console.log('[Gateway] Stopped.')
-      process.exit(0)
+      httpServer.close(() => {
+        console.log('[Gateway] Stopped.')
+        process.exit(0)
+      })
     })
     // Force exit if close takes too long
     setTimeout(() => {

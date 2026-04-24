@@ -1,3 +1,11 @@
+---
+id: climate-disclosure-structure
+name: Climate Disclosure Structure
+description: Plain-language guide to what climate disclosure frameworks actually require and the common mistakes.
+complianceTags: [CSRD, TCFD, ISSB, SEC]
+costTier: free
+---
+
 # Climate Disclosure Structure
 
 A practical guide for small to medium businesses navigating what they need to disclose about climate risk, what the frameworks actually require in plain language, and what the common mistakes look like.

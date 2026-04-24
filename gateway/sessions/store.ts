@@ -8,6 +8,7 @@ export interface Session {
   id: string
   name: string
   agentId: string
+  personalityId?: string
   history: Array<{ role: string; content: string }>
   createdAt: number
   lastActiveAt: number

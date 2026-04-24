@@ -33,6 +33,24 @@ This document is injected into every agent session alongside SOUL.md and AGENTS.
 - **WebSocket**: `ws://localhost:18790` — UI and IDE integration
 - **Telegram**: full bot with pairing code security for unknown senders
 
+### Live Data Tools (used automatically by agents)
+
+Agents can call real-time data tools when answering your questions. No commands needed — the agent decides when a tool will give a better answer than training knowledge alone.
+
+| Tool | Agents | What it does |
+|------|--------|--------------|
+| `web_search` | All agents | Real-time web search via Tavily — finds current regulations, prices, news, and data |
+| `geocode_address` | Climate Risk, Home & Community, Natural Capital | Converts a US street address to lat/lon for spatial queries |
+| `lookup_flood_zone` | Climate Risk, Home & Community | FEMA NFHL flood zone lookup — returns zone type (AE, X, VE, etc.), SFHA status, and Base Flood Elevation |
+| `coastal_flood_assessment` | Climate Risk, Home & Community, Investment Screening | Coastal flood risk: NOAA tide/sea-level-rise data, elevation, storm surge zone, hurricane exposure |
+| `inland_flood_assessment` | Climate Risk, Home & Community, Investment Screening | Riverine/pluvial flood: FEMA NFHL, USGS gauges, NASA POWER precipitation, soil drainage |
+| `wildfire_assessment` | Climate Risk, Home & Community, Investment Screening | Wildfire risk: NASA FIRMS detections, US Drought Monitor, AirNow AQI, NOAA weather, WUI proximity |
+| `heat_stress_assessment` | Climate Risk, Home & Community, Investment Screening | Heat stress: 4yr NASA POWER T/RH data, heat wave frequency, NOAA Heat Index, Urban Heat Island |
+| `hurricane_wind_assessment` | Climate Risk, Home & Community, Investment Screening | Hurricane wind: historical frequency by zone, Saffir-Simpson intensity, coastal exposure |
+| `drought_stress_assessment` | Climate Risk, Home & Community, Investment Screening | Drought/water stress: US Drought Monitor, 4yr precipitation deficit, soil type, aridity |
+
+Web search requires `TAVILY_API_KEY`. Flood zone and geocoding are free. Physical risk tools (coastal, inland, wildfire, heat, hurricane, drought) use free public APIs by default; `NASA_FIRMS_KEY` and `AIRNOW_KEY` unlock richer wildfire data.
+
 ### Session Commands (type these during any conversation)
 - `/new` — start a fresh session
 - `/reset` — clear conversation history, keep agent
@@ -41,6 +59,7 @@ This document is injected into every agent session alongside SOUL.md and AGENTS.
 - `/think` — ask agent to reason step-by-step before answering
 - `/usage` — show token usage estimate
 - `/switch <agent-id>` — change specialist agent
+- `/agents` — list specialist agents and their IDs
 - `/skills` — list available skills
 - `/memory` — show current memory
 
@@ -71,6 +90,7 @@ Skills are methodology guides the agent uses to give better, more structured ans
 | `nature-dependency-screening` | TNFD, SBTN, ecosystem services, natural capital accounting |
 | `investment-risk-screening` | Physical risk data sources, transition risk, stranded assets |
 | `climate-disclosure-structure` | TCFD, ISSB S1/S2, CSRD, materiality assessment |
+| `physical-risk-screening` | Multi-peril physical risk (flood, wildfire, heat, hurricane, drought) — live API scores |
 
 New skills are added automatically after complex tasks.
 
@@ -92,7 +112,7 @@ Key settings (set in `.env`):
 - `TAVILY_API_KEY` — enables web search in research loop
 - `TELEGRAM_TOKEN` — enables Telegram channel
 - `SEABRIDGE_API_URL` / `SEABRIDGE_API_KEY` — connects to SeaBridgeAI backend
-- `OPENSEABRI_MODEL` — override AI model (default: claude-sonnet-4-5)
+- `OPENSEABRI_MODEL` — override AI model (default: claude-sonnet-4-6)
 - `OPENSEABRI_WORKSPACE` — override workspace directory
 
 Run `seabri doctor` to check all configuration.

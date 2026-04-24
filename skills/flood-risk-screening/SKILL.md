@@ -1,3 +1,11 @@
+---
+id: flood-risk-screening
+name: Flood Risk Screening
+description: Assess a specific property's flood risk using FEMA maps, local hydrology, and climate projections — and decide what to do about it.
+complianceTags: [TNFD, TCFD]
+costTier: free
+---
+
 # Flood Risk Screening
 
 A practical guide for homeowners, property buyers, and anyone who wants to understand what flood risk means for a specific property — and what to do about it.
