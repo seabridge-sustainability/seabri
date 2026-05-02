@@ -1,9 +1,10 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { createServer, type IncomingMessage as HttpIncomingMessage, type ServerResponse } from 'http'
-import { GATEWAY_PORT, TELEGRAM_TOKEN, SEABRIDGE_API_URL, SEABRIDGE_API_KEY, ANTHROPIC_API_KEY } from './config.js'
+import { GATEWAY_PORT, TELEGRAM_TOKEN, WHATSAPP_PROVIDER, SEABRIDGE_API_URL, SEABRIDGE_API_KEY, ANTHROPIC_API_KEY } from './config.js'
 import { initWorkspace, maybeNudgeUserModel } from './memory/memory.js'
-import { routeMessage } from './agents/router.js'
+import { routeMessage, classifyIntent } from './agents/router.js'
 import { startTelegramChannel } from './channels/telegram.js'
+import { startWhatsappChannel, handleWhatsAppWebhook } from './channels/whatsapp.js'
 import { getOrCreateSession, updateSession, resetSession, type Session } from './sessions/index.js'
 import { indexSession } from './memory/search.js'
 import { consultPanel } from './agents/subagent.js'
@@ -13,27 +14,21 @@ import { createApprovalTokenFactory } from './cron/approval.js'
 import { buildSkillsContext } from './skills/loader.js'
 import { listPersonalities, loadPersonality, getPersonalityPrompt, copyBuiltinToUser } from './personalities/loader.js'
 import { handleAttachmentRequest } from './attachments/http.js'
+import { handleSeabriApiRequest } from './seabri/api-handler.js'
+import { routeTask } from './seabri/task-router.js'
+import { emitTaskTelemetry } from './seabri/telemetry.js'
+import type { ModelTier } from './orchestrator/model-router.js'
 import { startCanvasServer, stopCanvasServer } from './canvas/server.js'
+import { parseIncomingMessage, type IncomingMessage, type InitMessage, type ChatMessage } from './schemas.js'
+import { registerBuiltinTools } from './tools/register-builtin.js'
+import { isDbConfigured } from '../db/client.js'
 
-const VERSION = '0.1.0'
+const VERSION = '0.2.0'
 
 interface Message {
   role: string
   content: string
 }
-
-interface InitMessage {
-  type: 'init'
-  agentId: string
-  sessionId?: string
-}
-
-interface ChatMessage {
-  type: 'chat'
-  content: string
-}
-
-type IncomingMessage = InitMessage | ChatMessage
 
 interface ConnectionState {
   session: Session
@@ -60,12 +55,15 @@ async function checkSeaBridgeConnection(): Promise<boolean> {
   }
 }
 
-function printBanner(seaBridgeConnected: boolean, telegramActive: boolean): void {
+function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whatsappActive: boolean): void {
   const seabridgeStatus = seaBridgeConnected
     ? '\x1b[32mConnected\x1b[0m'
     : '\x1b[90mStandalone\x1b[0m'
   const telegramStatus = telegramActive
     ? '\x1b[32mActive\x1b[0m'
+    : '\x1b[90mNot configured\x1b[0m'
+  const whatsappStatus = whatsappActive
+    ? '\x1b[32mActive (/webhooks/whatsapp)\x1b[0m'
     : '\x1b[90mNot configured\x1b[0m'
 
   console.log(`
@@ -74,6 +72,7 @@ function printBanner(seaBridgeConnected: boolean, telegramActive: boolean): void
 WebSocket:    \x1b[36mws://localhost:${GATEWAY_PORT}\x1b[0m
 SeaBridgeAI:  ${seabridgeStatus}
 Telegram:     ${telegramStatus}
+WhatsApp:     ${whatsappStatus}
 \x1b[32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
 Ready. Ctrl+C to stop.
 `)
@@ -86,6 +85,16 @@ async function startGateway(): Promise<void> {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.warn(`[Gateway] Workspace init warning: ${message}`)
+  }
+
+  // Register typed tool registry
+  registerBuiltinTools()
+
+  // Report database status
+  if (isDbConfigured()) {
+    console.log('[Gateway] PostgreSQL configured')
+  } else {
+    console.log('[Gateway] No DATABASE_URL — running with file-based sessions')
   }
 
   // Check optional connections
@@ -135,12 +144,28 @@ async function startGateway(): Promise<void> {
     }
   }
 
+  // Optionally start WhatsApp
+  let whatsappActive = false
+  if (WHATSAPP_PROVIDER) {
+    try {
+      await startWhatsappChannel()
+      whatsappActive = WHATSAPP_PROVIDER.toLowerCase() === 'cloud'
+        ? Boolean(process.env.WHATSAPP_CLOUD_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_VERIFY_TOKEN)
+        : false
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn(`[Gateway] WhatsApp start warning: ${message}`)
+    }
+  }
+
   // Shared HTTP server — serves the attachment store over /attachments/* and
   // hosts the WebSocket upgrade on the same port so the gateway keeps a single
   // loopback-bound listener.
   const httpServer = createServer(async (req: HttpIncomingMessage, res: ServerResponse) => {
     try {
+      if (await handleSeabriApiRequest(req, res)) return
       if (await handleAttachmentRequest(req, res)) return
+      if (await handleWhatsAppWebhook(req, res)) return
       res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
       res.end('Not Found')
     } catch (err: unknown) {
@@ -169,7 +194,7 @@ async function startGateway(): Promise<void> {
 
   await new Promise<void>((resolve) => httpServer.listen(GATEWAY_PORT, resolve))
 
-  printBanner(seaBridgeConnected, telegramActive)
+  printBanner(seaBridgeConnected, telegramActive, whatsappActive)
 
   wss.on('connection', (ws: WebSocket) => {
     const state: ConnectionState = {
@@ -290,10 +315,27 @@ async function startGateway(): Promise<void> {
         return 'Usage: /persona [list|current|use <id>|edit <id>]'
       }
 
-      if (command === '/usage') {
+      if (command === '/usage' || command === '/metrics') {
         const turns = Math.floor(state.session.history.length / 2)
         const totalChars = state.session.history.reduce((sum, m) => sum + m.content.length, 0)
-        return `Session turns: ${turns}\nEstimated context characters: ${totalChars.toLocaleString()}`
+        const { aggregateMetrics } = await import('./orchestrator/metrics.js')
+        const agg = aggregateMetrics()
+        const lines = [
+          `Session turns: ${turns}`,
+          `Estimated context characters: ${totalChars.toLocaleString()}`,
+        ]
+        if (agg.totalRequests > 0) {
+          lines.push('')
+          lines.push(`API calls: ${agg.totalRequests}`)
+          lines.push(`Total cost: $${agg.totalCostUsd.toFixed(4)}`)
+          lines.push(`Total carbon: ${agg.totalCarbonGrams.toFixed(4)} gCO₂e`)
+          lines.push(`Avg latency: ${Math.round(agg.avgLatencyMs)}ms`)
+          const models = Object.entries(agg.byModel)
+            .map(([m, s]) => `  ${m}: ${s.requests} calls, ${s.tokens} tokens`)
+            .join('\n')
+          if (models) lines.push(`Models:\n${models}`)
+        }
+        return lines.join('\n')
       }
 
       if (command === '/agents') {
@@ -376,15 +418,15 @@ async function startGateway(): Promise<void> {
       let parsed: IncomingMessage
 
       try {
-        parsed = JSON.parse(raw.toString()) as IncomingMessage
+        parsed = parseIncomingMessage(raw.toString())
       } catch {
-        ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON message.' }))
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format.' }))
         return
       }
 
       // Handle init message — load or create session
       if (parsed.type === 'init') {
-        const initMsg = parsed as InitMessage
+        const initMsg = parsed
         const agentId = initMsg.agentId || 'general'
         try {
           state.session = await getOrCreateSession(agentId, initMsg.sessionId)
@@ -412,13 +454,7 @@ async function startGateway(): Promise<void> {
 
       // Handle chat message
       if (parsed.type === 'chat') {
-        const chatMsg = parsed as ChatMessage
-        if (!chatMsg.content) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Empty message content.' }))
-          return
-        }
-
-        const content = chatMsg.content.trim()
+        const content = parsed.content.trim()
 
         // Slash command handling
         if (content.startsWith('/')) {
@@ -441,9 +477,22 @@ async function startGateway(): Promise<void> {
         try {
           const personaPrompt = await getPersonalityPrompt(state.session.personalityId)
 
+          // Auto-classify: when session agent is "general", route to the best specialist
+          let effectiveAgent = state.session.agentId
+          if (effectiveAgent === 'general') {
+            const classification = classifyIntent(content)
+            if (classification.primaryAgent !== 'general' && classification.confidence > 0.5) {
+              effectiveAgent = classification.primaryAgent
+            }
+          }
+
+          // Route task through SeaBri OS to get sustainability-aware model selection
+          const routingDecision = routeTask({ task: content, agentId: effectiveAgent })
+          const chatStartMs = Date.now()
+
           // Stream tokens to the client as they arrive from the API
           const response = await routeMessage(
-            state.session.agentId,
+            effectiveAgent,
             content,
             state.session.history,
             personaPrompt || undefined,
@@ -451,8 +500,20 @@ async function startGateway(): Promise<void> {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'token', content: token }))
               }
-            }
+            },
+            routingDecision.modelId
           )
+
+          // Emit sustainability telemetry fire-and-forget
+          emitTaskTelemetry({
+            taskId: routingDecision.taskId,
+            agentId: effectiveAgent,
+            model: routingDecision.modelId,
+            tier: routingDecision.modelTier as ModelTier,
+            inputTokens: Math.ceil(content.length / 4),
+            outputTokens: Math.ceil(response.length / 4),
+            latencyMs: Date.now() - chatStartMs,
+          }).catch(() => {})
 
           state.session.history.push({ role: 'user', content })
           state.session.history.push({ role: 'assistant', content: response })

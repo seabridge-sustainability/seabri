@@ -6,10 +6,24 @@ import { useCanvasStore } from './store/canvas'
 import { ConnectionBadge } from './components/ConnectionBadge'
 import { SessionsSidebar } from './components/SessionsSidebar'
 import { CanvasPane } from './components/canvas/CanvasPane'
+import { SustainabilityDashboard } from './components/sustainability-dashboard/SustainabilityDashboard.js'
+import { SeaBriOSPanel } from './components/sustainability-dashboard/SeaBriOSPanel.js'
+import { WorkflowCanvas } from './components/workflow-canvas/WorkflowCanvas.js'
+import { useLiveTelemetry } from './hooks/useLiveTelemetry.js'
+import type { WorkflowDefinition } from '../gateway/workflows/schema.js'
+
+type AppView = 'landing' | 'dashboard' | 'workflow'
 
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY ?? ''
 
-function SiteHeader() {
+function SiteHeader({ onNav, activeView }: { onNav?: (v: AppView) => void; activeView?: AppView }) {
+  const navLink = (label: string, view: AppView, href?: string) => {
+    const active = activeView === view
+    const base: React.CSSProperties = { color: active ? 'var(--accent-green-2)' : 'var(--text-muted)', textDecoration: 'none', cursor: 'pointer', fontWeight: active ? 600 : 400 }
+    if (onNav) return <span key={view} onClick={() => onNav(view)} style={base}>{label}</span>
+    return <a key={href ?? '#'} href={href ?? '#'} style={base}>{label}</a>
+  }
+
   return (
     <nav
       style={{
@@ -27,17 +41,21 @@ function SiteHeader() {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <img src="/img/seabri-icon.png" alt="" width={28} height={28} style={{ borderRadius: 6 }} />
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 20, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
+        <span
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: 20, letterSpacing: '-0.01em', color: 'var(--text-primary)', cursor: 'pointer' }}
+          onClick={() => onNav?.('landing')}
+        >
           OpenSeaBri
         </span>
         <span style={{ fontSize: 11, color: 'var(--accent-green-2)', border: '1px solid var(--accent-green)', padding: '2px 8px', borderRadius: 999, letterSpacing: '0.08em', textTransform: 'uppercase', marginLeft: 8 }}>
           Sustainability OS
         </span>
       </div>
-      <div style={{ display: 'flex', gap: 24, fontSize: 14, color: 'var(--text-muted)' }}>
-        <a href="#specialists" style={{ color: 'inherit', textDecoration: 'none' }}>Specialists</a>
-        <a href="https://github.com/seabridge-sustainability" target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>GitHub</a>
-        <a href="#footer" style={{ color: 'inherit', textDecoration: 'none' }}>Docs</a>
+      <div style={{ display: 'flex', gap: 24, fontSize: 14, alignItems: 'center' }}>
+        {navLink('Specialists', 'landing', '#specialists')}
+        {navLink('Dashboard', 'dashboard')}
+        {navLink('Workflows', 'workflow')}
+        <a href="https://github.com/seabridge-sustainability" target="_blank" rel="noreferrer" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>GitHub</a>
       </div>
     </nav>
   )
@@ -218,10 +236,10 @@ function SiteFooter() {
   )
 }
 
-function Landing({ onPick }: { onPick: (agent: Agent) => void }) {
+function Landing({ onPick, onNav }: { onPick: (agent: Agent) => void; onNav: (v: AppView) => void }) {
   return (
     <div>
-      <SiteHeader />
+      <SiteHeader onNav={onNav} activeView="landing" />
       <Hero />
       <SpecialistsSection onPick={onPick} />
       <SiteFooter />
@@ -411,11 +429,13 @@ function ChatShell({
   agent,
   onBack,
   onNewChat,
+  onDashboard,
 }: {
   session: Session
   agent: Agent
   onBack: () => void
   onNewChat: () => void
+  onDashboard: () => void
 }) {
   const isStreaming = useChatStore((s) => s.isStreaming)
   const apiError = useChatStore((s) => s.apiError)
@@ -476,6 +496,13 @@ function ChatShell({
           style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14 }}
         >
           ← Back
+        </button>
+        <button
+          onClick={onDashboard}
+          title="Sustainability Dashboard"
+          style={{ background: 'transparent', border: '1px solid var(--border-muted)', borderRadius: 'var(--radius-md)', padding: '4px 10px', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}
+        >
+          📊 Dashboard
         </button>
         <span style={{ fontSize: 20 }}>{agent.icon}</span>
         <strong style={{ color: 'var(--text-primary)' }}>{agent.name}</strong>
@@ -559,40 +586,150 @@ function ChatShell({
   )
 }
 
+const DEMO_METRICS = [
+  { date: '2025-04-26', carbonGrams: 1.8, costUsd: 0.0021, requestCount: 12 },
+  { date: '2025-04-27', carbonGrams: 2.4, costUsd: 0.0034, requestCount: 18 },
+  { date: '2025-04-28', carbonGrams: 1.1, costUsd: 0.0015, requestCount: 8 },
+  { date: '2025-04-29', carbonGrams: 3.2, costUsd: 0.0048, requestCount: 24 },
+  { date: '2025-04-30', carbonGrams: 2.9, costUsd: 0.0041, requestCount: 21 },
+  { date: '2025-05-01', carbonGrams: 1.5, costUsd: 0.0019, requestCount: 11 },
+  { date: '2025-05-02', carbonGrams: 2.0, costUsd: 0.0028, requestCount: 15 },
+]
+
+const DEMO_RECOMMENDATIONS = [
+  'Route simple ESG queries to claude-haiku-4-5 to reduce carbon 60–70%.',
+  'Enable prompt caching for materiality assessment runs — repeated context is ~40% of tokens.',
+  'Batch daily CSRD report generation into off-peak hours to lower grid carbon intensity.',
+  'Switch science-based targets agent to haiku for first-pass screening, opus only for final validation.',
+]
+
+const DEMO_WORKFLOW: WorkflowDefinition = {
+  version: 1,
+  name: 'ESG Risk Assessment',
+  description: 'Parallel climate + nature risk assessment with materiality gate',
+  steps: [
+    {
+      id: 'climate-risk',
+      type: 'agent',
+      name: 'Climate Risk Analysis',
+      agentId: 'climate-risk',
+      prompt: 'Assess physical and transition climate risks for the portfolio.',
+    },
+    {
+      id: 'nature-risk',
+      type: 'agent',
+      name: 'Nature & Biodiversity Risk',
+      agentId: 'nature-biodiversity',
+      prompt: 'Assess biodiversity and natural capital dependencies.',
+    },
+    {
+      id: 'parallel-risk',
+      type: 'parallel',
+      name: 'Parallel Risk Streams',
+      branches: [
+        [{ id: 'climate-risk', type: 'agent', name: 'Climate Risk Analysis', agentId: 'climate-risk', prompt: 'Assess physical and transition climate risks.' }],
+        [{ id: 'nature-risk', type: 'agent', name: 'Nature & Biodiversity Risk', agentId: 'nature-biodiversity', prompt: 'Assess biodiversity and natural capital dependencies.' }],
+      ],
+    },
+    {
+      id: 'materiality-gate',
+      type: 'condition',
+      name: 'Materiality Gate',
+      condition: 'riskScore > 0.7',
+      onTrue: [
+        { id: 'deep-dive', type: 'agent', name: 'Deep Dive Analysis', agentId: 'general', prompt: 'Conduct full double materiality assessment.' },
+      ],
+      onFalse: [
+        { id: 'summary', type: 'agent', name: 'Summary Report', agentId: 'sustainability-reporting', prompt: 'Generate executive summary of risk findings.' },
+      ],
+    },
+  ],
+}
+
+function DashboardView({ onNav }: { onNav: (v: AppView) => void }) {
+  const gatewayUrl = import.meta.env.VITE_GATEWAY_URL as string | undefined
+  const live = useLiveTelemetry(gatewayUrl)
+
+  const metrics = live.totalRequests > 0 ? live.metrics : DEMO_METRICS
+  const avgScore = live.totalRequests > 0 ? live.avgScore : 74
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <SiteHeader onNav={onNav} activeView="dashboard" />
+      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-app)' }}>
+        <SustainabilityDashboard
+          metrics={metrics}
+          baselineCostUsd={0.05}
+          baselineCarbonGrams={15}
+          recommendations={DEMO_RECOMMENDATIONS}
+          avgScore={avgScore}
+        />
+        <SeaBriOSPanel gatewayUrl={gatewayUrl} lastRoutingTier={live.lastRoutingTier} />
+      </div>
+    </div>
+  )
+}
+
+function WorkflowView({ onNav }: { onNav: (v: AppView) => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <SiteHeader onNav={onNav} activeView="workflow" />
+      <div style={{ flex: 1, padding: '16px 24px', background: 'var(--bg-app)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>Workflow Canvas</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>Visualize and edit ESG agent workflows. Drag nodes to rearrange. Connect nodes to define execution flow.</p>
+        </div>
+        <div style={{ flex: 1, borderRadius: 8, border: '1px solid var(--border-muted)', overflow: 'hidden' }}>
+          <WorkflowCanvas
+            workflow={DEMO_WORKFLOW}
+            readOnly={false}
+            onExport={(updated) => console.info('Workflow exported:', updated.name)}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const activeSession = useChatStore((s) => s.getActiveSession())
   const sessionCount = useChatStore((s) => s.sessions.length)
   const startSession = useChatStore((s) => s.startSession)
   const clearActiveSession = useChatStore((s) => s.clearActiveSession)
+  const [view, setView] = useState<AppView>('landing')
 
-  if (!activeSession) {
+  if (activeSession) {
+    const agent = getAgent(activeSession.agentId) ?? getAgent(DEFAULT_AGENT_ID)!
     return (
-      <div style={{ display: 'flex', height: '100vh' }}>
-        {sessionCount > 0 && (
-          <SessionsSidebar onNewChat={clearActiveSession} />
-        )}
-        <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 1 }}>
-            <ConnectionBadge sessionCount={sessionCount} />
-          </div>
-          <Landing
-            onPick={(a) => {
-              startSession(a)
-            }}
-          />
-        </div>
-      </div>
+      <ChatShell
+        session={activeSession}
+        agent={agent}
+        onBack={clearActiveSession}
+        onNewChat={clearActiveSession}
+        onDashboard={() => { clearActiveSession(); setView('dashboard') }}
+      />
     )
   }
 
-  const agent = getAgent(activeSession.agentId) ?? getAgent(DEFAULT_AGENT_ID)!
+  if (view === 'dashboard') return <DashboardView onNav={setView} />
+  if (view === 'workflow') return <WorkflowView onNav={setView} />
 
   return (
-    <ChatShell
-      session={activeSession}
-      agent={agent}
-      onBack={clearActiveSession}
-      onNewChat={clearActiveSession}
-    />
+    <div style={{ display: 'flex', height: '100vh' }}>
+      {sessionCount > 0 && (
+        <SessionsSidebar onNewChat={clearActiveSession} />
+      )}
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 1 }}>
+          <ConnectionBadge sessionCount={sessionCount} />
+        </div>
+        <Landing
+          onPick={(a) => {
+            startSession(a)
+          }}
+          onNav={setView}
+        />
+      </div>
+    </div>
   )
 }

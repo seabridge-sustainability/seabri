@@ -16,15 +16,16 @@ import {
   augmentMcpToolsContext,
 } from '../../bridge/agent_bridge.js'
 import { loadUserConfig } from '../user_config.js'
+import { selectModel, getFailoverModels } from '../orchestrator/model-router.js'
+import { classifyIntent } from '../orchestrator/classifier.js'
+import { recordMetric } from '../orchestrator/metrics.js'
+import type { AgentId } from '../schemas.js'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
 const MAX_TOKENS = 8192
 const MAX_TOOL_ROUNDS = 8
 
-// Primary → backup model failover (deduplicated so a user-set haiku model skips the redundant retry)
-const HAIKU_FALLBACK = 'claude-haiku-4-5-20251001'
-const MODEL_FAILOVER = MODEL === HAIKU_FALLBACK ? [MODEL] : [MODEL, HAIKU_FALLBACK]
 
 interface Message {
   role: string
@@ -241,7 +242,8 @@ export async function routeMessage(
   userMessage: string,
   conversationHistory: Message[],
   additionalContext?: string,
-  onToken?: (token: string) => void
+  onToken?: (token: string) => void,
+  forceModel?: string,
 ): Promise<string> {
   if (!ANTHROPIC_API_KEY) {
     return (
@@ -284,6 +286,12 @@ export async function routeMessage(
   systemParts.push(agentPrompt)
   const systemText = systemParts.join('\n\n---\n\n')
 
+  // --- Orchestrator: dynamic model selection ---
+  const effectiveAgentId = agentId as AgentId
+  const conversationDepth = conversationHistory.filter((m) => m.role === 'user').length
+  const modelSelection = selectModel(userMessage, effectiveAgentId, conversationDepth, forceModel)
+  const modelFailover = getFailoverModels(modelSelection.model)
+
   let effectiveHistory = conversationHistory
   try {
     const compression = await compressHistory(conversationHistory)
@@ -299,20 +307,21 @@ export async function routeMessage(
     { role: 'user', content: userMessage },
   ]
 
+  const startTime = Date.now()
   let lastError = ''
-  for (const model of MODEL_FAILOVER) {
+  for (const model of modelFailover) {
     try {
       let finalText = ''
+      let totalToolCalls = 0
 
-      // Tool-call loop: execute tool uses and feed results back until the model
-      // stops with a final text response or we hit the round cap.
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
         const result = await streamOneTurn(model, systemText, messages, tools, onToken)
         finalText = result.text
 
         if (result.stopReason !== 'tool_use' || result.toolUses.length === 0) break
 
-        // Append the assistant's mixed-content turn (text + tool_use blocks).
+        totalToolCalls += result.toolUses.length
+
         const assistantBlocks: ContentBlock[] = []
         if (result.text) assistantBlocks.push({ type: 'text', text: result.text })
         for (const tu of result.toolUses) {
@@ -320,7 +329,6 @@ export async function routeMessage(
         }
         messages.push({ role: 'assistant', content: assistantBlocks })
 
-        // Execute all requested tools in parallel, then append results.
         const toolResultBlocks: ContentBlock[] = await Promise.all(
           result.toolUses.map(async (tu) => ({
             type: 'tool_result' as const,
@@ -331,12 +339,24 @@ export async function routeMessage(
         messages.push({ role: 'user', content: toolResultBlocks })
       }
 
-      // Guard against a pure-tool-use final turn producing no text.
       if (!finalText) {
         finalText = 'I retrieved the data but was unable to compose a response. Please try again.'
       }
 
-      // Fire-and-forget skills self-improvement after complex responses
+      // Record metrics (fire-and-forget)
+      const latencyMs = Date.now() - startTime
+      const inputEstimate = Math.ceil(systemText.length / 4) + Math.ceil(userMessage.length / 4)
+      const outputEstimate = Math.ceil(finalText.length / 4)
+      recordMetric({
+        agentId: effectiveAgentId,
+        model,
+        tier: modelSelection.tier,
+        inputTokens: inputEstimate,
+        outputTokens: outputEstimate,
+        latencyMs,
+        toolCalls: totalToolCalls,
+      }).catch(() => {})
+
       checkAndImprove(userMessage, finalText, agentId).catch(() => {})
 
       return finalText
@@ -347,7 +367,7 @@ export async function routeMessage(
       if (status === 401) {
         return 'Authentication failed. Your ANTHROPIC_API_KEY may be invalid or expired. Run `seabri doctor` to check.'
       }
-      if (status === 429 && model !== MODEL_FAILOVER[MODEL_FAILOVER.length - 1]) {
+      if (status === 429 && model !== modelFailover[modelFailover.length - 1]) {
         lastError = message
         continue
       }
@@ -362,9 +382,11 @@ export async function routeMessage(
         return 'Could not reach the Anthropic API. Check your internet connection and try again.'
       }
       lastError = message
-      if (model !== MODEL_FAILOVER[MODEL_FAILOVER.length - 1]) continue
+      if (model !== modelFailover[modelFailover.length - 1]) continue
     }
   }
 
   return `An unexpected error occurred: ${lastError}. Please try again.`
 }
+
+export { classifyIntent } from '../orchestrator/classifier.js'
