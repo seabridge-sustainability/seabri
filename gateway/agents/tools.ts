@@ -1,5 +1,7 @@
 import { TAVILY_API_KEY } from '../config.js'
 import { ALL_PERIL_TOOLS, executePerilTool } from './perils.js'
+import { callMcpTool } from '../../bridge/seabridge_client.js'
+import { compareProducts } from '../sustainability/product-comparison.js'
 
 export interface AnthropicTool {
   name: string
@@ -56,18 +58,105 @@ const LOOKUP_FLOOD_ZONE_TOOL: AnthropicTool = {
   },
 }
 
+export const COMPARE_PRODUCTS_TOOL: AnthropicTool = {
+  name: 'compare_products',
+  description:
+    'Compare two to six product options using transparent sustainability heuristics from user-provided attributes. Does not invent certifications or lifecycle data.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      products: {
+        type: 'array',
+        description: 'Product options with name and optional user-provided attributes.',
+      },
+      priorities: {
+        type: 'array',
+        description: 'Optional priorities: cost, durability, repairability, packaging, locality, energy, recycled-content.',
+      },
+    },
+    required: ['products'],
+  },
+}
+
+export const OPENKB_TOOLS: AnthropicTool[] = [
+  {
+    name: 'openkb_status',
+    description:
+      'Show status for the shared SeaBridgeAI OpenKB compiled wiki knowledge base. Requires an operator-provided approval token for the backend MCP proxy.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
+      },
+      required: ['approval_token'],
+    },
+  },
+  {
+    name: 'openkb_add',
+    description:
+      'Add a file or directory to the shared SeaBridgeAI OpenKB compiled wiki knowledge base. Requires explicit approval because this can call an LLM.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        source_path: { type: 'string', description: 'Approved source file or directory path' },
+        kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
+      },
+      required: ['approval_token', 'source_path'],
+    },
+  },
+  {
+    name: 'openkb_query',
+    description:
+      'Ask a question against the shared SeaBridgeAI OpenKB compiled wiki knowledge base. Requires explicit approval because this can call an LLM.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        question: { type: 'string', description: 'Question to ask the compiled wiki knowledge base' },
+        kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
+      },
+      required: ['approval_token', 'question'],
+    },
+  },
+  {
+    name: 'openkb_lint',
+    description:
+      'Run structural and knowledge-health lint checks for the shared SeaBridgeAI OpenKB compiled wiki knowledge base. Requires explicit approval because this can call an LLM.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
+      },
+      required: ['approval_token'],
+    },
+  },
+]
+
 // Agent → tool list mapping.
 // climate-risk and home-community get all peril tools + the foundational geo tools.
 // investment-screening gets peril tools for portfolio physical risk assessment.
+// Core SeaBri consumer agents get the same full geo+peril set as climate-risk.
 const AGENT_TOOLS: Record<string, AnthropicTool[]> = {
+  // SeaBri core agents
+  'seabri-orchestrator': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL, LOOKUP_FLOOD_ZONE_TOOL, ...ALL_PERIL_TOOLS],
+  'emergency-resilience': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL, LOOKUP_FLOOD_ZONE_TOOL],
+  'insurance-navigator': [WEB_SEARCH_TOOL],
+  'property-climate-risk': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL, LOOKUP_FLOOD_ZONE_TOOL, ...ALL_PERIL_TOOLS],
+  'damage-documentation': [WEB_SEARCH_TOOL],
+  'contractor-coordination': [WEB_SEARCH_TOOL],
+  'sustainability-companion': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL, COMPARE_PRODUCTS_TOOL, ...OPENKB_TOOLS],
+  // Specialist agents
   'climate-risk': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL, LOOKUP_FLOOD_ZONE_TOOL, ...ALL_PERIL_TOOLS],
   'nature-biodiversity': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL],
-  'sustainability-reporting': [WEB_SEARCH_TOOL],
-  'investment-screening': [WEB_SEARCH_TOOL, ...ALL_PERIL_TOOLS],
-  'home-community': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL, LOOKUP_FLOOD_ZONE_TOOL, ...ALL_PERIL_TOOLS],
-  'net-zero': [WEB_SEARCH_TOOL],
+  'sustainability-reporting': [WEB_SEARCH_TOOL, ...OPENKB_TOOLS],
+  'investment-screening': [WEB_SEARCH_TOOL, ...ALL_PERIL_TOOLS, ...OPENKB_TOOLS],
+  'home-community': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL, LOOKUP_FLOOD_ZONE_TOOL, COMPARE_PRODUCTS_TOOL, ...ALL_PERIL_TOOLS],
+  'net-zero': [WEB_SEARCH_TOOL, ...OPENKB_TOOLS],
   'natural-capital': [WEB_SEARCH_TOOL, GEOCODE_ADDRESS_TOOL],
-  'general': [WEB_SEARCH_TOOL],
+  'general': [WEB_SEARCH_TOOL, COMPARE_PRODUCTS_TOOL, ...OPENKB_TOOLS],
 }
 
 export function getToolsForAgent(agentId: string): AnthropicTool[] {
@@ -191,6 +280,35 @@ async function lookupFloodZone(latitude: number, longitude: number): Promise<str
   return JSON.stringify({ flood_zone: zone, subtype, in_sfha: inSFHA, base_flood_elevation: bfe, description, requiresInsurance })
 }
 
+function getApprovalToken(input: Record<string, unknown>): string | null {
+  return typeof input.approval_token === 'string' && input.approval_token.trim() !== ''
+    ? input.approval_token.trim()
+    : null
+}
+
+function getOptionalKbName(input: Record<string, unknown>): string | undefined {
+  return typeof input.kb_name === 'string' && input.kb_name.trim() !== ''
+    ? input.kb_name.trim()
+    : undefined
+}
+
+async function callOpenKbProxy(
+  toolName: string,
+  input: Record<string, unknown>,
+  args: Record<string, unknown>
+): Promise<string> {
+  const approvalToken = getApprovalToken(input)
+  if (!approvalToken) {
+    return 'OpenKB unavailable: backend MCP approval token is required before OpenKB can run.'
+  }
+  const kbName = getOptionalKbName(input)
+  const result = await callMcpTool(toolName, { ...args, ...(kbName ? { kb_name: kbName } : {}) }, approvalToken)
+  if (!result) {
+    return 'OpenKB unavailable: SeaBridgeAI backend MCP proxy is disabled, unreachable, or denied the request.'
+  }
+  return typeof result === 'string' ? result : JSON.stringify(result)
+}
+
 // --- Dispatcher ---
 
 export async function executeTool(
@@ -221,6 +339,28 @@ export async function executeTool(
           return 'Invalid input: longitude must be a finite number between -180 and 180.'
         }
         return await lookupFloodZone(lat, lon)
+      }
+      case 'compare_products': {
+        const result = compareProducts(input)
+        return JSON.stringify(result)
+      }
+      case 'openkb_status': {
+        return await callOpenKbProxy('openkb_status', input, {})
+      }
+      case 'openkb_add': {
+        if (typeof input.source_path !== 'string' || input.source_path.trim() === '') {
+          return 'Invalid input: source_path must be a non-empty string.'
+        }
+        return await callOpenKbProxy('openkb_add', input, { source_path: input.source_path.trim() })
+      }
+      case 'openkb_query': {
+        if (typeof input.question !== 'string' || input.question.trim() === '') {
+          return 'Invalid input: question must be a non-empty string.'
+        }
+        return await callOpenKbProxy('openkb_query', input, { question: input.question.trim() })
+      }
+      case 'openkb_lint': {
+        return await callOpenKbProxy('openkb_lint', input, {})
       }
       default: {
         // Delegate to physical risk peril tools

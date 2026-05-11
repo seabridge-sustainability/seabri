@@ -9,3 +9,6 @@ export type { ExecutionPlan, ExecutionStep, StepType } from './planner.js'
 
 export { recordMetric, estimateCarbon, getRecentMetrics, aggregateMetrics, clearInMemoryMetrics } from './metrics.js'
 export type { MetricEvent, RecordedMetric, AggregatedMetrics } from './metrics.js'
+
+export { runGraph } from './graph.js'
+export type { GraphInput, GraphConvMessage } from './graph.js'

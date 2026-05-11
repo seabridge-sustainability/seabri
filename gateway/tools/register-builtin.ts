@@ -1,11 +1,26 @@
 import { registerTool } from './registry.js'
-import { executeTool as executeBuiltinTool } from '../agents/tools.js'
+import { COMPARE_PRODUCTS_TOOL, OPENKB_TOOLS, executeTool as executeBuiltinTool } from '../agents/tools.js'
 import { ALL_PERIL_TOOLS } from '../agents/perils.js'
 import { TAVILY_API_KEY } from '../config.js'
 import type { AgentId } from '../schemas.js'
+import { searchLocalResources } from '../seabri/local-resources.js'
+import { analyzeIncidentImage } from '../seabri/vision-analysis.js'
+import { optimizeSustainableCompute } from '../seabri/sustainable-compute.js'
+import {
+  buildCommunityResilienceChecklist,
+  buildSustainablePurchasingChecklist,
+  checkCarbonOffsetQuality,
+  estimateHouseholdCarbon,
+  navigateCertification,
+  planCommunityProject,
+  planHomeEnergyActions,
+} from '../seabri/practical-sustainability.js'
 
 const CLIMATE_AGENTS: AgentId[] = ['climate-risk', 'home-community', 'investment-screening']
 const GEO_AGENTS: AgentId[] = ['climate-risk', 'home-community', 'nature-biodiversity', 'natural-capital']
+const OPENKB_AGENTS: AgentId[] = ['sustainability-reporting', 'investment-screening', 'net-zero', 'general', 'sustainability-companion']
+const PRODUCT_COMPARE_AGENTS: AgentId[] = ['sustainability-companion', 'home-community', 'general']
+const INCIDENT_AGENTS: AgentId[] = ['seabri-orchestrator', 'emergency-resilience', 'contractor-coordination', 'home-community', 'general']
 
 export function registerBuiltinTools(): void {
   registerTool(
@@ -67,4 +82,212 @@ export function registerBuiltinTools(): void {
       CLIMATE_AGENTS,
     )
   }
+
+  for (const openKbTool of OPENKB_TOOLS) {
+    registerTool(
+      openKbTool,
+      (input) => executeBuiltinTool(openKbTool.name, input),
+      OPENKB_AGENTS,
+    )
+  }
+
+  registerTool(
+    COMPARE_PRODUCTS_TOOL,
+    (input) => executeBuiltinTool(COMPARE_PRODUCTS_TOOL.name, input),
+    PRODUCT_COMPARE_AGENTS,
+  )
+
+  registerTool(
+    {
+      name: 'search_local_resources',
+      description: 'Search configured real local sustainability and resilience resources for incident help. Returns safe fallback instead of invented contacts when search is unavailable.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          category: { type: 'string', description: 'Resource category: plumber, water_mitigation, city_public_works, city_hall, utility_emergency, hotel, insurance_claim_line.' },
+          location: { type: 'string', description: 'City, ZIP, or address context.' },
+        },
+        required: ['category', 'location'],
+      },
+    },
+    async (input) => JSON.stringify(await searchLocalResources(input)),
+    INCIDENT_AGENTS,
+  )
+
+  registerTool(
+    {
+      name: 'analyze_incident_image',
+      description: 'Analyze a Living Companion sustainability and resilience incident image through a configured vision provider, with safe fallback when unavailable.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          imageBase64: { type: 'string', description: 'Base64 image bytes.' },
+          mimeType: { type: 'string', description: 'Image MIME type.' },
+          incidentContext: { type: 'string', description: 'Incident context.' },
+        },
+        required: ['imageBase64'],
+      },
+    },
+    async (input) => JSON.stringify(await analyzeIncidentImage(input)),
+    INCIDENT_AGENTS,
+  )
+
+  registerTool(
+    {
+      name: 'optimize_sustainable_compute',
+      description: 'Optimize an agent/model workflow for sustainability, cost, tokens, caching, batching, local-model use, and carbon proxy reduction.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          workflow_name: { type: 'string', description: 'Workflow name.' },
+          task_type: { type: 'string', description: 'Task type.' },
+          current_model: { type: 'string', description: 'Current model.' },
+          estimated_tokens: { type: 'number', description: 'Estimated token count.' },
+          latency_priority: { type: 'string', description: 'low, medium, or high.' },
+          cost_priority: { type: 'string', description: 'low, medium, or high.' },
+          privacy_priority: { type: 'string', description: 'low, medium, or high.' },
+          sustainability_priority: { type: 'string', description: 'low, medium, or high.' },
+          repeated_task: { type: 'boolean', description: 'Whether task repeats.' },
+          cacheable: { type: 'boolean', description: 'Whether stable inputs can be cached.' },
+          batchable: { type: 'boolean', description: 'Whether runs can be batched.' },
+        },
+        required: ['workflow_name', 'task_type', 'current_model', 'estimated_tokens', 'repeated_task', 'cacheable', 'batchable'],
+      },
+    },
+    async (input) => JSON.stringify(await optimizeSustainableCompute(input)),
+    'all',
+  )
+
+  registerTool(
+    {
+      name: 'estimate_household_carbon',
+      description: 'Estimate household sustainability emissions from electricity, heating, transportation, food, flights, and waste using broad ranges and assumptions.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          householdSize: { type: 'number', description: 'Number of people in household.' },
+          zip: { type: 'string', description: 'ZIP or location.' },
+          monthlyElectricityKwh: { type: 'number', description: 'Monthly electricity use.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['householdSize'],
+      },
+    },
+    async (input) => JSON.stringify(await estimateHouseholdCarbon(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'plan_home_energy_actions',
+      description: 'Create a practical household sustainability and energy action plan with no-cost, low-cost, upgrade, utility lookup, assumptions, and unknowns.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          homeType: { type: 'string', description: 'Home type.' },
+          budgetLevel: { type: 'string', description: 'Budget level.' },
+          zip: { type: 'string', description: 'ZIP or location.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['homeType', 'budgetLevel'],
+      },
+    },
+    async (input) => JSON.stringify(await planHomeEnergyActions(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'plan_community_sustainability_project',
+      description: 'Plan NGO, school, neighborhood, or community sustainability projects with stakeholders, grants, permits, volunteers, metrics, and risks.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          organizationType: { type: 'string', description: 'Organization or community type.' },
+          goal: { type: 'string', description: 'Project goal.' },
+          location: { type: 'string', description: 'Location.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['organizationType', 'goal'],
+      },
+    },
+    async (input) => JSON.stringify(await planCommunityProject(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'navigate_sustainability_certification',
+      description: 'Navigate sustainability certification and framework options such as ENERGY STAR, LEED, WELL, utility rebates, and ESG readiness without inventing eligibility.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          userType: { type: 'string', description: 'User type.' },
+          goal: { type: 'string', description: 'Goal.' },
+          location: { type: 'string', description: 'Location.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['userType', 'goal'],
+      },
+    },
+    async (input) => JSON.stringify(await navigateCertification(input)),
+    ['sustainability-companion', 'sustainability-reporting', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'check_carbon_offset_quality',
+      description: 'Evaluate carbon offset quality and greenwashing risk from supplied attributes without inventing registry verification status.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          projectType: { type: 'string', description: 'Project type.' },
+          registry: { type: 'string', description: 'Registry if known.' },
+          pricePerTonUsd: { type: 'number', description: 'Price per ton.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['projectType'],
+      },
+    },
+    async (input) => JSON.stringify(await checkCarbonOffsetQuality(input)),
+    ['sustainability-companion', 'investment-screening', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'build_sustainable_purchasing_checklist',
+      description: 'Build a sustainable purchasing checklist with buying criteria, red flags, better alternatives, questions, and end-of-life considerations.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          productCategory: { type: 'string', description: 'Product category.' },
+          budgetUsd: { type: 'number', description: 'Budget if known.' },
+          durabilityNeed: { type: 'string', description: 'Durability need.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['productCategory'],
+      },
+    },
+    async (input) => JSON.stringify(await buildSustainablePurchasingChecklist(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'build_community_resilience_checklist',
+      description: 'Build a community sustainability and resilience checklist with preparedness steps, communication plan, partner categories, supplies, and drill plan.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          communityType: { type: 'string', description: 'Community type.' },
+          hazards: { type: 'array', description: 'Hazards of concern.' },
+          volunteers: { type: 'number', description: 'Volunteer count.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['communityType', 'hazards'],
+      },
+    },
+    async (input) => JSON.stringify(await buildCommunityResilienceChecklist(input)),
+    ['sustainability-companion', 'emergency-resilience', 'home-community', 'general'],
+  )
 }

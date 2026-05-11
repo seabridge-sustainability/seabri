@@ -47,8 +47,8 @@ export function SustainabilityDashboard({
     : '#a78bfa'
 
   return (
-    <div style={{ padding: '20px 24px', background: 'var(--bg-surface, #13131f)', minHeight: '100%' }}>
-      <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary, #fff)' }}>
+    <div style={{ padding: '20px 24px', background: 'var(--bg-surface)', minHeight: '100%' }}>
+      <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
         Sustainability Dashboard
       </h2>
 
@@ -89,22 +89,22 @@ export function SustainabilityDashboard({
       {/* Daily trend table */}
       {chart.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted, #888)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <h3 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
             Daily Breakdown
           </h3>
           <div
             style={{
-              background: 'var(--bg-elevated, #1e1e2e)',
+              background: 'var(--bg-elevated)',
               borderRadius: 8,
-              border: '1px solid var(--border-muted, #333)',
+              border: '1px solid var(--border-muted)',
               overflow: 'hidden',
             }}
           >
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
-                <tr style={{ background: 'var(--bg-surface, #13131f)' }}>
+                <tr style={{ background: 'var(--bg-surface)' }}>
                   {['Date', 'Carbon', 'Cost (USD)', 'Requests'].map((h) => (
-                    <th key={h} style={{ padding: '8px 14px', textAlign: 'left', color: 'var(--text-muted, #888)', fontWeight: 600 }}>
+                    <th key={h} style={{ padding: '8px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>
                       {h}
                     </th>
                   ))}
@@ -112,11 +112,11 @@ export function SustainabilityDashboard({
               </thead>
               <tbody>
                 {chart.map((row) => (
-                  <tr key={row.date} style={{ borderTop: '1px solid var(--border-muted, #333)' }}>
-                    <td style={{ padding: '7px 14px', color: 'var(--text-primary, #ccc)' }}>{row.date}</td>
+                  <tr key={row.date} style={{ borderTop: '1px solid var(--border-muted)' }}>
+                    <td style={{ padding: '7px 14px', color: 'var(--text-primary)' }}>{row.date}</td>
                     <td style={{ padding: '7px 14px', color: '#34d399' }}>{formatCarbonGrams(row.carbon)}</td>
                     <td style={{ padding: '7px 14px', color: '#fbbf24' }}>${row.cost.toFixed(4)}</td>
-                    <td style={{ padding: '7px 14px', color: 'var(--text-muted, #888)' }}>{row.requests}</td>
+                    <td style={{ padding: '7px 14px', color: 'var(--text-muted)' }}>{row.requests}</td>
                   </tr>
                 ))}
               </tbody>
@@ -127,14 +127,14 @@ export function SustainabilityDashboard({
 
       {/* Recommendations */}
       <div>
-        <h3 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted, #888)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        <h3 style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
           Recommendations
         </h3>
         <div
           style={{
-            background: 'var(--bg-elevated, #1e1e2e)',
+            background: 'var(--bg-elevated)',
             borderRadius: 8,
-            border: '1px solid var(--border-muted, #333)',
+            border: '1px solid var(--border-muted)',
             padding: '10px 6px',
           }}
         >

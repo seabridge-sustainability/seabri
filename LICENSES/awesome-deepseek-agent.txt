@@ -1,0 +1,7 @@
+No LICENSE file was present in deepseek-ai/awesome-deepseek-agent at pinned commit
+5c11e0140ef75cfd47e9c537b56ec5868694f1bd.
+
+OpenSeaBri tracks this repository as a reference-only upstream mirror. Do not
+import, adapt, redistribute, or copy files from this repository into OpenSeaBri
+until upstream publishes a compatible license and IMPORT_POLICY section 7 is
+re-run.

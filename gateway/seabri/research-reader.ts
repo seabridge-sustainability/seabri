@@ -12,6 +12,7 @@ export interface FindingsResult {
 
 export function readFindings(date?: string): FindingsResult | null {
   const target = date ?? new Date().toISOString().slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(target)) return null
   const filePath = join(FINDINGS_DIR, `${target}.md`)
   if (!existsSync(filePath)) return null
   return { date: target, content: readFileSync(filePath, 'utf-8') }

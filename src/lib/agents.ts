@@ -7,7 +7,7 @@ export const AGENTS: Agent[] = [
     id: 'climate-risk',
     name: 'Climate Risk',
     tagline: 'How climate change threatens what you own',
-    color: '#ef4444',
+    color: '#B1454A',
     icon: '🌊',
     description:
       'Understand how flooding, wildfire, heat, drought, and sea level rise affect your home, farm, business, or investments. Get plain-language answers and quantitative risk data.',
@@ -37,7 +37,7 @@ You help homeowners, farmers, small businesses, investors, and cities. Adjust yo
     id: 'nature-biodiversity',
     name: 'Nature & Biodiversity',
     tagline: 'How your activities depend on and impact nature',
-    color: '#22c55e',
+    color: '#2F8F6B',
     icon: '🌿',
     description:
       'Understand water stress, forest dependencies, soil health, pollinator risk, and how the TNFD framework applies to your business or investments.',
@@ -63,40 +63,10 @@ You help farmers, companies with supply chains, investors, conservation organiza
     ],
   },
   {
-    id: 'sustainability-reporting',
-    name: 'Sustainability Reporting',
-    tagline: 'What you need to disclose, to whom, by when',
-    color: '#3b82f6',
-    icon: '📋',
-    description:
-      'Navigate climate and nature disclosure requirements. Get plain-language action lists for TCFD, CSRD, SEC climate rules, ISSB, and what lenders and investors are asking for.',
-    systemPrompt: `You are a sustainability disclosure specialist who translates complex reporting framework requirements into plain-language action lists. You help organizations understand what they actually need to do, not just what the frameworks say.
-
-You cover: TCFD (Task Force on Climate-related Financial Disclosures — the four pillars: governance, strategy, risk management, metrics and targets), CSRD (Corporate Sustainability Reporting Directive — EU mandatory from 2024), ISSB S1 and S2 (global baseline standards), SEC climate disclosure rules, GRI standards, TNFD (nature and biodiversity), and what lenders and institutional investors are now requiring.
-
-Your approach:
-- Start with what applies to this specific organization (size, sector, jurisdiction, listing status)
-- Translate framework language into specific action items with owners and timeframes
-- Explain what scenario analysis means and how to do a practical version without hiring consultants
-- Distinguish what is legally required NOW vs what is coming in 1-3-5 years
-- Explain physical risk vs transition risk in plain language with examples
-- Help organizations identify their material sustainability topics — what actually matters for their specific business
-- Be honest about where organizations need professional advisors vs what they can do themselves
-- Highlight common gaps: missing scope 3 data, no scenario analysis, targets without plans, governance without accountability
-
-You help companies of all sizes, from small businesses getting their first lender request to large corporations navigating multiple mandatory frameworks.`,
-    starterQuestions: [
-      'What do I need to disclose and to whom?',
-      'What does scenario analysis actually mean in practice?',
-      'My bank just asked about climate risk — what do I say?',
-      "What's the difference between TCFD and ISSB?",
-    ],
-  },
-  {
     id: 'investment-screening',
     name: 'Investment Risk Screening',
     tagline: 'Sustainability risks in what you own or are buying',
-    color: '#f59e0b',
+    color: '#C28A2B',
     icon: '🔍',
     description:
       'Screen investments for physical climate risk, transition risk, nature dependencies, and regulatory exposure. Understand what institutional investors now expect from asset managers.',
@@ -127,7 +97,7 @@ You help individual investors, family offices, fund managers, real estate invest
     id: 'home-community',
     name: 'Home & Community',
     tagline: 'Sustainability decisions for your home and neighborhood',
-    color: '#8b5cf6',
+    color: '#3A9499',
     icon: '🏠',
     description:
       'Get practical guidance on energy efficiency, solar and storage, flood and fire preparedness, carbon footprint, government incentives, and climate resilience for your home.',
@@ -148,6 +118,7 @@ Your approach:
 
 You help people with no sustainability background make decisions they'll actually be glad they made.`,
     starterQuestions: [
+      'My bathroom is flooding.',
       'Is my home at risk of flooding?',
       'Does solar make financial sense for me?',
       'What government money is available for home energy upgrades?',
@@ -158,7 +129,7 @@ You help people with no sustainability background make decisions they'll actuall
     id: 'net-zero',
     name: 'Net Zero & Decarbonization',
     tagline: 'Building a credible path to zero emissions',
-    color: '#06b6d4',
+    color: '#57B0B4',
     icon: '🎯',
     description:
       'Set credible emissions reduction targets, build real decarbonization roadmaps, and understand what scope 1, 2, and 3 emissions mean for your organization.',
@@ -192,7 +163,7 @@ You help companies of all sizes, investors, cities, and individuals who want to 
     id: 'natural-capital',
     name: 'Natural Capital & Land',
     tagline: 'Income from nature: credits, conservation, regenerative practices',
-    color: '#84cc16',
+    color: '#71CACD',
     icon: '🌾',
     description:
       'Explore carbon credits, biodiversity credits, regenerative agriculture, water markets, and conservation finance for farmers, land managers, and rural communities.',
@@ -223,7 +194,7 @@ You help farmers, ranchers, foresters, rural communities, and conservation organ
     id: 'general',
     name: 'General Sustainability',
     tagline: 'Any question, any topic, any person',
-    color: '#64748b',
+    color: '#6C7FA0',
     icon: '🌍',
     description:
       "Start here if you're not sure which specialist you need. Any sustainability question welcome — from personal to corporate, from beginner to expert.",
@@ -243,6 +214,7 @@ Your approach:
 
 You are the welcoming front door to sustainability intelligence for anyone on earth.`,
     starterQuestions: [
+      'My bathroom is flooding.',
       'Where do I even start with sustainability?',
       'What are the biggest climate risks I should know about?',
       'How do I know if my business needs to report on sustainability?',

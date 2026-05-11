@@ -11,6 +11,9 @@
  */
 
 import { tryImport } from '../channels/base.js'
+import { createLogger } from '../logger.js'
+
+const log = createLogger('gateway.canvas')
 
 export type ComplianceTag =
   | 'ISSB'
@@ -79,8 +82,13 @@ interface MinimalWsClient {
   close(): void
 }
 
+interface MinimalWsIncomingMessage {
+  url?: string
+}
+
 interface MinimalWsServer {
-  on(event: string, handler: (client: MinimalWsClient) => void): void
+  on(event: 'connection', handler: (client: MinimalWsClient, request: MinimalWsIncomingMessage) => void): void
+  on(event: string, handler: (...args: unknown[]) => void): void
   clients: Set<MinimalWsClient>
   close(cb?: () => void): void
 }
@@ -106,7 +114,7 @@ function resolvePort(): number | null {
 export async function startCanvasServer(): Promise<void> {
   const port = resolvePort()
   if (port === null) {
-    console.log('[canvas] OPENSEABRI_CANVAS_WS_PORT not set — canvas WS server not started.')
+    log.info('OPENSEABRI_CANVAS_WS_PORT not set — canvas WS server not started')
     return
   }
 
@@ -115,7 +123,7 @@ export async function startCanvasServer(): Promise<void> {
 
   const Ctor = mod.WebSocketServer ?? mod.default?.WebSocketServer
   if (!Ctor) {
-    console.warn('[canvas] ws package did not expose WebSocketServer — not started.')
+    log.warn('ws package did not expose WebSocketServer — not started')
     return
   }
 
@@ -123,11 +131,43 @@ export async function startCanvasServer(): Promise<void> {
     server = new Ctor({ port })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.warn(`[canvas] failed to bind port ${port}: ${message}`)
+    log.warn('failed to bind port', { port, error: message })
     return
   }
 
-  server.on('connection', (client) => {
+  const startedServer = server
+  server.on('error', (err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err)
+    log.warn('canvas WS server error; disabling canvas hub', { port, error: message })
+    if (server === startedServer) {
+      server = null
+    }
+    try {
+      startedServer.close()
+    } catch {
+      // non-fatal
+    }
+  })
+
+  const wsToken = process.env.OPENSEABRI_CANVAS_WS_TOKEN || ''
+  const requireToken = process.env.NODE_ENV === 'production'
+  if (!wsToken) {
+    log.warn(requireToken ? 'OPENSEABRI_CANVAS_WS_TOKEN not set in production - canvas WS connections will be rejected' : 'OPENSEABRI_CANVAS_WS_TOKEN not set - canvas WS connections are unauthenticated in dev mode only')
+  }
+
+  server.on('connection', (client, request) => {
+    if (!wsToken && requireToken) {
+      client.close()
+      return
+    }
+    if (wsToken) {
+      const url = request.url ?? ''
+      const params = new URL(url, 'ws://localhost').searchParams
+      if (params.get('token') !== wsToken) {
+        client.close()
+        return
+      }
+    }
     const hello: CanvasEvent = { type: 'status', status: 'connected' }
     try {
       client.send(JSON.stringify(hello))
@@ -136,7 +176,7 @@ export async function startCanvasServer(): Promise<void> {
     }
   })
 
-  console.log(`[canvas] WebSocket server listening on ws://127.0.0.1:${port}`)
+  log.info('canvas WS server listening', { port })
 }
 
 export function broadcast(event: CanvasEvent): void {

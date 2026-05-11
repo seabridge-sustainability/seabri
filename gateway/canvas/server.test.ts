@@ -21,22 +21,28 @@ class FakeClient {
 
 class FakeServer {
   clients = new Set<FakeClient>()
-  handlers = new Map<string, Handler>()
+  handlers = new Map<string, Handler[]>()
   constructor(public opts: { port: number }) {}
   on(event: string, handler: Handler) {
-    this.handlers.set(event, handler)
+    const list = this.handlers.get(event) ?? []
+    list.push(handler)
+    this.handlers.set(event, list)
   }
   close(cb?: () => void) {
     this.clients.clear()
     cb?.()
   }
-  emitConnection(client: FakeClient) {
+  emit(event: string, ...args: unknown[]) {
+    for (const handler of this.handlers.get(event) ?? []) handler(...args)
+  }
+  emitConnection(client: FakeClient, url = '/') {
     this.clients.add(client)
-    this.handlers.get('connection')?.(client)
+    this.emit('connection', client, { url })
   }
 }
 
 let lastServer: FakeServer | null = null
+const ORIGINAL_NODE_ENV = process.env.NODE_ENV
 
 vi.mock('../channels/base.js', () => ({
   tryImport: async () => ({
@@ -60,6 +66,9 @@ afterEach(async () => {
   const mod = await import('./server.js')
   await mod.stopCanvasServer()
   delete process.env.OPENSEABRI_CANVAS_WS_PORT
+  delete process.env.OPENSEABRI_CANVAS_WS_TOKEN
+  if (ORIGINAL_NODE_ENV === undefined) delete process.env.NODE_ENV
+  else process.env.NODE_ENV = ORIGINAL_NODE_ENV
 })
 
 describe('canvas server', () => {
@@ -84,6 +93,30 @@ describe('canvas server', () => {
     expect(client.sent.at(-1)).toContain('"status":"live"')
   })
 
+  it('rejects clients without the canvas token when configured', async () => {
+    process.env.OPENSEABRI_CANVAS_WS_TOKEN = 'canvas-test-token'
+    const { startCanvasServer } = await import('./server.js')
+    await startCanvasServer()
+
+    const client = new FakeClient()
+    lastServer!.emitConnection(client, '/?token=wrong')
+
+    expect(client.readyState).toBe(3)
+    expect(client.sent).toHaveLength(0)
+  })
+
+  it('fails closed without a canvas token in production', async () => {
+    process.env.NODE_ENV = 'production'
+    const { startCanvasServer } = await import('./server.js')
+    await startCanvasServer()
+
+    const client = new FakeClient()
+    lastServer!.emitConnection(client)
+
+    expect(client.readyState).toBe(3)
+    expect(client.sent).toHaveLength(0)
+  })
+
   it('skips clients that are not in OPEN state', async () => {
     const { startCanvasServer, broadcast } = await import('./server.js')
     await startCanvasServer()
@@ -104,5 +137,15 @@ describe('canvas server', () => {
     await startCanvasServer()
     await stopCanvasServer()
     broadcast({ type: 'status', status: 'post' })
+  })
+
+  it('handles async server errors without crashing later broadcasts', async () => {
+    const { startCanvasServer, broadcast } = await import('./server.js')
+    await startCanvasServer()
+    expect(lastServer).not.toBeNull()
+
+    lastServer!.emit('error', Object.assign(new Error('listen EADDRINUSE'), { code: 'EADDRINUSE' }))
+
+    expect(() => broadcast({ type: 'status', status: 'post-error' })).not.toThrow()
   })
 })

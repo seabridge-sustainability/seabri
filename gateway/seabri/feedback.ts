@@ -18,6 +18,7 @@ interface FeedbackSummary {
   byAgent: Record<string, { up: number; down: number }>
 }
 
+const MAX_FEEDBACK_ENTRIES = 1_000
 const entries: FeedbackEntry[] = []
 
 export function submitFeedback(input: {
@@ -36,6 +37,7 @@ export function submitFeedback(input: {
     correction: input.correction,
     timestamp: new Date(),
   }
+  if (entries.length >= MAX_FEEDBACK_ENTRIES) entries.shift()
   entries.push(entry)
   return entry
 }

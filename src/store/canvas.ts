@@ -37,9 +37,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({ connected: false, status: 'unreachable' })
       return
     }
-    ws.onopen = () => set({ connected: true, status: 'live' })
-    ws.onclose = () => set({ connected: false, socket: null, status: 'closed' })
-    ws.onerror = () => set({ status: 'error' })
+    ws.onopen = () => {
+      if (get().socket === ws) set({ connected: true, status: 'live' })
+    }
+    ws.onclose = () => {
+      if (get().socket === ws) set({ connected: false, socket: null, status: 'closed' })
+    }
+    ws.onerror = () => {
+      if (get().socket === ws) set({ status: 'error' })
+    }
     ws.onmessage = (ev) => {
       try {
         const payload = JSON.parse(String(ev.data)) as CanvasEvent

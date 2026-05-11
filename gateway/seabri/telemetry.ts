@@ -3,6 +3,7 @@ import { recordMetric, aggregateMetrics, getRecentMetrics } from '../orchestrato
 import type { RecordedMetric, AggregatedMetrics } from '../orchestrator/metrics.js'
 import { scoreSustainability, aggregateSustainabilityScores } from './sustainability-scoring.js'
 import type { SustainabilityScore } from './sustainability-scoring.js'
+import { recordTelemetryEvent } from '../telemetry/store.js'
 
 export interface TaskTelemetryEvent {
   taskId: string
@@ -38,6 +39,21 @@ export async function emitTaskTelemetry(event: TaskTelemetryEvent): Promise<Task
   })
 
   const sustainability = scoreSustainability(recorded.costUsd, recorded.carbonGrams, event.tier)
+  await recordTelemetryEvent({
+    type: 'agent_invoked',
+    data: {
+      taskId: event.taskId,
+      sessionId: event.sessionId,
+      agentId: event.agentId,
+      model: event.model,
+      tier: event.tier,
+      inputTokens: event.inputTokens,
+      outputTokens: event.outputTokens,
+      latencyMs: event.latencyMs,
+      costUsd: recorded.costUsd,
+      carbonGrams: recorded.carbonGrams,
+    },
+  })
 
   return {
     taskId: event.taskId,

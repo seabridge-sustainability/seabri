@@ -1,5 +1,7 @@
 export { loadSkillMetadata, loadSkillContent, buildSkillsContext, invalidateSkillCache } from './loader.js'
 export { checkAndImprove } from './improver.js'
+export { validateSkillFile, validateSkillSource, formatValidationResult, complianceTagCoverage } from './validator.js'
+export { exportSkill, exportAllSkills, importSkillFromBundle, importSkillFromFile, listSkillVersions } from './marketplace.js'
 
 import { loadSkillMetadata, loadSkillContent } from './loader.js'
 import chalk from 'chalk'

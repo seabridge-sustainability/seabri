@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useCanvasStore } from '../../store/canvas'
 import type { CanvasBlock } from '../../types/canvas'
 
@@ -50,8 +50,8 @@ export function CanvasPane({ onClose }: { onClose: () => void }) {
             fontSize: 11,
             padding: '2px 6px',
             borderRadius: 4,
-            background: connected ? '#064e3b' : 'var(--bg-surface-hover)',
-            color: connected ? '#a7f3d0' : 'var(--text-faint)',
+            background: connected ? 'rgba(42,148,153,0.15)' : 'var(--bg-surface-hover)',
+            color: connected ? 'var(--sb-aqua-700, #3A9499)' : 'var(--text-faint)',
           }}
         >
           {connected ? 'live' : status}
@@ -115,7 +115,7 @@ function EmptyState() {
   )
 }
 
-function BlockShell({ title, tags, children }: { title?: string; tags?: string[]; children: React.ReactNode }) {
+function BlockShell({ title, tags, children }: { title?: string; tags?: string[]; children: ReactNode }) {
   return (
     <div
       style={{

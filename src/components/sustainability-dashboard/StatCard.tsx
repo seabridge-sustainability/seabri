@@ -14,8 +14,8 @@ export function StatCard({ label, value, subtitle, trend, trendLabel, accentColo
   return (
     <div
       style={{
-        background: 'var(--bg-elevated, #1e1e2e)',
-        border: `1px solid var(--border-muted, #333)`,
+        background: 'var(--bg-elevated)',
+        border: `1px solid var(--border-muted)`,
         borderLeft: `3px solid ${accentColor}`,
         borderRadius: 8,
         padding: '14px 18px',

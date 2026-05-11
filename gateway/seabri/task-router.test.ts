@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { routeTask } from './task-router.js'
 import { TIER_MODELS } from '../orchestrator/model-router.js'
+import { Product } from '../product.js'
 
 describe('routeTask', () => {
   it('returns a routing decision with required fields', () => {
@@ -63,6 +64,26 @@ describe('routeTask', () => {
   it('routes investment question to investment-screening agent', () => {
     const decision = routeTask({ task: 'How should I screen my portfolio for stranded asset risk?' })
     expect(decision.agentId).toBe('investment-screening')
+  })
+
+  it('defaults to COMPANION product when no channelId provided', () => {
+    const decision = routeTask({ task: 'Hello' })
+    expect(decision.product).toBe(Product.COMPANION)
+  })
+
+  it('routes telegram channel to COMPANION product', () => {
+    const decision = routeTask({ task: 'Hello', channelId: 'telegram' })
+    expect(decision.product).toBe(Product.COMPANION)
+  })
+
+  it('routes mcp channel to HARNESS product', () => {
+    const decision = routeTask({ task: 'Hello', channelId: 'mcp' })
+    expect(decision.product).toBe(Product.HARNESS)
+  })
+
+  it('routes cli channel to HARNESS product', () => {
+    const decision = routeTask({ task: 'Hello', channelId: 'cli' })
+    expect(decision.product).toBe(Product.HARNESS)
   })
 
   it('uses higher tier model for complex tasks', () => {

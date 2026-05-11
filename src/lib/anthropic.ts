@@ -4,11 +4,24 @@ import type { Message } from '../types/openseabri'
 const API_URL = 'https://api.anthropic.com/v1/messages'
 const API_VERSION = '2023-06-01'
 
+export interface RawAttachment {
+  kind: 'image' | 'document' | 'file'
+  mime: string
+  name: string
+  data: string // base64
+}
+
+type AnthropicBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+  | { type: 'document'; source: { type: 'base64'; media_type: string; data: string } }
+
 export interface StreamOptions {
   apiKey: string
   model?: string
   systemPrompt: string
   history: Pick<Message, 'role' | 'content'>[]
+  attachments?: RawAttachment[]
   maxTokens?: number
   signal?: AbortSignal
   onDelta: (text: string) => void
@@ -20,6 +33,7 @@ export async function streamAnthropicMessage(opts: StreamOptions): Promise<void>
     model = DEFAULT_MODEL,
     systemPrompt,
     history,
+    attachments,
     maxTokens = 2048,
     signal,
     onDelta,
@@ -39,7 +53,22 @@ export async function streamAnthropicMessage(opts: StreamOptions): Promise<void>
       max_tokens: maxTokens,
       stream: true,
       system: systemPrompt,
-      messages: history.map(({ role, content }) => ({ role, content })),
+      messages: history.map(({ role, content }, i) => {
+        const isLastUser = role === 'user' && i === history.length - 1
+        if (isLastUser && attachments && attachments.length > 0) {
+          const blocks: AnthropicBlock[] = []
+          for (const a of attachments) {
+            if (a.mime.startsWith('image/')) {
+              blocks.push({ type: 'image', source: { type: 'base64', media_type: a.mime, data: a.data } })
+            } else if (a.mime === 'application/pdf') {
+              blocks.push({ type: 'document', source: { type: 'base64', media_type: a.mime, data: a.data } })
+            }
+          }
+          if (content) blocks.push({ type: 'text', text: content })
+          return { role, content: blocks }
+        }
+        return { role, content }
+      }),
     }),
   })
 

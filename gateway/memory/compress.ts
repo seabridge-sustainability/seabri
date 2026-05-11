@@ -57,6 +57,7 @@ ${conversationText}`
         max_tokens: 512,
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: AbortSignal.timeout(20_000),
     })
 
     if (!response.ok) {
@@ -67,14 +68,16 @@ ${conversationText}`
     const textBlock = data.content.find((c) => c.type === 'text')
     const summary = textBlock?.text ?? `[${toCompress.length} earlier messages compressed]`
 
-    const summaryMessage: Message = {
-      role: 'user',
-      content: `[Earlier conversation summary: ${summary}]`,
-    }
+    // Inject as a user/assistant pair so the model reads this as context,
+    // not as a real user message (avoids prompt injection via the summary).
+    const summaryPair: Message[] = [
+      { role: 'user', content: '[SYSTEM: Earlier conversation compressed]' },
+      { role: 'assistant', content: `[Summary of earlier conversation: ${summary}]` },
+    ]
 
     return {
       compressed: true,
-      history: [summaryMessage, ...toKeep],
+      history: [...summaryPair, ...toKeep],
       summary,
     }
   } catch {

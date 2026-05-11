@@ -1,6 +1,8 @@
 ---
-skill_id: physical-risk-screening
+id: physical-risk-screening
 name: Physical Risk Screening
+complianceTags: [TCFD, ISSB, GENERAL]
+costTier: free
 version: "1.0"
 agents: [climate-risk, home-community, investment-screening]
 tools: [coastal_flood_assessment, inland_flood_assessment, wildfire_assessment, heat_stress_assessment, hurricane_wind_assessment, drought_stress_assessment]

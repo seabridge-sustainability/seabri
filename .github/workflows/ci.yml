@@ -34,11 +34,30 @@ jobs:
 
       - name: Test
         run: npm test -- --run
-        continue-on-error: true
+
+      - name: Node tests
+        run: npm run test:node
+
+      - name: Provider readiness and mocked channel smoke
+        run: npm test -- --run gateway/seabri/provider-readiness.test.ts gateway/telemetry/store.test.ts gateway/channels/mocked-live-channel-smoke.test.ts gateway/seabri/outbound.test.ts
 
       - name: Build
         run: npm run build
-        continue-on-error: true
+
+      - name: Audit
+        run: npm audit --audit-level=moderate
+
+      - name: Capture bundle sizes
+        shell: bash
+        run: |
+          find dist/assets -maxdepth 1 -type f -printf "%f %s bytes\n" | sort > bundle-sizes.txt
+          cat bundle-sizes.txt
+
+      - name: Upload bundle sizes
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-sizes-${{ matrix.os }}-node-${{ matrix.node }}
+          path: bundle-sizes.txt
 
   lint-docs:
     runs-on: ubuntu-latest

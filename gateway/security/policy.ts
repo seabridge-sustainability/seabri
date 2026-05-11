@@ -34,7 +34,7 @@ export interface Policy {
 }
 
 const DEFAULT_POLICY: Policy = {
-  defaultAgent: 'general',
+  defaultAgent: 'seabri-orchestrator',
   perSender: {},
   channels: {
     telegram: { requirePairing: true },
@@ -44,10 +44,26 @@ const DEFAULT_POLICY: Policy = {
 let cached: { policy: Policy; loadedAt: number } | null = null
 const CACHE_TTL_MS = 30_000
 
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+function hasDangerousKey(obj: unknown, depth = 0): boolean {
+  if (depth > 5) return false
+  if (typeof obj !== 'object' || obj === null) return false
+  for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+    if (DANGEROUS_KEYS.has(key)) return true
+    if (hasDangerousKey(val, depth + 1)) return true
+  }
+  return false
+}
+
 async function tryRead(path: string): Promise<Policy | null> {
   try {
     const raw = await readFile(path, 'utf-8')
     const parsed = JSON.parse(raw) as Partial<Policy>
+    if (hasDangerousKey(parsed)) {
+      console.warn(`[policy] Dangerous keys detected in ${path} — ignoring`)
+      return null
+    }
     return {
       defaultAgent: parsed.defaultAgent ?? DEFAULT_POLICY.defaultAgent,
       perSender: parsed.perSender ?? {},

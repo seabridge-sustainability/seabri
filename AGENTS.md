@@ -1,5 +1,65 @@
 # OpenSeaBri Agents
 
+## SeaBridgeAI Central System Pointer
+
+SYSTEM_ID: SEABRIDGE_AGENT_SYSTEM_V1
+
+Canonical shared coding-agent system: C:\Users\adelm\SeaBridgeAI\everything-claude-code
+
+Use the central system above as the source of truth for reusable skills, workflows, checklists, and cross-agent compatibility. Superpowers is embedded there as an adapted local methodology through the SeaBridgeAI sea-* skills; Claude Code also has user-scope local plugin `superpowers@superpowers-dev` installed from ECC. Do not add, update, remove, or reinstall Superpowers globally or through a marketplace unless explicitly approved.
+
+Full callable SeaBridgeAI skill catalog: sea-senior-dev-workflow, sea-brainstorming-and-spec-refinement, sea-task-orchestration, sea-test-driven-development, sea-systematic-debugging, sea-verification-before-completion, sea-code-review-response, sea-git-worktree-isolation, sea-parallel-agent-dispatch, sea-finishing-development-branch, sea-backend-api-verification, sea-frontend-design, sea-ai-data-integrity, sea-sustainability-domain-review, sea-context-hygiene, sea-cross-repo-handoff, sea-skill-creator-protocol, sea-knowledge-vault, sea-gsd-controlled-execution, sea-local-llm-training.
+
+Repo-local guidance remains authoritative only for this repo's specific runtime, product, and safety overrides. Do not copy central skill bodies into this repo.
+
+## SeaBridgeAI Agent Baseline
+
+Repo structure, build/test/lint/typecheck/startup commands, recurring lessons, and artifact policy are local here and in ECC `repo-integrations/openseabri.md`. All coding agents must follow ECC self-verification, controlled auto mode, and review collaboration: plan before edits, update tests when practical, prove red/green when practical, run targeted checks, broaden checks when risk warrants it, document skipped tests, and never claim completion from code changes alone. Allowed auto steps are formatting, lint/typecheck fixes, test discovery, import cleanup, small tested refactors, approved report/log moves, docs path fixes, and read-only scans. Commits, pushes, dependency installs, migrations, production data changes, auth/security changes, billing changes, destructive file operations, yolo/autonomous/dangerous modes, global installs, and long-running training jobs require explicit approval.
+
+## Cross-Agent Skill Contract
+
+This Codex/Gemini file, `CLAUDE.md`, and `AGENTS_SYSTEM.md` must describe the
+same `SYSTEM_ID`, ECC path, skill names, safety gates, and OpenSeaBri boundaries.
+For non-trivial work, load local OpenSeaBri docs first, then ECC
+`SEABRIDGE_CODING_AGENT_SYSTEM.md`, `repo-integrations/openseabri.md`, the
+smallest relevant `sea-*` skill, and the matching workflow/checklist. OpenSeaBri
+consumes Enterprise capabilities only through `/api/v1/openseabri/*`; keep
+reusable skill bodies in ECC.
+## SeaBridgeAI Central Coding-Agent Skills
+
+This repository uses centralized SeaBridgeAI coding-agent skills from:
+`C:\Users\adelm\SeaBridgeAI\everything-claude-code`
+
+SYSTEM_ID: SEABRIDGE_AGENT_SYSTEM_V1
+
+Before non-trivial changes, load `SEABRIDGE_CODING_AGENT_SYSTEM.md`,
+`repo-integrations/openseabri.md`, and the smallest relevant callable skill
+from either ECC `skills/sea-*` or `.agents/skills/sea-*`, then use the matching
+`workflows/` and `checklists/` files.
+
+Callable skill names: `sea-senior-dev-workflow`,
+`sea-brainstorming-and-spec-refinement`, `sea-task-orchestration`,
+`sea-test-driven-development`, `sea-systematic-debugging`,
+`sea-verification-before-completion`, `sea-code-review-response`,
+`sea-git-worktree-isolation`, `sea-parallel-agent-dispatch`,
+`sea-finishing-development-branch`, `sea-backend-api-verification`,
+`sea-frontend-design`, `sea-ai-data-integrity`,
+`sea-sustainability-domain-review`, `sea-context-hygiene`,
+`sea-cross-repo-handoff`, `sea-skill-creator-protocol`,
+`sea-knowledge-vault`, `sea-gsd-controlled-execution`,
+`sea-local-llm-training`.
+
+Keep reusable guidance in ECC and place only OpenSeaBri-specific overrides here.
+For emergency playbooks, incident notes, contractor/vendor notes, local authority
+research, wikilinks, frontmatter, `.base`, or `.canvas` files, call
+`scripts/knowledge-vault.ps1` so the central SeaBridgeAI validator handles dry-run
+checks, diffs, and optional backed-up writes.
+For GBrain code lookup or shared agent-memory checks, use ECC skill `gbrain` and
+call `C:\Users\adelm\SeaBridgeAI\SeaBridgeAI\tools\gbrain\seabridge-gbrain.ps1`
+with `check`, `mcp`, or `index-plan` first. Do not initialize a brain, index this
+repo, sync sources, enable contributor capture, or start jobs without explicit
+approval.
+
 OpenSeaBri is a free sustainability intelligence platform built for real people — homeowners, farmers, small business owners, investors, and anyone who wants straight answers about climate risk, nature, and responsible business practices. No consultant-speak, no paywalls for basic information, no acronym soup.
 
 This document describes the eight agents available on OpenSeaBri, who they are designed for, and how to reach them.

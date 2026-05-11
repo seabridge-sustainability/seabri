@@ -113,7 +113,7 @@ function nodeToStep(node: CanvasNode): WorkflowStep {
         id: node.id,
         type: 'agent',
         name: String(d.label ?? node.id),
-        agentId: d.agentId as WorkflowStep extends { type: 'agent' } ? never : never,
+        agentId: String(d.agentId ?? ''),
         prompt: String(d.prompt ?? ''),
         ...(d.outputKey ? { outputKey: String(d.outputKey) } : {}),
       } as WorkflowStep
@@ -143,7 +143,6 @@ function nodeToStep(node: CanvasNode): WorkflowStep {
         branches: (d.branches as WorkflowStep[][]) ?? [[]],
       } as WorkflowStep
     case 'loop':
-    default:
       return {
         id: node.id,
         type: 'loop',
@@ -152,5 +151,7 @@ function nodeToStep(node: CanvasNode): WorkflowStep {
         condition: String(d.condition ?? 'false'),
         maxIterations: (d.maxIterations as number) ?? 10,
       } as WorkflowStep
+    default:
+      throw new Error(`Unsupported canvas node type: ${node.type}`)
   }
 }

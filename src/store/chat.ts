@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Agent, Message, Session } from '../types/openseabri'
-import { streamAnthropicMessage } from '../lib/anthropic'
+import { streamAnthropicMessage, type RawAttachment } from '../lib/anthropic'
 import { DEFAULT_AGENT_ID, getAgent } from '../lib/agents'
 import { uid } from '../lib/id'
 
@@ -35,12 +35,185 @@ function savePersisted(state: Persisted): void {
   }
 }
 
+const WS_TOKEN = import.meta.env.VITE_WS_TOKEN as string | undefined
+
+function httpToWs(url: string): string {
+  const base = url.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:').replace(/\/$/, '')
+  if (WS_TOKEN) {
+    const sep = base.includes('?') ? '&' : '?'
+    return `${base}${sep}token=${encodeURIComponent(WS_TOKEN)}`
+  }
+  return base
+}
+
+export interface ActionCard {
+  id: string
+  kind: string
+  card: string
+}
+
+function streamViaGateway(
+  gatewayUrl: string,
+  agentId: string,
+  content: string,
+  sessionId: string | null,
+  attachments: RawAttachment[] | undefined,
+  onToken: (t: string) => void,
+  onSessionId: (id: string) => void,
+  onActionCard: (card: ActionCard) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(httpToWs(gatewayUrl))
+    let ready = false
+    let done = false
+
+    const cleanup = (): void => {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close()
+      }
+    }
+
+    signal.addEventListener('abort', () => {
+      cleanup()
+      reject(Object.assign(new Error('AbortError'), { name: 'AbortError' }))
+    })
+
+    ws.onopen = () => {
+      const initMsg: Record<string, string> = { type: 'init', agentId }
+      if (sessionId) initMsg.sessionId = sessionId
+      ws.send(JSON.stringify(initMsg))
+    }
+
+    ws.onmessage = (ev: MessageEvent) => {
+      let msg: { type: string; content?: string; message?: string; sessionId?: string; id?: string; kind?: string; card?: string }
+      try {
+        msg = JSON.parse(ev.data as string) as typeof msg
+      } catch {
+        return
+      }
+
+      if (msg.type === 'ready' && !ready) {
+        ready = true
+        if (msg.sessionId) onSessionId(msg.sessionId)
+        ws.send(JSON.stringify({ type: 'chat', content, attachments }))
+        return
+      }
+
+      if (msg.type === 'token' && msg.content) {
+        onToken(msg.content)
+        return
+      }
+
+      if (msg.type === 'action_card' && msg.id && msg.kind && msg.card) {
+        onActionCard({ id: msg.id, kind: msg.kind, card: msg.card })
+        return
+      }
+
+      if (msg.type === 'done') {
+        done = true
+        cleanup()
+        resolve()
+        return
+      }
+
+      if (msg.type === 'error') {
+        cleanup()
+        reject(new Error(msg.message ?? 'Gateway error'))
+      }
+    }
+
+    ws.onerror = () => {
+      if (!done) reject(new Error('Gateway WebSocket error'))
+    }
+
+    ws.onclose = () => {
+      if (!done) reject(new Error('Gateway WebSocket closed unexpectedly'))
+    }
+  })
+}
+
+function approveViaGateway(
+  gatewayUrl: string,
+  agentId: string,
+  sessionId: string,
+  approvalId: string,
+  approved: boolean,
+  onToken: (t: string) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(httpToWs(gatewayUrl))
+    let ready = false
+    let done = false
+
+    const cleanup = (): void => {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close()
+      }
+    }
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'init', agentId, sessionId }))
+    }
+
+    ws.onmessage = (ev: MessageEvent) => {
+      let msg: { type: string; content?: string; message?: string; ok?: boolean }
+      try {
+        msg = JSON.parse(ev.data as string) as typeof msg
+      } catch {
+        return
+      }
+
+      if (msg.type === 'ready' && !ready) {
+        ready = true
+        ws.send(JSON.stringify({ type: approved ? 'approve' : 'deny', id: approvalId }))
+        return
+      }
+
+      if (msg.type === 'token' && msg.content) {
+        onToken(msg.content)
+        return
+      }
+
+      if (msg.type === 'approval_result') {
+        // result received; wait for done
+        return
+      }
+
+      if (msg.type === 'done') {
+        done = true
+        cleanup()
+        resolve()
+        return
+      }
+
+      if (msg.type === 'error') {
+        cleanup()
+        reject(new Error(msg.message ?? 'Gateway error'))
+      }
+    }
+
+    ws.onerror = () => {
+      if (!done) reject(new Error('Gateway WebSocket error'))
+    }
+
+    ws.onclose = () => {
+      if (!done) {
+        // Gateway closes after sending done — treat as resolved
+        resolve()
+      }
+    }
+  })
+}
+
 interface ChatState {
   sessions: Session[]
   activeSessionId: string | null
   isStreaming: boolean
   apiError: string | null
   streamController: AbortController | null
+  pendingApprovals: ActionCard[]
+  gatewaySessionId: string | null
 
   getActiveSession: () => Session | null
   getActiveAgent: () => Agent
@@ -49,7 +222,8 @@ interface ChatState {
   clearActiveSession: () => void
   deleteSession: (id: string) => void
   clearError: () => void
-  sendMessage: (text: string, apiKey: string) => Promise<void>
+  sendMessage: (text: string, apiKey: string, gatewayUrl?: string, attachments?: RawAttachment[]) => Promise<void>
+  resolveApproval: (id: string, approved: boolean, gatewayUrl: string) => Promise<void>
   abort: () => void
 }
 
@@ -72,6 +246,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     isStreaming: false,
     apiError: null,
     streamController: null,
+    pendingApprovals: [],
+    gatewaySessionId: null,
 
     getActiveSession: () => {
       const { sessions, activeSessionId } = get()
@@ -131,11 +307,83 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (c) c.abort()
     },
 
-    sendMessage: async (text, apiKey) => {
+    resolveApproval: async (id, approved, gatewayUrl) => {
+      // Optimistically remove from pending list
+      set((state) => ({ pendingApprovals: state.pendingApprovals.filter((a) => a.id !== id) }))
+
+      const { gatewaySessionId, getActiveAgent } = get()
+      if (!gatewaySessionId) return
+
+      const agent = getActiveAgent()
+      const activeSessionId = get().activeSessionId
+
+      const assistantMsg: Message = {
+        id: uid('m'),
+        role: 'assistant',
+        content: '',
+        createdAt: Date.now(),
+        agentId: agent.id,
+      }
+
+      if (activeSessionId) {
+        set((state) => ({
+          isStreaming: true,
+          sessions: state.sessions.map((s) =>
+            s.id === activeSessionId
+              ? { ...s, messages: [...s.messages, assistantMsg], updatedAt: Date.now() }
+              : s
+          ),
+        }))
+      }
+
+      let accumulated = ''
+      const patchApprovalMsg = (patch: Partial<Message>): void => {
+        if (!activeSessionId) return
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === activeSessionId
+              ? { ...s, messages: s.messages.map((m) => (m.id === assistantMsg.id ? { ...m, ...patch } : m)), updatedAt: Date.now() }
+              : s
+          ),
+        }))
+      }
+
+      try {
+        await approveViaGateway(
+          gatewayUrl,
+          agent.id,
+          gatewaySessionId,
+          id,
+          approved,
+          (token) => {
+            accumulated += token
+            patchApprovalMsg({ content: accumulated })
+          },
+        )
+      } catch {
+        if (accumulated) {
+          patchApprovalMsg({ content: accumulated })
+        } else if (activeSessionId) {
+          set((state) => ({
+            sessions: state.sessions.map((s) =>
+              s.id === activeSessionId
+                ? { ...s, messages: s.messages.filter((m) => m.id !== assistantMsg.id) }
+                : s
+            ),
+          }))
+        }
+      } finally {
+        set({ isStreaming: false })
+        persist()
+      }
+    },
+
+    sendMessage: async (text, apiKey, gatewayUrl, attachments) => {
       const userText = text.trim()
       if (!userText || get().isStreaming) return
 
-      if (!apiKey) {
+      const useGateway = Boolean(gatewayUrl)
+      if (!useGateway && !apiKey) {
         set({ apiError: 'missing_key' })
         return
       }
@@ -202,23 +450,53 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
 
       try {
-        await streamAnthropicMessage({
-          apiKey,
-          systemPrompt: agent.systemPrompt,
-          history,
-          signal: controller.signal,
-          onDelta: (delta) => {
-            accumulated += delta
-            patchAssistant({ content: accumulated })
-          },
-        })
+        if (useGateway) {
+          await streamViaGateway(
+            gatewayUrl!,
+            agent.id,
+            userText,
+            get().gatewaySessionId,
+            attachments,
+            (token) => {
+              accumulated += token
+              patchAssistant({ content: accumulated })
+            },
+            (sid) => set({ gatewaySessionId: sid }),
+            (card) => set((state) => ({ pendingApprovals: [...state.pendingApprovals, card] })),
+            controller.signal,
+          )
+        } else {
+          await streamAnthropicMessage({
+            apiKey,
+            systemPrompt: agent.systemPrompt,
+            history,
+            attachments,
+            signal: controller.signal,
+            onDelta: (delta) => {
+              accumulated += delta
+              patchAssistant({ content: accumulated })
+            },
+          })
+        }
       } catch (err) {
         const e = err as Error
         if (e.name === 'AbortError') {
           patchAssistant({ content: accumulated || '(cancelled)' })
         } else {
-          patchAssistant({ content: `Error: ${e.message}`, error: e.message })
-          set({ apiError: e.message })
+          // Remove empty placeholder; surface error in banner only
+          if (!accumulated) {
+            set((state) => ({
+              sessions: state.sessions.map((s) =>
+                s.id === activeSessionId
+                  ? { ...s, messages: s.messages.filter((m) => m.id !== assistantMsg.id) }
+                  : s
+              ),
+              apiError: e.message,
+            }))
+          } else {
+            patchAssistant({ content: accumulated, error: e.message })
+            set({ apiError: e.message })
+          }
         }
       } finally {
         set({ isStreaming: false, streamController: null })

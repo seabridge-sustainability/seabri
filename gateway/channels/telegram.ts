@@ -1,4 +1,8 @@
-import { TELEGRAM_TOKEN, AGENTS } from '../config.js'
+import { TELEGRAM_TOKEN, AGENTS, APPROVAL_TTL_MS } from '../config.js'
+import { initiateOutboundCall, initiateOutboundSms } from '../seabri/outbound.js'
+import { geocodeCoordinates } from '../seabri/geocoder.js'
+import { getExecutor } from '../seabri/action-executor.js'
+import { requiresDoubleConfirmation, generateConfirmCode, isConfirmCode } from '../seabri/approval.js'
 import { routeMessage } from '../agents/router.js'
 import {
   isApproved,
@@ -8,19 +12,107 @@ import {
 } from '../security/pairing.js'
 import { getPreferredAgent, isAllowed, requiresPairing } from '../security/policy.js'
 import { buildAdditionalContext, handleSlashCommand, type ChannelState } from './shared_commands.js'
+import { processAttachment } from '../seabri/attachments.js'
+import { extractActionCard, isApproval, isDenial, isCallApproval, isSmsApproval, logConsent, detectActionKind } from '../seabri/approval.js'
+import { putBlob } from '../attachments/store.js'
+import { getProfile, upsertProfile, parseOnboardingReply, ONBOARDING_PROMPT, isProfileComplete } from '../seabri/user-profile.js'
 
-interface UserState extends ChannelState {}
+// Extracts the first E.164-ish phone number from an action card string.
+function extractPhoneNumber(card: string): string | null {
+  const match = card.match(/(\+?1?[\s\-.]?\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4})/)
+  if (!match) return null
+  return match[1].replace(/[\s\-.()/]/g, '')
+}
 
-// Imported lazily to avoid crash when package is missing
+interface ConversationMediaContext {
+  lastImageBase64: string
+  lastImageMediaType: string
+  capturedAt: number
+}
+
+interface UserState extends ChannelState {
+  mediaContext?: ConversationMediaContext
+}
+
+const USER_STATE_MAX = 10_000
+
+function makeLruMap<K, V>(maxSize: number): Map<K, V> {
+  const map = new Map<K, V>()
+  const _set = map.set.bind(map)
+  map.set = (k: K, v: V) => {
+    if (map.has(k)) map.delete(k)
+    else if (map.size >= maxSize) map.delete(map.keys().next().value as K)
+    return _set(k, v)
+  }
+  return map
+}
+
 type TelegramBot = {
   on(event: string, handler: (msg: TelegramMessage) => void): void
   sendMessage(chatId: number | string, text: string, options?: Record<string, unknown>): Promise<unknown>
+  getFile(fileId: string): Promise<{ file_path?: string }>
   startPolling(): void
+}
+
+interface TelegramPhotoSize {
+  file_id: string
+  file_size?: number
+  width: number
+  height: number
+}
+
+interface TelegramDocument {
+  file_id: string
+  file_name?: string
+  mime_type?: string
+  file_size?: number
+}
+
+interface TelegramVoice {
+  file_id: string
+  mime_type?: string
+  duration: number
+  file_size?: number
+}
+
+interface TelegramAudio {
+  file_id: string
+  mime_type?: string
+  duration: number
+  file_size?: number
+}
+
+interface TelegramVideo {
+  file_id: string
+  mime_type?: string
+  duration: number
+  file_size?: number
+}
+
+interface TelegramVideoNote {
+  file_id: string
+  duration: number
+  file_size?: number
+}
+
+interface TelegramLocation {
+  latitude: number
+  longitude: number
+  horizontal_accuracy?: number
 }
 
 interface TelegramMessage {
   chat: { id: number }
+  from?: { id: number }
   text?: string
+  caption?: string
+  photo?: TelegramPhotoSize[]
+  document?: TelegramDocument
+  voice?: TelegramVoice
+  audio?: TelegramAudio
+  video?: TelegramVideo
+  video_note?: TelegramVideoNote
+  location?: TelegramLocation
 }
 
 function buildAgentListText(): string {
@@ -46,6 +138,8 @@ function buildWelcomeText(): string {
     '`/switch <agent-id>` — change specialist',
     '`/agents` — list agents',
     '`/new` — start a fresh conversation',
+    '',
+    'You can send photos and I\'ll analyze them. Documents and PDFs are supported where text extraction is available.',
   ].join('\n')
 }
 
@@ -58,7 +152,6 @@ export async function startTelegramChannel(): Promise<void> {
   let BotConstructor: new (token: string, options: Record<string, unknown>) => TelegramBot
 
   try {
-    // Dynamic import to avoid crash if package not installed
     const module = await import('node-telegram-bot-api')
     BotConstructor = module.default as typeof BotConstructor
   } catch {
@@ -78,40 +171,52 @@ export async function startTelegramChannel(): Promise<void> {
     return
   }
 
-  // Per-user state
-  const userStates = new Map<number, UserState>()
+  const userStates = makeLruMap<number, UserState>(USER_STATE_MAX)
 
   async function getState(userId: number): Promise<UserState> {
     if (!userStates.has(userId)) {
       const agentId = await getPreferredAgent(String(userId))
-      userStates.set(userId, { agentId, history: [], personalityId: null, thinkMode: false })
+      const profile = await getProfile(String(userId), 'telegram').catch(() => null)
+      userStates.set(userId, {
+        agentId,
+        history: [],
+        personalityId: null,
+        thinkMode: false,
+        mediaContext: undefined,
+        userProfile: profile,
+        onboardingShown: profile !== null,
+      })
     }
     return userStates.get(userId)!
   }
 
-  async function safeSend(
-    chatId: number,
-    text: string,
-    options?: Record<string, unknown>
-  ): Promise<void> {
+  async function safeSend(chatId: number, text: string, options?: Record<string, unknown>): Promise<void> {
     try {
       await bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...options })
     } catch {
-      // If Markdown fails, try plain text
       try {
         await bot.sendMessage(chatId, text)
       } catch {
-        // Non-fatal — cannot reach user
+        // Non-fatal
       }
     }
+  }
+
+  /** Download a Telegram file by fileId and return its Buffer. */
+  async function downloadTelegramFile(fileId: string): Promise<Buffer> {
+    const fileInfo = await bot.getFile(fileId)
+    if (!fileInfo.file_path) throw new Error('Telegram did not return a file_path')
+    const url = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${fileInfo.file_path}`
+    const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+    if (!resp.ok) throw new Error(`File download failed: HTTP ${resp.status}`)
+    const arrayBuffer = await resp.arrayBuffer()
+    return Buffer.from(arrayBuffer)
   }
 
   bot.on('message', async (msg: TelegramMessage) => {
     const chatId = msg.chat.id
     const senderId = String(chatId)
-    const text = (msg.text || '').trim()
-
-    if (!text) return
+    const text = (msg.text || msg.caption || '').trim()
 
     // Policy allow/deny check
     if (!(await isAllowed(senderId, 'telegram'))) {
@@ -119,12 +224,11 @@ export async function startTelegramChannel(): Promise<void> {
       return
     }
 
-    // Pairing gate — unknown senders must pair before access (if channel requires)
+    // Pairing gate
     const pairingNeeded = await requiresPairing('telegram')
     const approved = await isApproved(senderId)
 
     if (pairingNeeded && !approved) {
-      // /pair XXXXXX — check pairing code
       if (text.startsWith('/pair ')) {
         const code = text.replace('/pair ', '').trim()
         const valid = await verifyPairingCode(senderId, code)
@@ -137,7 +241,6 @@ export async function startTelegramChannel(): Promise<void> {
         return
       }
 
-      // First contact from unknown sender — generate pairing code
       const code = await createPairingCode(senderId)
       await safeSend(
         chatId,
@@ -151,7 +254,6 @@ export async function startTelegramChannel(): Promise<void> {
       return
     }
 
-    // /start — Telegram-specific welcome
     if (text === '/start') {
       await safeSend(chatId, buildWelcomeText())
       return
@@ -159,7 +261,101 @@ export async function startTelegramChannel(): Promise<void> {
 
     const state = await getState(chatId)
 
-    // Delegate all other slash commands to shared dispatcher
+    // ── First-session onboarding ──────────────────────────────────────────────
+    // Show profile collection prompt the first time a new user sends a non-slash,
+    // non-empty text message. Voice/media without text skip the trigger so they
+    // don't re-fire the prompt. Emergency messages route first; onboarding deferred.
+    if (!state.onboardingShown && text && !text.startsWith('/')) {
+      state.onboardingShown = true
+      const emergencyKeywords = ['emergency', 'evacuate', 'flood', 'fire', 'water is rising', 'happening now', 'collapse', 'disaster']
+      const isEmergency = emergencyKeywords.some(k => text.toLowerCase().includes(k))
+      if (!isEmergency) {
+        state.awaitingOnboardingReply = true
+        await safeSend(chatId, ONBOARDING_PROMPT)
+        return
+      }
+      // Emergency: route the message normally, show onboarding after
+    }
+
+    // ── Parse and persist onboarding reply ───────────────────────────────────
+    if (state.awaitingOnboardingReply && text && !text.startsWith('/')) {
+      state.awaitingOnboardingReply = false
+      const parsed = parseOnboardingReply(text)
+      if (parsed && Object.keys(parsed).length > 0) {
+        try {
+          const saved = await upsertProfile(String(chatId), 'telegram', parsed)
+          state.userProfile = saved
+        } catch {
+          // Non-fatal — profile still lives in LLM context this session
+        }
+      }
+      // Fall through so the LLM confirms the captured info
+    }
+
+    // --- Approval intercept ---
+    if (state.pendingApproval) {
+      if (Date.now() > state.pendingApproval.expiresAt) {
+        state.pendingApproval = undefined
+        await safeSend(chatId, '⏱ The pending action expired. Please ask again if you still want to proceed.')
+      } else if (state.pendingApproval.awaitingConfirmCode) {
+        // Second step of double-confirm (notify_emergency)
+        if (isConfirmCode(text) && text.trim() === (state.pendingApproval as { confirmCode?: string }).confirmCode) {
+          const { card, kind } = state.pendingApproval
+          state.pendingApproval = undefined
+          await logConsent(senderId, card, true)
+          const result = await getExecutor(kind).execute(card, senderId)
+          await safeSend(chatId, result.ok ? `🚨 Emergency notification sent.` : `⚠️ ${result.error}`)
+          state.history.push({ role: 'user', content: 'Confirmed with code.' })
+          state.history.push({ role: 'assistant', content: '🚨 Emergency notification processed.' })
+        } else {
+          state.pendingApproval = undefined
+          await safeSend(chatId, '🚫 Confirmation code did not match. Emergency action cancelled.')
+          state.history.push({ role: 'user', content: 'Invalid code.' })
+          state.history.push({ role: 'assistant', content: '🚫 Emergency action cancelled.' })
+        }
+        return
+      } else if (
+        (state.pendingApproval.kind === 'outbound_call' && isCallApproval(text)) ||
+        ((state.pendingApproval.kind === 'send_sms' || state.pendingApproval.kind === 'send_whatsapp') && isSmsApproval(text)) ||
+        isApproval(text)
+      ) {
+        const { card, kind } = state.pendingApproval
+        if (requiresDoubleConfirmation(kind)) {
+          // First YES: issue confirmation code for second step
+          const confirmCode = generateConfirmCode()
+          state.pendingApproval = { ...state.pendingApproval, awaitingConfirmCode: true, confirmCode } as typeof state.pendingApproval & { confirmCode: string }
+          await safeSend(
+            chatId,
+            `⚠️ *Emergency alert confirmation required.*\n\nTo proceed, reply with this confirmation code:\n\`${confirmCode}\`\n\nThis code expires when the action times out.`
+          )
+          return
+        }
+        state.pendingApproval = undefined
+        await logConsent(senderId, card, true)
+        const result = await getExecutor(kind).execute(card, senderId)
+        if (result.ok) {
+          await safeSend(chatId, `✅ ${result.message ?? 'Action completed.'}`)
+        } else {
+          await safeSend(chatId, `⚠️ ${result.error ?? 'Action could not be completed.'}`)
+        }
+        state.history.push({ role: 'user', content: 'YES — I approve the action.' })
+        state.history.push({ role: 'assistant', content: '✅ Action confirmed and logged.' })
+        return
+      } else if (isDenial(text)) {
+        const { card } = state.pendingApproval
+        state.pendingApproval = undefined
+        await logConsent(senderId, card, false)
+        await safeSend(chatId, '🚫 Action cancelled. What else can I help you with?')
+        state.history.push({ role: 'user', content: 'NO — cancel the action.' })
+        state.history.push({ role: 'assistant', content: '🚫 Action cancelled.' })
+        return
+      } else {
+        // Non-YES/NO message while approval pending — clear the card and continue normally
+        state.pendingApproval = undefined
+      }
+    }
+
+    // Slash commands
     if (text.startsWith('/')) {
       const result = await handleSlashCommand(state, text)
       if (result.handled) {
@@ -168,25 +364,134 @@ export async function startTelegramChannel(): Promise<void> {
       }
     }
 
-    // Regular message — route to agent
+    // --- Location pin handling ---
+    let attachment: { type: 'image'; mediaType: string; data: string } | undefined
+    let attachmentContext = ''
+
+    if (msg.location) {
+      const { latitude, longitude } = msg.location
+      try {
+        const geocoded = await geocodeCoordinates(latitude, longitude)
+        attachmentContext = `[LOCATION: ${geocoded.formattedAddress} | ${latitude},${longitude}]`
+      } catch {
+        attachmentContext = `[LOCATION: ${latitude},${longitude}]`
+      }
+      if (state.agentId === 'general') {
+        state.agentId = 'property-climate-risk'
+      }
+    }
+
+    // --- Attachment handling ---
+    try {
+      if (msg.photo || msg.document || msg.voice || msg.audio || msg.video || msg.video_note) {
+        let fileId: string
+        let mimeType: string
+        let fileName: string
+
+        if (msg.photo) {
+          // Use the largest available photo size
+          const largest = msg.photo.reduce((a, b) => (b.file_size ?? 0) > (a.file_size ?? 0) ? b : a)
+          fileId = largest.file_id
+          mimeType = 'image/jpeg'
+          fileName = 'photo.jpg'
+        } else if (msg.document) {
+          fileId = msg.document.file_id
+          mimeType = msg.document.mime_type ?? 'application/octet-stream'
+          fileName = msg.document.file_name ?? 'document'
+        } else if (msg.voice) {
+          fileId = msg.voice.file_id
+          mimeType = msg.voice.mime_type ?? 'audio/ogg'
+          fileName = 'voice.ogg'
+        } else if (msg.audio) {
+          fileId = msg.audio.file_id
+          mimeType = msg.audio.mime_type ?? 'audio/mpeg'
+          fileName = 'audio.mp3'
+        } else if (msg.video) {
+          fileId = msg.video.file_id
+          mimeType = msg.video.mime_type ?? 'video/mp4'
+          fileName = 'video.mp4'
+        } else {
+          // video_note
+          fileId = msg.video_note!.file_id
+          mimeType = 'video/mp4'
+          fileName = 'video_note.mp4'
+        }
+
+        const buffer = await downloadTelegramFile(fileId)
+        const result = await processAttachment(buffer, mimeType, fileName)
+
+        putBlob(buffer, { mimeType, filename: fileName, tags: ['telegram'] }).catch(() => undefined)
+
+        if (result.type === 'image') {
+          attachment = { type: 'image', mediaType: result.mediaType!, data: result.content }
+          // Persist image in conversation media context so follow-up questions can reference it
+          state.mediaContext = {
+            lastImageBase64: result.content,
+            lastImageMediaType: result.mediaType!,
+            capturedAt: Date.now(),
+          }
+        } else {
+          attachmentContext = result.content
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn(`[Telegram] Attachment processing failed: ${message}`)
+      attachmentContext = '[Attachment could not be processed. Please describe what you sent.]'
+    }
+
+    // If we have neither text nor attachment content, skip
+    if (!text && !attachment && !attachmentContext) return
+
+    // Reconstruct image context for follow-up questions (e.g. "What do you see?")
+    // when the current turn has no new image but a prior image was captured recently (24h).
+    const MEDIA_CONTEXT_TTL_MS = 24 * 60 * 60 * 1000
+    if (!attachment && state.mediaContext && (Date.now() - state.mediaContext.capturedAt) < MEDIA_CONTEXT_TTL_MS) {
+      const referencesPriorMedia =
+        /\b(image|photo|picture|photo|flood|damage|see|show|sent|that|it)\b/i.test(text)
+      if (referencesPriorMedia || !text) {
+        attachment = {
+          type: 'image',
+          mediaType: state.mediaContext.lastImageMediaType,
+          data: state.mediaContext.lastImageBase64,
+        }
+      }
+    }
+
+    const userText = [text, attachmentContext].filter(Boolean).join('\n\n')
+
     try {
       const additional = await buildAdditionalContext(state)
-      const response = await routeMessage(state.agentId, text, state.history, additional)
+      const response = await routeMessage(
+        state.agentId,
+        userText || '(attachment)',
+        state.history,
+        additional,
+        undefined,
+        undefined,
+        attachment
+      )
 
       if (state.thinkMode) state.thinkMode = false
 
-      state.history.push({ role: 'user', content: text })
+      // Check if this response contains an action card needing approval
+      const actionCard = extractActionCard(response)
+      if (actionCard) {
+        state.pendingApproval = { card: actionCard, expiresAt: Date.now() + APPROVAL_TTL_MS, kind: detectActionKind(actionCard) }
+      }
+
+      state.history.push({ role: 'user', content: userText || '(attachment)' })
       state.history.push({ role: 'assistant', content: response })
 
-      // Keep history bounded to last 20 exchanges (40 messages)
       if (state.history.length > 40) {
-        state.history.splice(0, state.history.length - 40)
+        state.history = state.history.slice(-40)
       }
 
       await safeSend(chatId, response)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      await safeSend(chatId, `Something went wrong: ${message}\n\nPlease try again.`)
+      console.error(`[Telegram] Message routing failed for chat ${chatId}: ${message}`)
+      await safeSend(chatId, 'Something went wrong on my end. Please try again in a moment.')
     }
   })
 

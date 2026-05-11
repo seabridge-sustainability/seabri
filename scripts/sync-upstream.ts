@@ -39,6 +39,14 @@ function git(cwd: string, args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf-8' }).trim()
 }
 
+function gitMaybe(cwd: string, args: string[]): string | null {
+  try {
+    return git(cwd, args)
+  } catch {
+    return null
+  }
+}
+
 async function reportOne(name: string, entry: UpstreamEntry): Promise<void> {
   const repoPath = resolve(UPSTREAM_ROOT, name)
   console.log(`\n── ${name} ──`)
@@ -59,10 +67,12 @@ async function reportOne(name: string, entry: UpstreamEntry): Promise<void> {
   }
 
   const count = git(repoPath, ['rev-list', '--count', `${entry.commit}..${remoteHead}`])
-  const license = git(repoPath, ['show', `${remoteHead}:LICENSE`]).split('\n')[0]
+  const license = gitMaybe(repoPath, ['show', `${remoteHead}:LICENSE`])?.split('\n')[0]
   console.log(`  status: ${count} new commits on remote`)
-  console.log(`  remote: ${remoteHead.slice(0, 10)}  license line 1: "${license}"`)
-  if (license !== entry.license + ' License') {
+  console.log(`  remote: ${remoteHead.slice(0, 10)}  license line 1: "${license ?? 'missing LICENSE'}"`)
+  if (!license) {
+    console.log(`  ! LICENSE file missing - do not import files until license is verified`)
+  } else if (entry.license !== 'NOASSERTION' && license !== entry.license + ' License') {
     console.log(`  ! license header may have changed — re-audit before bumping pin`)
   }
   console.log(`  log:`)

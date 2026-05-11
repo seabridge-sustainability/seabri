@@ -16,10 +16,27 @@
       },
       "description": "Query cross-repo graphify knowledge graphs via OpenCypher"
     },
+    "gitnexus": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "gitnexus@latest", "mcp"],
+      "cwd": "C:/Users/adelm/SeaBridgeAI/openseabri"
+    },
     "designlang": {
       "command": "npx",
       "args": ["designlang", "mcp", "--out", "./design"],
-      "description": "Live design token server — colors, typography, spacing, components"
+      "description": "Live design token server - colors, typography, spacing, components"
+    },
+    "gbrain": {
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:/Users/adelm/SeaBridgeAI/everything-claude-code/scripts/gbrain.ps1",
+        "serve"
+      ],
+      "description": "Optional local GBrain stdio MCP server for SeaBridgeAI coding-agent memory and code lookup"
     }
   }
 }

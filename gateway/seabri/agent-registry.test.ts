@@ -66,8 +66,8 @@ describe('AgentRegistry', () => {
 })
 
 describe('agentRegistry (singleton)', () => {
-  it('has 8 built-in agents', () => {
-    expect(agentRegistry.list()).toHaveLength(8)
+  it('has 15 built-in agents', () => {
+    expect(agentRegistry.list()).toHaveLength(15)
   })
 
   it('includes all expected agent ids', () => {

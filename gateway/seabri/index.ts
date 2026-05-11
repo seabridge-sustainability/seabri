@@ -22,3 +22,6 @@ export { pluginRegistry } from './plugin-registry-singleton.js'
 
 export { readFindings, listFindingsDates } from './research-reader.js'
 export type { FindingsResult } from './research-reader.js'
+
+export { skillRegistry } from '../registries/skill-registry.js'
+export type { SkillRegistration, SkillSearchOptions } from '../registries/skill-registry.js'

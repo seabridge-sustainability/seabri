@@ -1,5 +1,6 @@
 import { ANTHROPIC_API_KEY, MODEL } from '../config.js'
 import { getSystemPrompt } from './agents.js'
+import { stripModeTag } from '../seabri/modes.js'
 import { buildSystemContext } from '../memory/memory.js'
 import { compressHistory } from '../memory/compress.js'
 import { checkAndImprove } from '../skills/improver.js'
@@ -20,6 +21,9 @@ import { selectModel, getFailoverModels } from '../orchestrator/model-router.js'
 import { classifyIntent } from '../orchestrator/classifier.js'
 import { recordMetric } from '../orchestrator/metrics.js'
 import type { AgentId } from '../schemas.js'
+import { createLogger } from '../logger.js'
+
+const log = createLogger('gateway.router')
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
@@ -34,6 +38,7 @@ interface Message {
 
 type ContentBlock =
   | { type: 'text'; text: string }
+  | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool_use_id: string; content: string }
 
@@ -190,7 +195,7 @@ async function getBridgeContext(agentId: string): Promise<string> {
   const mcpCtx = await augmentMcpToolsContext(agentId, 6)
   if (mcpCtx) parts.push(mcpCtx)
 
-  if (agentId === 'investment-screening' || agentId === 'climate-risk') {
+  if (agentId === 'investment-screening' || agentId === 'climate-risk' || agentId === 'property-climate-risk') {
     const promises: Promise<string>[] = [augmentWorldRiskContext(), augmentSustainabilityContext(sector)]
     if (companyId) {
       promises.push(
@@ -244,37 +249,18 @@ export async function routeMessage(
   additionalContext?: string,
   onToken?: (token: string) => void,
   forceModel?: string,
+  attachment?: { type: 'image'; mediaType: string; data: string },
 ): Promise<string> {
   if (!ANTHROPIC_API_KEY) {
-    return (
-      'ANTHROPIC_API_KEY is not set. Please add it to your .env file or environment variables.\n' +
-      'Run `seabri onboard` to set it up interactively.'
-    )
+    log.error('ANTHROPIC_API_KEY is not set — cannot process message')
+    return "I'm not able to process messages right now. Please contact support."
   }
 
-  let systemContext = ''
-  try {
-    systemContext = await buildSystemContext()
-  } catch {
-    // Context build failure is non-fatal
-  }
-
-  // RAG: find the most relevant SKILL.md guides for this specific query and
-  // inject their full methodology into the system prompt.
-  let skillsContext = ''
-  try {
-    skillsContext = await buildRagSkillsContext(userMessage)
-  } catch {
-    // Skills retrieval failure is non-fatal
-  }
-
-  // Backend data: inject quantitative context from SeaBridgeAI when available.
-  let bridgeContext = ''
-  try {
-    bridgeContext = await getBridgeContext(agentId)
-  } catch {
-    // Bridge failure is non-fatal
-  }
+  const [systemContext, skillsContext, bridgeContext] = await Promise.all([
+    buildSystemContext().catch(() => ''),
+    buildRagSkillsContext(userMessage).catch(() => ''),
+    getBridgeContext(agentId).catch(() => ''),
+  ])
 
   const agentPrompt = getSystemPrompt(agentId)
 
@@ -302,9 +288,20 @@ export async function routeMessage(
 
   const tools = getToolsForAgent(agentId)
 
+  let finalUserContent: string | ContentBlock[]
+  if (attachment) {
+    const blocks: ContentBlock[] = [
+      { type: 'image', source: { type: 'base64', media_type: attachment.mediaType, data: attachment.data } },
+    ]
+    if (userMessage.trim()) blocks.push({ type: 'text', text: userMessage })
+    finalUserContent = blocks
+  } else {
+    finalUserContent = userMessage
+  }
+
   const messages: ApiMessage[] = [
     ...toApiMessages(effectiveHistory),
-    { role: 'user', content: userMessage },
+    { role: 'user', content: finalUserContent },
   ]
 
   const startTime = Date.now()
@@ -359,13 +356,14 @@ export async function routeMessage(
 
       checkAndImprove(userMessage, finalText, agentId).catch(() => {})
 
-      return finalText
+      return stripModeTag(finalText)
     } catch (err: unknown) {
       const status = (err as { status?: number }).status
       const message = err instanceof Error ? err.message : String(err)
 
       if (status === 401) {
-        return 'Authentication failed. Your ANTHROPIC_API_KEY may be invalid or expired. Run `seabri doctor` to check.'
+        log.error('Anthropic API authentication failed — ANTHROPIC_API_KEY may be invalid or expired')
+        return "I'm having trouble connecting right now. Please try again in a moment."
       }
       if (status === 429 && model !== modelFailover[modelFailover.length - 1]) {
         lastError = message
@@ -386,7 +384,8 @@ export async function routeMessage(
     }
   }
 
-  return `An unexpected error occurred: ${lastError}. Please try again.`
+  log.error('all model failovers exhausted', { lastError })
+  return "Something went wrong on my end. Please try again in a moment."
 }
 
 export { classifyIntent } from '../orchestrator/classifier.js'

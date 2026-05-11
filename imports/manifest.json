@@ -19,6 +19,24 @@
       "imported_at": "2026-04-21",
       "imported_paths": [],
       "notes": "Candidates per IMPORT_POLICY §6: skills auto-creation loop (already adapted in gateway/skills/improver.ts), FTS5 session search, cron, subagents, memory nudges. Skip: Honcho user modeling, datagen/RL hooks."
+    },
+    "nanobot": {
+      "url": "https://github.com/HKUDS/nanobot",
+      "commit": "5853d5dfda8a3660ad4da4eddf99353edb06496f",
+      "license": "MIT",
+      "copyright": "Copyright (c) 2025-present Xubin Ren and the nanobot contributors",
+      "imported_at": "2026-05-03",
+      "imported_paths": [],
+      "notes": "Reference candidate: ultra-lightweight agent loop, chat channels, memory, MCP, WebUI, and deployment patterns. No OpenSeaBri runtime imports yet."
+    },
+    "awesome-deepseek-agent": {
+      "url": "https://github.com/deepseek-ai/awesome-deepseek-agent",
+      "commit": "5c11e0140ef75cfd47e9c537b56ec5868694f1bd",
+      "license": "NOASSERTION",
+      "copyright": "No LICENSE file present at pinned commit",
+      "imported_at": "2026-05-03",
+      "imported_paths": [],
+      "notes": "Reference-only guide mirror for DeepSeek agent integrations. Do not import or adapt files until upstream publishes a compatible license and IMPORT_POLICY section 7 is re-run."
     }
   }
 }

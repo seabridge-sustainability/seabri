@@ -19,7 +19,20 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'http'
+import { timingSafeEqual } from 'crypto'
+import { basename } from 'path'
 import { putBlob, getBlob, listAttachments, statBlob } from './store.js'
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  'application/pdf', 'text/plain', 'text/csv',
+  'application/json',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'audio/mpeg', 'audio/wav', 'audio/ogg',
+  'video/mp4', 'video/webm',
+  'application/octet-stream',
+])
 
 const DEFAULT_MAX_MB = 20
 
@@ -35,7 +48,11 @@ function authorized(req: IncomingMessage): boolean {
   const header = req.headers['authorization']
   if (typeof header !== 'string') return false
   const expected = `Bearer ${token}`
-  return header === expected
+  try {
+    return timingSafeEqual(Buffer.from(header), Buffer.from(expected))
+  } catch {
+    return false
+  }
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -86,8 +103,12 @@ export async function handleAttachmentRequest(
 
   // POST /attachments
   if (method === 'POST' && segments.length === 1) {
-    const mimeType = (req.headers['content-type'] as string | undefined) || 'application/octet-stream'
-    const filename = (req.headers['x-filename'] as string | undefined) || undefined
+    const rawMime = (req.headers['content-type'] as string | undefined) || 'application/octet-stream'
+    const mimeType = ALLOWED_MIME_TYPES.has(rawMime) ? rawMime : 'application/octet-stream'
+    const rawFilename = (req.headers['x-filename'] as string | undefined)
+    const filename = rawFilename
+      ? basename(rawFilename).replace(/[^\x20-\x7E]/g, '').slice(0, 255) || undefined
+      : undefined
     const rawTags = (req.headers['x-tags'] as string | undefined) || ''
     const tags = rawTags
       .split(',')
@@ -119,6 +140,10 @@ export async function handleAttachmentRequest(
 
   // GET /attachments/<sha>/meta
   if (method === 'GET' && segments.length === 3 && segments[2] === 'meta') {
+    if (!/^[0-9a-f]{64}$/i.test(segments[1] ?? '')) {
+      json(res, 400, { error: 'invalid sha256' })
+      return true
+    }
     const meta = await statBlob(segments[1])
     if (!meta) {
       json(res, 404, { error: 'not found' })
@@ -130,14 +155,26 @@ export async function handleAttachmentRequest(
 
   // GET /attachments/<sha>
   if (method === 'GET' && segments.length === 2) {
+    if (!/^[0-9a-f]{64}$/i.test(segments[1] ?? '')) {
+      json(res, 400, { error: 'invalid sha256' })
+      return true
+    }
     const blob = await getBlob(segments[1])
     if (!blob) {
       json(res, 404, { error: 'not found' })
       return true
     }
+    const safeMime = ALLOWED_MIME_TYPES.has(blob.meta.mimeType)
+      ? blob.meta.mimeType
+      : 'application/octet-stream'
+    const safeFilename = blob.meta.filename
+      ? `; filename="${blob.meta.filename.replace(/["\\\r\n]/g, '')}"`
+      : ''
     res.writeHead(200, {
-      'content-type': blob.meta.mimeType,
+      'content-type': safeMime,
       'content-length': blob.meta.size.toString(),
+      'content-disposition': `attachment${safeFilename}`,
+      'x-content-type-options': 'nosniff',
       'cache-control': 'public, max-age=31536000, immutable',
       'x-attachment-sha256': blob.meta.sha256,
     })

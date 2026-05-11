@@ -1,13 +1,17 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
+import { randomInt, timingSafeEqual } from 'crypto'
 import { resolve } from 'path'
 import { WORKSPACE_DIR } from '../config.js'
 
 const APPROVED_FILE = resolve(WORKSPACE_DIR, 'approved-senders.json')
 const CODE_EXPIRY_MS = 10 * 60 * 1000 // 10 minutes
 
+const MAX_VERIFY_ATTEMPTS = 5
+
 interface PairingCode {
   code: string
   createdAt: number
+  attempts?: number
 }
 
 interface ApprovedSenders {
@@ -34,7 +38,7 @@ async function saveData(data: ApprovedSenders): Promise<void> {
 }
 
 function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000))
+  return String(randomInt(100000, 1000000))
 }
 
 export async function isApproved(senderId: string): Promise<boolean> {
@@ -64,8 +68,19 @@ export async function verifyPairingCode(senderId: string, code: string): Promise
     await saveData(data)
     return false
   }
-  if (pending.code !== code) return false
-  // Approve and remove pending
+  const attempts = (pending.attempts ?? 0) + 1
+  if (attempts > MAX_VERIFY_ATTEMPTS) {
+    delete data.pending[senderId]
+    await saveData(data)
+    return false
+  }
+  const a = Buffer.from(pending.code)
+  const b = Buffer.from(code)
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    pending.attempts = attempts
+    await saveData(data)
+    return false
+  }
   if (!data.approved.includes(senderId)) {
     data.approved.push(senderId)
   }

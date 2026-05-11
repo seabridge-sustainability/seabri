@@ -2,22 +2,31 @@ import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { getDb, isDbConfigured } from '../db/client.js'
 import { users } from '../db/schema.js'
 import { eq } from 'drizzle-orm'
-import { createHash, randomBytes, timingSafeEqual } from 'crypto'
+import { scryptSync, randomBytes, timingSafeEqual } from 'crypto'
 
 const JWT_SECRET_ENV = process.env.SEABRI_JWT_SECRET || ''
 const TOKEN_EXPIRY = '7d'
 
 function getSecret(): Uint8Array {
-  const raw = JWT_SECRET_ENV || randomBytes(32).toString('hex')
-  return new TextEncoder().encode(raw)
+  if (!JWT_SECRET_ENV) throw new Error('SEABRI_JWT_SECRET must be set')
+  return new TextEncoder().encode(JWT_SECRET_ENV)
 }
 
 const secret = getSecret()
 
+const SCRYPT_KEYLEN = 64
+const SCRYPT_COST = 16384
+const SCRYPT_BLOCK_SIZE = 8
+const SCRYPT_PARALLELIZATION = 1
+
 function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
   const s = salt ?? randomBytes(16).toString('hex')
-  const hash = createHash('sha256').update(password + s).digest('hex')
-  return { hash: `${s}:${hash}`, salt: s }
+  const derived = scryptSync(password, s, SCRYPT_KEYLEN, {
+    cost: SCRYPT_COST,
+    blockSize: SCRYPT_BLOCK_SIZE,
+    parallelization: SCRYPT_PARALLELIZATION,
+  })
+  return { hash: `${s}:${derived.toString('hex')}`, salt: s }
 }
 
 function verifyPassword(password: string, stored: string): boolean {

@@ -1,6 +1,15 @@
 import { z } from 'zod'
 
 export const AGENT_IDS = [
+  // SeaBri core agents
+  'seabri-orchestrator',
+  'emergency-resilience',
+  'insurance-navigator',
+  'property-climate-risk',
+  'damage-documentation',
+  'contractor-coordination',
+  'sustainability-companion',
+  // Specialist agents
   'climate-risk',
   'nature-biodiversity',
   'sustainability-reporting',
@@ -23,15 +32,35 @@ export const InitMessageSchema = z.object({
 export const ChatMessageSchema = z.object({
   type: z.literal('chat'),
   content: z.string().min(1).max(100_000),
+  attachments: z.array(z.object({
+    kind: z.enum(['image', 'document', 'file']),
+    mime: z.string().max(120),
+    name: z.string().max(240),
+    data: z.string().max(8_000_000),
+  })).max(4).optional(),
+})
+
+export const ApproveMessageSchema = z.object({
+  type: z.literal('approve'),
+  id: z.string(),
+})
+
+export const DenyMessageSchema = z.object({
+  type: z.literal('deny'),
+  id: z.string(),
 })
 
 export const IncomingMessageSchema = z.discriminatedUnion('type', [
   InitMessageSchema,
   ChatMessageSchema,
+  ApproveMessageSchema,
+  DenyMessageSchema,
 ])
 
 export type InitMessage = z.infer<typeof InitMessageSchema>
 export type ChatMessage = z.infer<typeof ChatMessageSchema>
+export type ApproveMessage = z.infer<typeof ApproveMessageSchema>
+export type DenyMessage = z.infer<typeof DenyMessageSchema>
 export type IncomingMessage = z.infer<typeof IncomingMessageSchema>
 
 export const ReadyResponseSchema = z.object({
@@ -59,12 +88,28 @@ export const ErrorResponseSchema = z.object({
   message: z.string(),
 })
 
+export const ActionCardResponseSchema = z.object({
+  type: z.literal('action_card'),
+  id: z.string(),
+  kind: z.string(),
+  card: z.string(),
+})
+
+export const ApprovalResultResponseSchema = z.object({
+  type: z.literal('approval_result'),
+  id: z.string(),
+  approved: z.boolean(),
+  ok: z.boolean(),
+})
+
 export const OutgoingMessageSchema = z.discriminatedUnion('type', [
   ReadyResponseSchema,
   TokenResponseSchema,
   ThinkingResponseSchema,
   DoneResponseSchema,
   ErrorResponseSchema,
+  ActionCardResponseSchema,
+  ApprovalResultResponseSchema,
 ])
 
 export type OutgoingMessage = z.infer<typeof OutgoingMessageSchema>

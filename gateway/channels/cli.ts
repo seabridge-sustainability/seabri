@@ -1,5 +1,5 @@
 import * as readline from 'readline'
-import { AGENTS, SEABRIDGE_API_URL, SEABRIDGE_API_KEY } from '../config.js'
+import { AGENTS } from '../config.js'
 import { getAgentName } from '../agents/agents.js'
 import { routeMessage } from '../agents/router.js'
 import {
@@ -7,25 +7,10 @@ import {
   handleSlashCommand,
   type ChannelState,
 } from './shared_commands.js'
+import { extractActionCard, isApproval, isDenial, logConsent } from '../seabri/approval.js'
 
 async function checkSeaBridgeConnection(): Promise<boolean> {
-  if (!SEABRIDGE_API_URL) return false
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 3000)
-    const headers: Record<string, string> = {}
-    if (SEABRIDGE_API_KEY) {
-      headers['Authorization'] = `Bearer ${SEABRIDGE_API_KEY}`
-    }
-    const response = await fetch(`${SEABRIDGE_API_URL}/health`, {
-      signal: controller.signal,
-      headers,
-    })
-    clearTimeout(timeout)
-    return response.ok
-  } catch {
-    return false
-  }
+  return false
 }
 
 function printWelcome(agentId: string, connected: boolean): void {
@@ -72,6 +57,35 @@ export async function startCliChannel(agentId?: string): Promise<void> {
       return
     }
 
+    // --- Approval intercept ---
+    if (state.pendingApproval) {
+      if (Date.now() > state.pendingApproval.expiresAt) {
+        state.pendingApproval = undefined
+        console.log('\n⏱ The pending action expired. Please ask again if you still want to proceed.\n')
+        rl.prompt()
+      } else if (isApproval(input)) {
+        const { card } = state.pendingApproval
+        state.pendingApproval = undefined
+        await logConsent('cli-user', card, true)
+        console.log('\n✅ Got it — proceeding with the action.\n')
+        state.history.push({ role: 'user', content: 'YES — I approve the action.' })
+        state.history.push({ role: 'assistant', content: '✅ Action confirmed and logged.' })
+        rl.prompt()
+        return
+      } else if (isDenial(input)) {
+        const { card } = state.pendingApproval
+        state.pendingApproval = undefined
+        await logConsent('cli-user', card, false)
+        console.log('\n🚫 Action cancelled. What else can I help you with?\n')
+        state.history.push({ role: 'user', content: 'NO — cancel the action.' })
+        state.history.push({ role: 'assistant', content: '🚫 Action cancelled.' })
+        rl.prompt()
+        return
+      } else {
+        state.pendingApproval = undefined
+      }
+    }
+
     if (input.startsWith('/')) {
       const result = await handleSlashCommand(state, input)
       if (result.handled) {
@@ -93,6 +107,9 @@ export async function startCliChannel(agentId?: string): Promise<void> {
       const response = await routeMessage(state.agentId, input, state.history, additional)
 
       if (state.thinkMode) state.thinkMode = false
+
+      const actionCard = extractActionCard(response)
+      if (actionCard) state.pendingApproval = { card: actionCard, expiresAt: Date.now() + 300000, kind: 'general' }
 
       // Add to history after successful response
       state.history.push({ role: 'user', content: input })

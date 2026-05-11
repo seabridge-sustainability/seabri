@@ -46,6 +46,45 @@ export interface ConnectionState {
 }
 
 declare global {
+  interface SpeechRecognitionResult {
+    readonly isFinal: boolean
+    readonly length: number
+    item(index: number): SpeechRecognitionAlternative
+    [index: number]: SpeechRecognitionAlternative
+  }
+  interface SpeechRecognitionAlternative {
+    readonly transcript: string
+    readonly confidence: number
+  }
+  interface SpeechRecognitionResultList {
+    readonly length: number
+    item(index: number): SpeechRecognitionResult
+    [index: number]: SpeechRecognitionResult
+  }
+  interface SpeechRecognitionEvent extends Event {
+    readonly results: SpeechRecognitionResultList
+    readonly resultIndex: number
+  }
+  interface SpeechRecognitionErrorEvent extends Event {
+    readonly error: string
+    readonly message: string
+  }
+  class SpeechRecognition extends EventTarget {
+    continuous: boolean
+    lang: string
+    interimResults: boolean
+    maxAlternatives: number
+    onresult: ((event: SpeechRecognitionEvent) => void) | null
+    onerror: ((event: SpeechRecognitionErrorEvent) => void) | null
+    onend: (() => void) | null
+    start(): void
+    stop(): void
+    abort(): void
+  }
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition
+    webkitSpeechRecognition: typeof SpeechRecognition
+  }
   interface ImportMetaEnv {
     readonly MODE: string
     readonly DEV: boolean
@@ -54,9 +93,10 @@ declare global {
     readonly BASE_URL: string
     readonly VITE_ANTHROPIC_API_KEY?: string
     readonly VITE_ANTHROPIC_MODEL?: string
-    readonly VITE_SEABRIDGE_API_URL?: string
     readonly VITE_GATEWAY_URL?: string
+    readonly VITE_OPENSEABRI_API_KEY?: string
     readonly VITE_CANVAS_WS_URL?: string
+    readonly VITE_WS_TOKEN?: string
   }
   interface ImportMeta {
     readonly env: ImportMetaEnv

@@ -29,6 +29,7 @@ const INDEX_FILE = resolve(ATTACHMENTS_DIR, 'index.json')
 type IndexMap = Record<string, Attachment>
 
 let catalogCache: IndexMap | null = null
+let catalogLoadPromise: Promise<IndexMap> | null = null
 let writeQueue: Promise<void> = Promise.resolve()
 
 function blobPath(sha256: string): string {
@@ -41,13 +42,19 @@ function hashBytes(buf: Buffer): string {
 
 async function loadCatalog(): Promise<IndexMap> {
   if (catalogCache) return catalogCache
-  try {
-    const raw = await readFile(INDEX_FILE, 'utf-8')
-    catalogCache = JSON.parse(raw) as IndexMap
-  } catch {
-    catalogCache = {}
+  if (!catalogLoadPromise) {
+    catalogLoadPromise = (async () => {
+      try {
+        const raw = await readFile(INDEX_FILE, 'utf-8')
+        catalogCache = JSON.parse(raw) as IndexMap
+      } catch {
+        catalogCache = {}
+      }
+      catalogLoadPromise = null
+      return catalogCache!
+    })()
   }
-  return catalogCache
+  return catalogLoadPromise
 }
 
 async function persistCatalog(map: IndexMap): Promise<void> {

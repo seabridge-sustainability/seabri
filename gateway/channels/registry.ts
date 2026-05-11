@@ -19,28 +19,28 @@
 import { whatsappChannel } from './whatsapp.js'
 import { discordChannel } from './discord.js'
 import { slackChannel } from './slack.js'
+import { smsChannel } from './sms.js'
+import { voiceChannel } from './voice.js'
 import type { BaseChannel } from './base.js'
+import { enabledChannelSet } from './enablement.js'
 
 export const CHANNELS: readonly BaseChannel[] = [
   whatsappChannel,
   discordChannel,
   slackChannel,
+  smsChannel,
+  voiceChannel,
 ]
 
 function allowlist(): Set<string> | null {
-  const raw = (process.env.OPENSEABRI_CHANNELS_ENABLED || '').trim()
-  if (!raw) return null
-  const ids = raw
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean)
-  return ids.length > 0 ? new Set(ids) : null
+  const ids = enabledChannelSet()
+  return ids.size > 0 ? ids : null
 }
 
 export async function startOptionalChannels(): Promise<void> {
   const allowed = allowlist()
   for (const ch of CHANNELS) {
-    if (allowed && !allowed.has(ch.id)) continue
+    if (!allowed || !allowed.has(ch.id)) continue
     if (!ch.isEnabled()) continue
     try {
       await ch.start()

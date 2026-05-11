@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'http'
-import { agentRegistry } from './agent-registry.js'
+import { timingSafeEqual } from 'crypto'
+import { z } from 'zod'
 import { modelRegistry } from './model-registry.js'
 import { routeTask } from './task-router.js'
 import { getTelemetrySnapshot, getTelemetryHistory } from './telemetry.js'
 import { submitFeedback, getFeedbackSummary } from './feedback.js'
-import { listTools } from '../tools/registry.js'
 import { pluginRegistry } from './plugin-registry-singleton.js'
 import { registerWorkflow, listWorkflows, runWorkflow } from './workflow-store.js'
 import { validatePluginManifest } from '../../plugins/loader.js'
@@ -15,6 +15,112 @@ import { estimateCarbonGrams } from '../../sustainability/carbon-model.js'
 import { scoreDecision } from '../../sustainability/scorer.js'
 import { scoreSustainability } from './sustainability-scoring.js'
 import { readFindings, listFindingsDates } from './research-reader.js'
+import { generateCarbonReport } from './carbon-report.js'
+import { checkDailyBudget, checkSessionBudget, checkBudgetAlert } from './carbon-budget.js'
+import { scanWebsite } from '../../bridge/seabridge_client.js'
+import {
+  getAgentView,
+  listAgentViews,
+  listCapabilityViews,
+  listMcpViews,
+  listSkillViews,
+  listToolViews,
+} from './registry-views.js'
+import { buildRegistrySnapshot } from './registry-snapshot.js'
+import { getProviderReadiness, validateProviderReadiness } from './provider-readiness.js'
+import { runIncidentWorkflow } from './incident-workflow.js'
+import { analyzeIncidentImage, IncidentImageInputSchema } from './vision-analysis.js'
+import { createResourceActionCard, searchLocalResources, LocalResourceSearchInputSchema, ResourceCategorySchema } from './local-resources.js'
+import { compareProducts, CompareProductsInputSchema } from '../sustainability/product-comparison.js'
+import { optimizeSustainableCompute, SustainableComputeInputSchema } from './sustainable-compute.js'
+import {
+  CarbonOffsetCheckerInputSchema,
+  CertificationNavigatorInputSchema,
+  CommunityResilienceInputSchema,
+  CommunityProjectInputSchema,
+  HomeEnergyInputSchema,
+  HouseholdCarbonInputSchema,
+  SustainablePurchasingInputSchema,
+  buildCommunityResilienceChecklist,
+  buildSustainablePurchasingChecklist,
+  checkCarbonOffsetQuality,
+  estimateHouseholdCarbon,
+  navigateCertification,
+  planCommunityProject,
+  planHomeEnergyActions,
+} from './practical-sustainability.js'
+import { deleteProfile, getProfile, upsertProfile } from './user-profile.js'
+import { recordTelemetryEvent } from '../telemetry/store.js'
+
+const RouteBodySchema = z.object({
+  task: z.string().trim().min(1, '"task" string is required'),
+  agentId: z.string().trim().optional(),
+  modelId: z.string().trim().optional(),
+  conversationDepth: z.number().int().nonnegative().optional(),
+  channelId: z.string().trim().optional(),
+})
+
+const FeedbackBodySchema = z.object({
+  sessionId: z.string().trim().min(1, '"sessionId" string is required'),
+  rating: z.enum(['up', 'down']),
+  agentId: z.string().trim().optional(),
+  taskId: z.string().trim().optional(),
+  correction: z.string().optional(),
+})
+
+const WorkflowRunBodySchema = z.object({
+  input: z.record(z.string(), z.unknown()).optional(),
+})
+
+const ProviderValidateBodySchema = z.object({
+  provider: z.string().trim().optional(),
+  testTarget: z.string().trim().optional(),
+  liveTestRequested: z.boolean().optional(),
+})
+
+const IncidentWorkflowBodySchema = z.object({
+  message: z.string().trim().min(1, '"message" string is required').max(100_000),
+  history: z.array(z.object({
+    role: z.string().trim(),
+    content: z.string(),
+  })).optional(),
+  profile: z.record(z.string(), z.unknown()).optional(),
+})
+
+const ResourceActionCardBodySchema = z.object({
+  resource: z.object({
+    id: z.string(),
+    name: z.string(),
+    category: ResourceCategorySchema,
+    rank: z.number().int().positive(),
+    phone: z.string().optional(),
+    website: z.string().optional(),
+    address: z.string().optional(),
+    hours: z.string().optional(),
+    source: z.string(),
+    sourceUrl: z.string().optional(),
+    confidence: z.enum(['high', 'medium', 'low']),
+    notes: z.string().optional(),
+  }),
+  purpose: z.string().trim().max(240).optional(),
+}).strict()
+
+const ProfileQuerySchema = z.object({
+  userId: z.string().trim().min(1).max(120),
+  channel: z.string().trim().min(1).max(40).default('web'),
+})
+
+const ProfileUpdateSchema = ProfileQuerySchema.extend({
+  name: z.string().trim().max(120).optional(),
+  address: z.string().trim().max(240).optional(),
+  city: z.string().trim().max(120).optional(),
+  state: z.string().trim().max(80).optional(),
+  zip: z.string().trim().max(20).optional(),
+  phone: z.string().trim().max(40).optional(),
+  preferredLanguage: z.string().trim().max(40).optional(),
+  emergencyContact: z.string().trim().max(160).optional(),
+  householdNotes: z.string().trim().max(500).optional(),
+}).strict()
 
 function json(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
@@ -25,13 +131,67 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload)
 }
 
+const MAX_BODY_BYTES = 1 * 1024 * 1024 // 1 MB
+
 async function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    req.on('data', (c: Buffer) => chunks.push(c))
+    let total = 0
+    req.on('data', (c: Buffer) => {
+      total += c.length
+      if (total > MAX_BODY_BYTES) {
+        reject(Object.assign(new Error('Payload too large'), { status: 413 }))
+        req.destroy()
+        return
+      }
+      chunks.push(c)
+    })
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
     req.on('error', reject)
   })
+}
+
+async function parseJsonWithSchema<T>(
+  req: IncomingMessage,
+  schema: z.ZodType<T>,
+): Promise<{ ok: true; value: T } | { ok: false; status: number; error: string }> {
+  const body = await readBody(req)
+  let parsed: unknown
+  if (!body.trim()) {
+    parsed = {}
+  } else {
+    try {
+      parsed = JSON.parse(body)
+    } catch {
+      return { ok: false, status: 400, error: 'Invalid JSON body' }
+    }
+  }
+
+  const result = schema.safeParse(parsed)
+  if (!result.success) {
+    const first = result.error.issues[0]
+    if (first?.path[0] === 'task') {
+      return { ok: false, status: 400, error: '"task" string is required' }
+    }
+    return { ok: false, status: 400, error: first?.message ?? 'Invalid request body' }
+  }
+  return { ok: true, value: result.data }
+}
+
+function isAuthorized(req: IncomingMessage): boolean {
+  const apiKey = process.env.OPENSEABRI_API_KEY
+  if (!apiKey) return false
+  const header = req.headers['x-openseabri-key'] as string | undefined
+  if (!header) return false
+  try {
+    return timingSafeEqual(Buffer.from(header), Buffer.from(apiKey))
+  } catch {
+    return false
+  }
+}
+
+function queryParams(url: string): URLSearchParams {
+  return url.includes('?') ? new URLSearchParams(url.slice(url.indexOf('?') + 1)) : new URLSearchParams()
 }
 
 /**
@@ -39,6 +199,13 @@ async function readBody(req: IncomingMessage): Promise<string> {
  * Returns true if the request matched a SeaBri route, false otherwise.
  *
  * Routes:
+ *   GET  /api/seabri/capabilities              - sanitized capability registry
+ *   GET  /api/seabri/agents/:id                - sanitized agent detail
+ *   GET  /api/seabri/skills                    - sanitized skill registry
+ *   GET  /api/seabri/mcp                       - sanitized MCP registry
+ *   GET  /api/seabri/registry-snapshot         - versioned sanitized registry snapshot
+ *   GET  /api/seabri/admin/provider-readiness  - sanitized provider readiness
+ *   POST /api/seabri/admin/provider-validate   - safe provider config validation only
  *   GET  /api/seabri/agents                    — list all registered agents
  *   GET  /api/seabri/models                    — list all registered models
  *   POST /api/seabri/route                     — route a task (body: { task, agentId?, modelId? })
@@ -69,17 +236,254 @@ export async function handleSeabriApiRequest(
 
   if (!url.startsWith('/api/seabri')) return false
 
+  if (!isAuthorized(req)) {
+    json(res, 401, { error: 'Unauthorized' })
+    return true
+  }
+
   try {
+    // GET /api/seabri/capabilities
+    if (url === '/api/seabri/capabilities' && method === 'GET') {
+      json(res, 200, { capabilities: listCapabilityViews() })
+      return true
+    }
+
     // GET /api/seabri/agents
     if (url === '/api/seabri/agents' && method === 'GET') {
-      const agents = agentRegistry.list().map((a) => ({
-        id: a.id,
-        name: a.name,
-        description: a.description,
-        capabilities: a.capabilities,
-        builtin: a.builtin,
-      }))
-      json(res, 200, { agents })
+      json(res, 200, { agents: listAgentViews() })
+      return true
+    }
+
+    // GET /api/seabri/agents/:id
+    if (url.startsWith('/api/seabri/agents/') && method === 'GET') {
+      const id = decodeURIComponent(url.slice('/api/seabri/agents/'.length))
+      const agent = getAgentView(id)
+      if (!agent) {
+        json(res, 404, { error: `Agent "${id}" not found` })
+      } else {
+        json(res, 200, { agent })
+      }
+      return true
+    }
+
+    // GET /api/seabri/skills
+    if (url === '/api/seabri/skills' && method === 'GET') {
+      json(res, 200, { skills: await listSkillViews() })
+      return true
+    }
+
+    // GET /api/seabri/mcp
+    if (url === '/api/seabri/mcp' && method === 'GET') {
+      json(res, 200, { mcp: listMcpViews() })
+      return true
+    }
+
+    // GET /api/seabri/registry-snapshot
+    if (url === '/api/seabri/registry-snapshot' && method === 'GET') {
+      json(res, 200, { snapshot: await buildRegistrySnapshot() })
+      return true
+    }
+
+    // GET /api/seabri/admin/provider-readiness
+    if (url === '/api/seabri/admin/provider-readiness' && method === 'GET') {
+      json(res, 200, { providers: getProviderReadiness() })
+      return true
+    }
+
+    // POST /api/seabri/admin/provider-validate
+    if (url === '/api/seabri/admin/provider-validate' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, ProviderValidateBodySchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await validateProviderReadiness(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/incident' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, IncidentWorkflowBodySchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      const result = runIncidentWorkflow({
+        message: parsed.value.message,
+        history: parsed.value.history,
+        profile: parsed.value.profile,
+      })
+      if (!result.handled) {
+        json(res, 422, {
+          handled: false,
+          error: 'Message did not match a Living Companion incident workflow.',
+        })
+        return true
+      }
+      json(res, 200, result)
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/local-resources' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, LocalResourceSearchInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await searchLocalResources(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/local-resources/action-card' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, ResourceActionCardBodySchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, { actionCard: createResourceActionCard(parsed.value.resource, parsed.value.purpose) })
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/incident-image' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, IncidentImageInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await analyzeIncidentImage(parsed.value))
+      return true
+    }
+
+    if (url.startsWith('/api/seabri/profile') && method === 'GET') {
+      const params = queryParams(url)
+      const parsed = ProfileQuerySchema.safeParse({
+        userId: params.get('userId'),
+        channel: params.get('channel') ?? 'web',
+      })
+      if (!parsed.success) {
+        json(res, 400, { error: 'Valid userId is required' })
+        return true
+      }
+      json(res, 200, { profile: await getProfile(parsed.data.userId, parsed.data.channel) })
+      return true
+    }
+
+    if ((url === '/api/seabri/profile' || url === '/api/seabri/update_profile') && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, ProfileUpdateSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      const { userId, channel, ...updates } = parsed.value
+      json(res, 200, { profile: await upsertProfile(userId, channel, updates) })
+      return true
+    }
+
+    if ((url.startsWith('/api/seabri/profile') || url.startsWith('/api/seabri/delete_profile')) && method === 'DELETE') {
+      const params = queryParams(url)
+      const parsed = ProfileQuerySchema.safeParse({
+        userId: params.get('userId'),
+        channel: params.get('channel') ?? 'web',
+      })
+      if (!parsed.success) {
+        json(res, 400, { error: 'Valid userId is required' })
+        return true
+      }
+      json(res, 200, { deleted: await deleteProfile(parsed.data.userId, parsed.data.channel) })
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/product-comparison' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, CompareProductsInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      const result = compareProducts(parsed.value)
+      recordTelemetryEvent({
+        type: 'sustainability_scored',
+        data: { workflow: 'product_comparison', productCount: parsed.value.products.length },
+      }).catch(() => {})
+      json(res, 200, result)
+      return true
+    }
+
+    if (url === '/api/seabri/harness/optimize-sustainable-compute' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, SustainableComputeInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await optimizeSustainableCompute(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/household-carbon-footprint' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, HouseholdCarbonInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await estimateHouseholdCarbon(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/home-energy-plan' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, HomeEnergyInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await planHomeEnergyActions(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/community-project-plan' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, CommunityProjectInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await planCommunityProject(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/certification-navigator' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, CertificationNavigatorInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await navigateCertification(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/carbon-offset-checker' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, CarbonOffsetCheckerInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await checkCarbonOffsetQuality(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/sustainable-purchasing-checklist' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, SustainablePurchasingInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await buildSustainablePurchasingChecklist(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/community-resilience-checklist' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, CommunityResilienceInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await buildCommunityResilienceChecklist(parsed.value))
       return true
     }
 
@@ -101,26 +505,18 @@ export async function handleSeabriApiRequest(
 
     // POST /api/seabri/route
     if (url === '/api/seabri/route' && method === 'POST') {
-      const body = await readBody(req)
-      let parsed: { task?: unknown; agentId?: unknown; modelId?: unknown; conversationDepth?: unknown }
-      try {
-        parsed = JSON.parse(body)
-      } catch {
-        json(res, 400, { error: 'Invalid JSON body' })
-        return true
-      }
-
-      const task = typeof parsed.task === 'string' ? parsed.task.trim() : ''
-      if (!task) {
-        json(res, 400, { error: '"task" string is required' })
+      const parsed = await parseJsonWithSchema(req, RouteBodySchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
         return true
       }
 
       const decision = routeTask({
-        task,
-        agentId: typeof parsed.agentId === 'string' ? parsed.agentId : undefined,
-        modelId: typeof parsed.modelId === 'string' ? parsed.modelId : undefined,
-        conversationDepth: typeof parsed.conversationDepth === 'number' ? parsed.conversationDepth : undefined,
+        task: parsed.value.task,
+        agentId: parsed.value.agentId,
+        modelId: parsed.value.modelId,
+        conversationDepth: parsed.value.conversationDepth,
+        channelId: parsed.value.channelId ?? 'api',
       })
 
       json(res, 200, decision)
@@ -141,6 +537,24 @@ export async function handleSeabriApiRequest(
       return true
     }
 
+    // GET /api/seabri/carbon/report
+    if (url.startsWith('/api/seabri/carbon/report') && method === 'GET') {
+      const qs = url.includes('?') ? new URLSearchParams(url.slice(url.indexOf('?') + 1)) : null
+      const days = qs ? parseInt(qs.get('days') ?? '7', 10) : 7
+      json(res, 200, generateCarbonReport(Number.isFinite(days) && days > 0 ? days : 7))
+      return true
+    }
+
+    // GET /api/seabri/carbon/budget
+    if (url.startsWith('/api/seabri/carbon/budget') && method === 'GET') {
+      const qs = url.includes('?') ? new URLSearchParams(url.slice(url.indexOf('?') + 1)) : null
+      const sessionId = qs?.get('sessionId') ?? undefined
+      const budget = sessionId ? checkSessionBudget(sessionId) : checkDailyBudget()
+      const alert = checkBudgetAlert(budget)
+      json(res, 200, { budget, alert })
+      return true
+    }
+
     // GET /api/seabri/feedback/summary
     if (url === '/api/seabri/feedback/summary' && method === 'GET') {
       json(res, 200, getFeedbackSummary())
@@ -149,32 +563,18 @@ export async function handleSeabriApiRequest(
 
     // POST /api/seabri/feedback
     if (url === '/api/seabri/feedback' && method === 'POST') {
-      const body = await readBody(req)
-      let parsed: { sessionId?: unknown; rating?: unknown; agentId?: unknown; taskId?: unknown; correction?: unknown }
-      try {
-        parsed = JSON.parse(body)
-      } catch {
-        json(res, 400, { error: 'Invalid JSON body' })
-        return true
-      }
-
-      const sessionId = typeof parsed.sessionId === 'string' ? parsed.sessionId.trim() : ''
-      if (!sessionId) {
-        json(res, 400, { error: '"sessionId" string is required' })
-        return true
-      }
-      const rating = parsed.rating === 'up' || parsed.rating === 'down' ? parsed.rating : null
-      if (!rating) {
-        json(res, 400, { error: '"rating" must be "up" or "down"' })
+      const parsed = await parseJsonWithSchema(req, FeedbackBodySchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
         return true
       }
 
       const entry = submitFeedback({
-        sessionId,
-        rating,
-        agentId: typeof parsed.agentId === 'string' ? parsed.agentId : undefined,
-        taskId: typeof parsed.taskId === 'string' ? parsed.taskId : undefined,
-        correction: typeof parsed.correction === 'string' ? parsed.correction : undefined,
+        sessionId: parsed.value.sessionId,
+        rating: parsed.value.rating,
+        agentId: parsed.value.agentId,
+        taskId: parsed.value.taskId,
+        correction: parsed.value.correction,
       })
 
       json(res, 201, entry)
@@ -183,7 +583,7 @@ export async function handleSeabriApiRequest(
 
     // GET /api/seabri/tools
     if (url === '/api/seabri/tools' && method === 'GET') {
-      json(res, 200, { tools: listTools() })
+      json(res, 200, { tools: listToolViews() })
       return true
     }
 
@@ -252,25 +652,69 @@ export async function handleSeabriApiRequest(
         json(res, 400, { error: 'Workflow name is required' })
         return true
       }
-      const body = await readBody(req)
-      let input: Record<string, unknown> = {}
-      if (body) {
-        try {
-          const parsed = JSON.parse(body) as { input?: Record<string, unknown> }
-          if (parsed.input && typeof parsed.input === 'object') input = parsed.input
-        } catch {
-          json(res, 400, { error: 'Invalid JSON body' })
-          return true
-        }
+      const parsed = await parseJsonWithSchema(req, WorkflowRunBodySchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
       }
       try {
-        const result = await runWorkflow(name, input)
+        const result = await runWorkflow(name, parsed.value.input ?? {})
         json(res, 200, result)
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
         const status = message.includes('not found') ? 404 : 500
         json(res, status, { error: message })
       }
+      return true
+    }
+
+    // POST /api/seabri/web-ingestion/scan
+    if (url === '/api/seabri/web-ingestion/scan' && method === 'POST') {
+      const body = await readBody(req)
+      let parsed: {
+        tenantId?: unknown
+        url?: unknown
+        purpose?: unknown
+        schemaType?: unknown
+        useFirecrawl?: unknown
+      }
+      try {
+        parsed = JSON.parse(body)
+      } catch {
+        json(res, 400, { error: 'Invalid JSON body' })
+        return true
+      }
+      if (typeof parsed.tenantId !== 'string' || !parsed.tenantId.trim()) {
+        json(res, 400, { error: '"tenantId" string is required' })
+        return true
+      }
+      if (typeof parsed.url !== 'string' || !/^https?:\/\//i.test(parsed.url)) {
+        json(res, 400, { error: '"url" must be an http(s) URL string' })
+        return true
+      }
+      const schemaType = parsed.schemaType
+      if (
+        schemaType !== undefined &&
+        schemaType !== 'general' &&
+        schemaType !== 'contact' &&
+        schemaType !== 'authority' &&
+        schemaType !== 'emergency_guidance'
+      ) {
+        json(res, 400, { error: '"schemaType" is invalid' })
+        return true
+      }
+      const result = await scanWebsite({
+        tenantId: parsed.tenantId,
+        url: parsed.url,
+        purpose: typeof parsed.purpose === 'string' ? parsed.purpose : undefined,
+        schemaType: schemaType as 'general' | 'contact' | 'authority' | 'emergency_guidance' | undefined,
+        useFirecrawl: typeof parsed.useFirecrawl === 'boolean' ? parsed.useFirecrawl : undefined,
+      })
+      if (!result) {
+        json(res, 502, { error: 'Website scan unavailable' })
+        return true
+      }
+      json(res, 200, result)
       return true
     }
 
@@ -431,8 +875,12 @@ export async function handleSeabriApiRequest(
     json(res, 404, { error: `No SeaBri route for ${method} ${url}` })
     return true
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    json(res, 500, { error: message })
+    const status = (err as { status?: number })?.status ?? 500
+    if (status === 413) {
+      json(res, 413, { error: 'Payload too large' })
+    } else {
+      json(res, 500, { error: 'Internal server error' })
+    }
     return true
   }
 }

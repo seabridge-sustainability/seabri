@@ -92,4 +92,16 @@ describe('Tool Registry', () => {
       ),
     ).toThrow()
   })
+
+  it('registers OpenKB proxy tools for document-knowledge agents and fails closed without approval', async () => {
+    const { registerBuiltinTools } = await import('./register-builtin.js')
+    registerBuiltinTools()
+
+    expect(hasTool('openkb_query')).toBe(true)
+    expect(getToolsForAgent('sustainability-reporting').some((t) => t.name === 'openkb_query')).toBe(true)
+    expect(getToolsForAgent('climate-risk').some((t) => t.name === 'openkb_query')).toBe(false)
+
+    const result = await executeTool('openkb_query', { question: 'What is in the KB?' })
+    expect(result).toContain('OpenKB unavailable')
+  })
 })

@@ -2,7 +2,7 @@
 id: net-zero-roadmap
 name: Net Zero Roadmap
 description: Measure, reduce, and eliminate GHG emissions for SMBs without expensive consultants — SBTi-aligned.
-complianceTags: [SBTi, GHG_PROTOCOL]
+complianceTags: [SBTi, GHG_PROTOCOL, SCIENCE_BASED]
 costTier: free
 ---
 

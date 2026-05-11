@@ -10,6 +10,11 @@ interface RegisteredTool {
 
 const toolMap = new Map<string, RegisteredTool>()
 
+export interface RegisteredToolInfo {
+  definition: ToolDefinition
+  agentIds: AgentId[] | 'all'
+}
+
 export function registerTool(
   definition: ToolDefinition,
   execute: ToolExecutor,
@@ -39,6 +44,13 @@ export function executeTool(name: string, input: Record<string, unknown>): Promi
 
 export function listTools(): ToolDefinition[] {
   return Array.from(toolMap.values()).map((t) => t.definition)
+}
+
+export function listRegisteredTools(): RegisteredToolInfo[] {
+  return Array.from(toolMap.values()).map((t) => ({
+    definition: t.definition,
+    agentIds: t.agentIds,
+  }))
 }
 
 export function hasTool(name: string): boolean {

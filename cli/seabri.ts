@@ -12,8 +12,6 @@ import { config as dotenvConfig } from 'dotenv'
 dotenvConfig({ path: resolve(process.cwd(), '.env') })
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ''
-const SEABRIDGE_API_URL = process.env.SEABRIDGE_API_URL || 'http://localhost:8000'
-const SEABRIDGE_API_KEY = process.env.SEABRIDGE_API_KEY || ''
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || ''
 const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || '18790', 10)
 const WORKSPACE_DIR =
@@ -73,23 +71,7 @@ async function checkAnthropicConnection(): Promise<boolean> {
 }
 
 async function checkSeaBridgeConnection(): Promise<boolean> {
-  if (!SEABRIDGE_API_URL) return false
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 3000)
-    const headers: Record<string, string> = {}
-    if (SEABRIDGE_API_KEY) {
-      headers['Authorization'] = `Bearer ${SEABRIDGE_API_KEY}`
-    }
-    const response = await fetch(`${SEABRIDGE_API_URL}/health`, {
-      signal: controller.signal,
-      headers,
-    })
-    clearTimeout(timeout)
-    return response.ok
-  } catch {
-    return false
-  }
+  return false
 }
 
 async function checkGatewayRunning(): Promise<boolean> {
@@ -293,9 +275,8 @@ async function cmdGateway(options: { port?: string; verbose?: boolean }): Promis
 async function cmdStatus(): Promise<void> {
   const spinner = ora('Checking status...').start()
 
-  const [anthropicOk, seaBridgeOk, gatewayRunning] = await Promise.all([
+  const [anthropicOk, gatewayRunning] = await Promise.all([
     checkAnthropicConnection(),
-    checkSeaBridgeConnection(),
     checkGatewayRunning(),
   ])
 
@@ -312,7 +293,6 @@ async function cmdStatus(): Promise<void> {
   const yes = chalk.green('✅ Connected')
   const no = (msg: string) => chalk.gray(`⚪ ${msg}`)
   const apiStatus = anthropicOk ? yes : ANTHROPIC_API_KEY ? chalk.yellow('⚠️  Key set but unreachable') : no('Not configured')
-  const seaStatus = seaBridgeOk ? chalk.green(`✅ Connected at ${SEABRIDGE_API_URL}`) : no('Not connected')
   const gatewayStatus = gatewayRunning ? chalk.green(`✅ Running on port ${GATEWAY_PORT}`) : no('Not running')
   const telegramStatus = TELEGRAM_TOKEN ? chalk.green('✅ Token configured') : no('Not configured')
   const sessionsStatus = sessionCount > 0 ? chalk.green(`✅ ${sessionCount} session(s)`) : chalk.gray('⚪ No sessions')
@@ -320,7 +300,6 @@ async function cmdStatus(): Promise<void> {
   console.log(chalk.bold('\nOpenSeaBri Status'))
   console.log(chalk.gray('━'.repeat(45)))
   console.log(`Anthropic API:    ${apiStatus}`)
-  console.log(`SeaBridgeAI:      ${seaStatus}`)
   console.log(`Gateway:          ${gatewayStatus}`)
   console.log(`Telegram:         ${telegramStatus}`)
   console.log(`Sessions:         ${sessionsStatus}`)
@@ -379,18 +358,7 @@ async function cmdDoctor(): Promise<void> {
     console.log(chalk.yellow("WARN  — Run 'seabri onboard' to initialize memory files"))
   }
 
-  // 5. SeaBridgeAI backend (optional)
-  if (SEABRIDGE_API_URL) {
-    process.stdout.write('SeaBridgeAI backend reachable. ')
-    const ok = await checkSeaBridgeConnection()
-    if (ok) {
-      console.log(chalk.green('PASS'))
-    } else {
-      console.log(chalk.gray(`WARN  — ${SEABRIDGE_API_URL} not reachable (optional)`))
-    }
-  }
-
-  // 6. Session search index
+  // 5. Session search index
   process.stdout.write('Session search backend...      ')
   try {
     const { activeBackend } = await import('../gateway/memory/search.js')
@@ -504,26 +472,7 @@ async function cmdDoctor(): Promise<void> {
     console.log(chalk.gray('INFO  — no per-sender overrides'))
   }
 
-  // 12. SEABRIDGE_API_URL well-formed
-  process.stdout.write('Config URLs well-formed...     ')
-  const urlIssues: string[] = []
-  if (SEABRIDGE_API_URL) {
-    try {
-      const u = new URL(SEABRIDGE_API_URL)
-      if (!['http:', 'https:'].includes(u.protocol)) {
-        urlIssues.push(`SEABRIDGE_API_URL protocol '${u.protocol}' invalid`)
-      }
-    } catch {
-      urlIssues.push(`SEABRIDGE_API_URL '${SEABRIDGE_API_URL}' is not a valid URL`)
-    }
-  }
-  if (urlIssues.length === 0) {
-    console.log(chalk.green('PASS'))
-  } else {
-    console.log(chalk.yellow(`WARN  — ${urlIssues[0]}`))
-  }
-
-  // 13. Optional dependencies summary
+  // 12. Optional dependencies summary
   process.stdout.write('Optional deps...               ')
   const optionals: Array<{ name: string; pkg: string }> = [
     { name: 'FTS5 search', pkg: 'better-sqlite3' },
@@ -720,22 +669,27 @@ async function cmdSkillsCreate(name: string): Promise<void> {
 
   try {
     await mkdir(skillDir, { recursive: true })
-    const template = `# ${name}
+    const template = `---
+id: ${slug}
+name: ${name}
+complianceTags: [GENERAL]
+costTier: free
+description: "${name} skill"
+---
 
-## Purpose
-<!-- What this skill is for -->
+# ${name}
 
 ## When to Use
+
 <!-- Situations where this skill applies -->
 
-## Steps
-<!-- Step-by-step methodology -->
+## Methodology
+
+<!-- Step-by-step approach -->
 
 ## Example Output
-<!-- What a good result looks like -->
 
-## Quality Indicators
-<!-- How to know this skill worked well -->
+<!-- What a good result looks like -->
 `
     await writeFile(skillFile, template, 'utf-8')
     console.log(chalk.green(`\n✅ Created skill: ${skillFile}\n`))
@@ -744,6 +698,99 @@ async function cmdSkillsCreate(name: string): Promise<void> {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(chalk.red(`Could not create skill: ${message}`))
+  }
+}
+
+async function cmdSkillsValidate(skillId?: string): Promise<void> {
+  const { validateSkillFile, formatValidationResult, complianceTagCoverage } = await import('../gateway/skills/validator.js')
+
+  if (skillId) {
+    const skillPath = resolve(OPENSEABRI_ROOT, 'skills', skillId, 'SKILL.md')
+    const result = await validateSkillFile(skillPath)
+    console.log('\n' + formatValidationResult(result) + '\n')
+    if (!result.valid) process.exit(1)
+    return
+  }
+
+  const { readdir } = await import('fs/promises')
+  const skillsDir = resolve(OPENSEABRI_ROOT, 'skills')
+  let dirs: string[]
+  try {
+    dirs = await readdir(skillsDir)
+  } catch {
+    console.log(chalk.gray('\nNo skills directory found.\n'))
+    return
+  }
+
+  const results = []
+  for (const dir of dirs.sort()) {
+    const result = await validateSkillFile(resolve(skillsDir, dir, 'SKILL.md'))
+    results.push(result)
+    console.log(formatValidationResult(result))
+  }
+
+  const cov = complianceTagCoverage(results)
+  console.log(`\nCompliance coverage: ${cov.coveragePercent}% (${cov.covered.length}/${cov.covered.length + cov.missing.length})`)
+  if (cov.missing.length > 0) {
+    console.log(chalk.yellow(`Missing tags: ${cov.missing.join(', ')}`))
+  }
+
+  const failed = results.filter((r) => !r.valid)
+  if (failed.length > 0) {
+    console.log(chalk.red(`\n${failed.length} skill(s) failed validation.\n`))
+    process.exit(1)
+  } else {
+    console.log(chalk.green(`\nAll ${results.length} skills passed validation.\n`))
+  }
+}
+
+async function cmdSkillsExport(skillId?: string, outputPath?: string): Promise<void> {
+  const { exportSkill, exportAllSkills } = await import('../gateway/skills/marketplace.js')
+
+  const spinner = ora('Exporting skills...').start()
+  try {
+    const json = skillId ? await exportSkill(skillId) : await exportAllSkills()
+    spinner.stop()
+
+    if (outputPath) {
+      await writeFile(outputPath, json, 'utf-8')
+      console.log(chalk.green(`\nExported to ${outputPath}\n`))
+    } else {
+      console.log(json)
+    }
+  } catch (err: unknown) {
+    spinner.fail()
+    const message = err instanceof Error ? err.message : String(err)
+    console.error(chalk.red(`Export failed: ${message}`))
+    process.exit(1)
+  }
+}
+
+async function cmdSkillsImport(source: string, opts: { overwrite?: boolean }): Promise<void> {
+  const content = await safeReadFile(source)
+  if (!content) {
+    console.error(chalk.red(`Cannot read: ${source}`))
+    process.exit(1)
+  }
+
+  let isBundle = false
+  try {
+    const parsed = JSON.parse(content)
+    isBundle = parsed.format === 'openseabri-skill-bundle'
+  } catch { /* not JSON */ }
+
+  if (isBundle) {
+    const { importSkillFromBundle } = await import('../gateway/skills/marketplace.js')
+    const results = await importSkillFromBundle(content, { overwrite: opts.overwrite })
+    for (const r of results) {
+      const icon = r.status === 'imported' ? chalk.green('imported') : r.status === 'skipped' ? chalk.yellow('skipped') : chalk.red('error')
+      console.log(`  ${r.skillId}: ${icon} — ${r.message}`)
+    }
+  } else {
+    const { importSkillFromFile } = await import('../gateway/skills/marketplace.js')
+    const result = await importSkillFromFile(source)
+    const icon = result.status === 'imported' ? chalk.green('imported') : chalk.red(result.status)
+    console.log(`  ${result.skillId}: ${icon} — ${result.message}`)
   }
 }
 
@@ -1212,13 +1259,19 @@ async function cmdBriefing(): Promise<void> {
   const spinner = ora('Generating sustainability briefing...').start()
   try {
     const { routeMessage } = await import('../gateway/agents/router.js')
+    const { routeTask } = await import('../gateway/seabri/task-router.js')
     const { initWorkspace } = await import('../gateway/memory/memory.js')
     await initWorkspace()
 
+    const briefingPrompt = 'Give me a concise sustainability briefing: what are the most important sustainability developments this week that I should know about, and what should I be thinking about for the next month? Keep it practical and relevant.'
+    const routing = routeTask({ task: briefingPrompt, agentId: 'general', channelId: 'cli' })
     const response = await routeMessage(
       'general',
-      'Give me a concise sustainability briefing: what are the most important sustainability developments this week that I should know about, and what should I be thinking about for the next month? Keep it practical and relevant.',
-      []
+      briefingPrompt,
+      [],
+      undefined,
+      undefined,
+      routing.modelId,
     )
     spinner.stop()
     console.log(chalk.bold('\n🌍 Your Sustainability Briefing\n'))
@@ -1403,6 +1456,38 @@ skillsCmd
   .description('Create a new skill template')
   .action((name: string) => {
     cmdSkillsCreate(name).catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+skillsCmd
+  .command('validate [id]')
+  .description('Validate skill(s) — deep frontmatter, body, and compliance check')
+  .action((id?: string) => {
+    cmdSkillsValidate(id).catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+skillsCmd
+  .command('export [id]')
+  .description('Export skill(s) as a JSON bundle')
+  .option('-o, --output <path>', 'Output file path')
+  .action((id: string | undefined, opts: { output?: string }) => {
+    cmdSkillsExport(id, opts.output).catch((err: unknown) => {
+      console.error(chalk.red(String(err)))
+      process.exit(1)
+    })
+  })
+
+skillsCmd
+  .command('import <source>')
+  .description('Import a skill from a SKILL.md file or JSON bundle')
+  .option('--overwrite', 'Overwrite existing skills')
+  .action((source: string, opts: { overwrite?: boolean }) => {
+    cmdSkillsImport(source, opts).catch((err: unknown) => {
       console.error(chalk.red(String(err)))
       process.exit(1)
     })
@@ -1661,6 +1746,88 @@ program
   })
 
 program
+  .command('carbon-report')
+  .description('Generate a sustainability carbon report')
+  .option('-d, --days <days>', 'Number of days to include', '7')
+  .option('--json', 'Output as JSON')
+  .action(async (opts: { days: string; json?: boolean }) => {
+    try {
+      const { generateCarbonReport } = await import('../gateway/seabri/carbon-report.js')
+      const report = generateCarbonReport(parseInt(opts.days, 10))
+
+      if (opts.json) {
+        console.log(JSON.stringify(report, null, 2))
+        return
+      }
+
+      console.log(chalk.bold('\n🌱 Carbon Report\n'))
+      console.log(`Period: ${report.periodDays} days | Generated: ${report.generatedAt.slice(0, 10)}`)
+      console.log(`Requests: ${report.summary.totalRequests}`)
+      console.log(`Total carbon: ${report.summary.totalCarbonGrams.toFixed(4)}g CO2e (${report.summary.carbonEquivalent})`)
+      console.log(`Total cost: $${report.summary.totalCostUsd.toFixed(4)}`)
+      console.log(`Sustainability: ${report.summary.avgSustainabilityScore}/100 (${report.summary.sustainabilityTier})`)
+
+      if (Object.keys(report.byTier).length > 0) {
+        console.log(chalk.bold('\nTier Distribution:'))
+        for (const [tier, data] of Object.entries(report.byTier)) {
+          console.log(`  ${tier}: ${data.requests} requests (${data.percentage.toFixed(1)}%) — ${data.carbonGrams.toFixed(4)}g`)
+        }
+      }
+
+      if (Object.keys(report.byAgent).length > 0) {
+        console.log(chalk.bold('\nBy Agent:'))
+        for (const [agent, data] of Object.entries(report.byAgent)) {
+          console.log(`  ${agent}: ${data.requests} requests — ${data.carbonGrams.toFixed(4)}g / $${data.costUsd.toFixed(4)}`)
+        }
+      }
+
+      if (report.recommendations.length > 0) {
+        console.log(chalk.bold('\nRecommendations:'))
+        for (const rec of report.recommendations) {
+          console.log(`  ${chalk.yellow('→')} ${rec}`)
+        }
+      }
+      console.log()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(chalk.red(`Carbon report failed: ${message}`))
+    }
+  })
+
+program
+  .command('carbon-budget')
+  .description('Check carbon budget status')
+  .option('-s, --session <id>', 'Check a specific session budget')
+  .option('--json', 'Output as JSON')
+  .action(async (opts: { session?: string; json?: boolean }) => {
+    try {
+      const { checkDailyBudget, checkSessionBudget, checkBudgetAlert } = await import('../gateway/seabri/carbon-budget.js')
+      const budget = opts.session ? checkSessionBudget(opts.session) : checkDailyBudget()
+      const alert = checkBudgetAlert(budget)
+
+      if (opts.json) {
+        console.log(JSON.stringify({ budget, alert }, null, 2))
+        return
+      }
+
+      const statusColor = budget.status === 'ok' ? chalk.green : budget.status === 'warning' ? chalk.yellow : chalk.red
+      console.log(chalk.bold('\n🌱 Carbon Budget\n'))
+      console.log(`Status: ${statusColor(budget.status.toUpperCase())}`)
+      console.log(`Used: ${budget.usedGrams.toFixed(4)}g / ${budget.limitGrams}g (${Math.round(budget.percentUsed)}%)`)
+      console.log(`Remaining: ${budget.remainingGrams.toFixed(4)}g`)
+
+      if (alert) {
+        const alertColor = alert.type === 'hard' ? chalk.red : chalk.yellow
+        console.log(`\n${alertColor(alert.message)}`)
+      }
+      console.log()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(chalk.red(`Carbon budget check failed: ${message}`))
+    }
+  })
+
+program
   .command('update')
   .description('Show update instructions')
   .action(cmdUpdate)
@@ -1726,7 +1893,9 @@ program
         )
       } else {
         const { routeMessage } = await import('../gateway/agents/router.js')
-        const answer = await routeMessage(opts.agent ?? 'general', question, [])
+        const { routeTask } = await import('../gateway/seabri/task-router.js')
+        const askRouting = routeTask({ task: question, agentId: opts.agent ?? 'general', channelId: 'cli' })
+        const answer = await routeMessage(opts.agent ?? 'general', question, [], undefined, undefined, askRouting.modelId)
         console.log(answer)
       }
     } catch (err: unknown) {

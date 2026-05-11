@@ -9,9 +9,9 @@ function statusColor(status: Status): string {
     case 'connected':
       return 'var(--accent-green)'
     case 'connecting':
-      return '#d4a017'
+      return 'var(--sb-signal-caution, #C28A2B)'
     case 'offline':
-      return '#7f1d1d'
+      return 'var(--sb-signal-risk, #B1454A)'
     case 'direct':
     default:
       return 'var(--text-faint)'

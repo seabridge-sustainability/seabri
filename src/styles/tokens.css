@@ -1,3 +1,9 @@
+/* =====================================================================
+   OpenSeaBri — Design Tokens (SeaBridge Brand System)
+   Source: manageesg-frontend/design_handoff_seabridge_brand/tokens/colors_and_type.css
+   ===================================================================== */
+
+/* ---------- Fonts ---------- */
 @font-face {
   font-family: "Recoleta";
   src: url("/fonts/Recoleta-Regular.ttf") format("truetype");
@@ -19,43 +25,212 @@
   font-style: normal;
   font-display: swap;
 }
+@font-face {
+  font-family: "Recoleta Alt";
+  src: url("/fonts/RecoletaAlt-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Recoleta Alt";
+  src: url("/fonts/RecoletaAlt-Thin.ttf") format("truetype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --bg-app: #0a0a0a;
-  --bg-surface: #111111;
-  --bg-surface-hover: #161616;
-  --bg-sidebar: #0d0d0d;
-  --bg-input: #0f0f0f;
-  --bg-bubble-user: #1a1a1a;
-  --bg-bubble-assistant: #111111;
+  /* =================================================================
+     CORE BRAND PALETTE
+     ================================================================= */
+  --sb-navy:      #0F2757;
+  --sb-deep-blue: #1E3A8A;
+  --sb-azure:     #1E3A8A;
+  --sb-aqua:      #71CACD;
+  --sb-mist:      #F0F5FC;
 
-  --border-default: #1a1a1a;
-  --border-muted: #222222;
+  /* Extended navy scale */
+  --sb-navy-900:  #081739;
+  --sb-navy-800:  #0F2757;
+  --sb-navy-700:  #1A3672;
+  --sb-navy-600:  #2A4A8D;
+  --sb-navy-500:  #1E3A8A;
+  --sb-navy-400:  #3B55A8;
+  --sb-navy-300:  #7C8EC8;
+  --sb-navy-200:  #BDC6E2;
+  --sb-navy-100:  #F0F5FC;
 
-  --text-primary: #f5f5f5;
-  --text-secondary: #e5e5e5;
-  --text-muted: #a3a3a3;
-  --text-faint: #737373;
+  /* Aqua scale */
+  --sb-aqua-700:  #3A9499;
+  --sb-aqua-600:  #57B0B4;
+  --sb-aqua-500:  #71CACD;
+  --sb-aqua-400:  #94D9DB;
+  --sb-aqua-300:  #B8E6E8;
+  --sb-aqua-200:  #DBF2F3;
 
-  --accent-green: #16a34a;
-  --accent-green-2: #22c55e;
-  --accent-ocean: #0ea5e9;
-  --accent-deep: #0b3b4a;
-  --accent-sand: #d4c29a;
+  /* Neutrals */
+  --sb-ink:       #0A1833;
+  --sb-slate-900: #13264D;
+  --sb-slate-700: #354972;
+  --sb-slate-500: #6C7FA0;
+  --sb-slate-400: #94A4BF;
+  --sb-slate-300: #BAC5D8;
+  --sb-slate-200: #DCE3EE;
+  --sb-slate-100: #EDF1F8;
+  --sb-paper:     #F7F9FD;
+  --sb-white:     #FFFFFF;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  /* Semantic signal */
+  --sb-signal-positive: #2F8F6B;
+  --sb-signal-caution:  #C28A2B;
+  --sb-signal-risk:     #B1454A;
+  --sb-signal-info:     #1E3A8A;
+
+  /* Data-viz */
+  --sb-chart-1: #0F2757;
+  --sb-chart-2: #1E3A8A;
+  --sb-chart-3: #71CACD;
+  --sb-chart-4: #6C7FA0;
+  --sb-chart-5: #C28A2B;
+  --sb-chart-6: #2F8F6B;
+  --sb-chart-7: #B1454A;
+
+  /* =================================================================
+     SEMANTIC TOKENS
+     ================================================================= */
+  --fg-1:  var(--sb-navy);
+  --fg-2:  var(--sb-slate-700);
+  --fg-3:  var(--sb-slate-500);
+  --fg-4:  var(--sb-slate-400);
+  --fg-accent: var(--sb-deep-blue);
+  --fg-on-dark: var(--sb-white);
+  --fg-on-dark-2: rgba(255, 255, 255, 0.72);
+
+  --bg-canvas:  var(--sb-white);
+  --bg-subtle:  var(--sb-paper);
+  --bg-muted:   var(--sb-mist);
+  --bg-inverse: var(--sb-navy);
+  --bg-inverse-deep: var(--sb-navy-900);
+
+  --border-1: var(--sb-slate-200);
+  --border-2: var(--sb-slate-300);
+  --border-focus: var(--sb-deep-blue);
+  --border-on-dark: rgba(255, 255, 255, 0.12);
+
+  /* =================================================================
+     TYPOGRAPHY
+     ================================================================= */
+  --font-display: "Recoleta", "Recoleta Alt", Georgia, "Times New Roman", serif;
+  --font-sans:    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Type scale */
+  --t-12: 0.75rem;
+  --t-13: 0.8125rem;
+  --t-14: 0.875rem;
+  --t-16: 1rem;
+  --t-18: 1.125rem;
+  --t-20: 1.25rem;
+  --t-24: 1.5rem;
+  --t-32: 2rem;
+  --t-44: 2.75rem;
+  --t-64: 4rem;
+
+  --lh-tight: 1.08;
+  --lh-snug:  1.2;
+  --lh-body:  1.55;
+  --lh-loose: 1.7;
+
+  --tr-tight:   -0.02em;
+  --tr-display: -0.03em;
+  --tr-normal:  0;
+  --tr-label:   0.08em;
+
+  /* =================================================================
+     SPACING (4px base)
+     ================================================================= */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  20px;
+  --s-6:  24px;
+  --s-8:  32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+
+  /* =================================================================
+     RADII
+     ================================================================= */
+  --r-xs:  2px;
+  --r-sm:  4px;
+  --r-md:  6px;
+  --r-lg:  10px;
+  --r-xl:  16px;
+  --r-2xl: 20px;
+  --r-pill: 999px;
+
+  /* =================================================================
+     SHADOWS — navy-tinted
+     ================================================================= */
+  --shadow-1: 0 1px 2px 0 rgba(15, 39, 87, 0.06);
+  --shadow-2: 0 2px 6px -1px rgba(15, 39, 87, 0.08), 0 1px 2px rgba(15, 39, 87, 0.04);
+  --shadow-3: 0 10px 24px -8px rgba(15, 39, 87, 0.14), 0 2px 6px rgba(15, 39, 87, 0.06);
+  --shadow-4: 0 24px 60px -20px rgba(15, 39, 87, 0.22), 0 8px 20px rgba(15, 39, 87, 0.08);
+  --shadow-focus: 0 0 0 3px rgba(30, 58, 138, 0.28);
+
+  /* =================================================================
+     MOTION
+     ================================================================= */
+  --ease-standard: cubic-bezier(.2, .6, .2, 1);
+  --ease-emphasized: cubic-bezier(.2, .8, .2, 1);
+  --dur-fast: 140ms;
+  --dur-med:  220ms;
+  --dur-slow: 360ms;
+
+  /* =================================================================
+     LEGACY VARIABLE ALIASES (keeps existing components working)
+     Maps old dark-mode tokens → SeaBridge brand tokens
+     ================================================================= */
+
+  /* Backgrounds */
+  --bg-app:              var(--sb-mist);
+  --bg-surface:          var(--sb-white);
+  --bg-surface-hover:    var(--sb-paper);
+  --bg-sidebar:          var(--sb-navy);
+  --bg-input:            var(--sb-white);
+  --bg-bubble-user:      var(--sb-mist);
+  --bg-bubble-assistant: var(--sb-paper);
+  --bg-elevated:         var(--sb-paper);
+
+  /* Borders */
+  --border-default: var(--sb-slate-200);
+  --border-muted:   var(--sb-slate-100);
+
+  /* Text */
+  --text-primary:   var(--sb-ink);
+  --text-secondary: var(--sb-slate-700);
+  --text-muted:     var(--sb-slate-500);
+  --text-faint:     var(--sb-slate-400);
+
+  /* Accents — map greens → aqua/navy, ocean → deep-blue */
+  --accent-green:   var(--sb-aqua-700);
+  --accent-green-2: var(--sb-aqua);
+  --accent-ocean:   var(--sb-deep-blue);
+  --accent-deep:    var(--sb-navy);
+  --accent-sand:    var(--sb-signal-caution);
+
+  /* Radii aliases */
+  --radius-sm: var(--r-md);
+  --radius-md: var(--r-lg);
   --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-xl: var(--r-xl);
 
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.35);
-  --shadow-hero: 0 30px 80px rgba(22, 163, 74, 0.18);
-
-  --font-display: "Recoleta", Georgia, "Times New Roman", serif;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  /* Shadow aliases */
+  --shadow-card: var(--shadow-3);
+  --shadow-hero: 0 30px 80px rgba(113, 202, 205, 0.22);
 }
 
 html,
@@ -78,20 +253,21 @@ body,
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
-  border-radius: 5px;
+  background: var(--sb-slate-200);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a3a;
+  background: var(--sb-slate-300);
 }
 
+/* Connection badge — SeaBridge palette */
 .connection-badge {
   display: inline-flex;
   align-items: center;
@@ -99,7 +275,7 @@ body,
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 600;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   letter-spacing: 0.04em;
 }
 .connection-badge::before {
@@ -110,10 +286,12 @@ body,
   background: currentColor;
 }
 .connection-badge--connected {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  background: rgba(113, 202, 205, 0.15);
+  color: var(--sb-aqua-700);
+  border: 1px solid rgba(113, 202, 205, 0.3);
 }
 .connection-badge--standalone {
-  background: rgba(163, 163, 163, 0.1);
-  color: #a3a3a3;
+  background: rgba(108, 127, 160, 0.1);
+  color: var(--sb-slate-500);
+  border: 1px solid rgba(108, 127, 160, 0.2);
 }

@@ -30,14 +30,14 @@ const STAT: React.CSSProperties = {
   gap: 2,
   padding: '10px 16px',
   borderRadius: 8,
-  background: 'var(--bg-surface, #1a1f2e)',
-  border: '1px solid var(--border-muted, #2a2f3e)',
+  background: 'var(--bg-surface)',
+  border: '1px solid var(--border-muted)',
   minWidth: 100,
 }
 
 const LABEL: React.CSSProperties = {
   fontSize: 11,
-  color: 'var(--text-muted, #6b7a96)',
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
@@ -45,13 +45,13 @@ const LABEL: React.CSSProperties = {
 const VALUE: React.CSSProperties = {
   fontSize: 22,
   fontWeight: 700,
-  color: 'var(--accent-green-2, #4ade80)',
+  color: 'var(--accent-green-2)',
   lineHeight: 1.2,
 }
 
 const TIER_COLOR: Record<string, string> = {
-  haiku: '#4ade80',
-  sonnet: '#60a5fa',
+  haiku: '#3A9499',
+  sonnet: '#1E3A8A',
   opus: '#c084fc',
 }
 
@@ -81,17 +81,17 @@ export function SeaBriOSPanel({ gatewayUrl, lastRoutingTier }: SeaBriOSPanelProp
   }, [gatewayUrl])
 
   const tier = lastRoutingTier ?? '—'
-  const tierColor = TIER_COLOR[tier] ?? 'var(--text-muted, #6b7a96)'
+  const tierColor = TIER_COLOR[tier] ?? 'var(--text-muted)'
 
   return (
     <div
       style={{
         padding: '16px 24px',
-        borderTop: '1px solid var(--border-muted, #2a2f3e)',
-        background: 'var(--bg-app, #0f1117)',
+        borderTop: '1px solid var(--border-muted)',
+        background: 'var(--bg-app)',
       }}
     >
-      <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-muted, #6b7a96)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         SeaBri OS — Registry
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -116,8 +116,8 @@ export function SeaBriOSPanel({ gatewayUrl, lastRoutingTier }: SeaBriOSPanelProp
               alignItems: 'center',
               padding: '10px 16px',
               borderRadius: 8,
-              background: 'var(--bg-surface, #1a1f2e)',
-              border: '1px solid var(--border-muted, #2a2f3e)',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-muted)',
               flex: 1,
             }}
           >
@@ -129,9 +129,9 @@ export function SeaBriOSPanel({ gatewayUrl, lastRoutingTier }: SeaBriOSPanelProp
                   fontSize: 11,
                   padding: '2px 8px',
                   borderRadius: 12,
-                  background: 'var(--bg-app, #0f1117)',
-                  border: '1px solid var(--border-muted, #2a2f3e)',
-                  color: 'var(--text-secondary, #94a3b8)',
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border-muted)',
+                  color: 'var(--text-secondary)',
                 }}
               >
                 {a.id}

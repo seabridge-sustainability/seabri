@@ -21,7 +21,10 @@ async function ensureSessionsDir(): Promise<void> {
   await mkdir(SESSIONS_DIR, { recursive: true })
 }
 
+const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function sessionPath(id: string): string {
+  if (!SESSION_ID_RE.test(id)) throw new Error(`Invalid session id: ${id}`)
   return resolve(SESSIONS_DIR, `${id}.json`)
 }
 

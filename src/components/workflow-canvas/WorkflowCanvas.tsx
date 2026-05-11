@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import {
   ReactFlow,
   Background,
@@ -50,6 +50,9 @@ export function WorkflowCanvas({ workflow, stepResults = [], onExport, readOnly 
   const [nodes, setNodes, onNodesChange] = useNodesState(statusedNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
+  useEffect(() => { setNodes(statusedNodes) }, [statusedNodes, setNodes])
+  useEffect(() => { setEdges(initialEdges) }, [initialEdges, setEdges])
+
   const onConnect = useCallback(
     (params: Connection) => {
       if (readOnly) return
@@ -76,7 +79,7 @@ export function WorkflowCanvas({ workflow, stepResults = [], onExport, readOnly 
         fitView
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={20} color="var(--border-muted, #333)" />
+        <Background gap={20} color="var(--border-muted, #DCE3EE)" />
         <Controls />
         <MiniMap
           nodeColor={(n) => {
@@ -87,7 +90,7 @@ export function WorkflowCanvas({ workflow, stepResults = [], onExport, readOnly 
             }
             return colors[t] ?? '#888'
           }}
-          maskColor="rgba(0,0,0,0.6)"
+          maskColor="rgba(240,245,252,0.75)"
         />
       </ReactFlow>
 

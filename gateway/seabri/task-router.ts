@@ -5,6 +5,7 @@ import { agentRegistry } from './agent-registry.js'
 import { modelRegistry } from './model-registry.js'
 import { scoreSustainability } from './sustainability-scoring.js'
 import type { SustainabilityScore } from './sustainability-scoring.js'
+import { type Product, productForChannel } from '../product.js'
 
 export interface TaskInput {
   /** Natural language task description */
@@ -15,6 +16,8 @@ export interface TaskInput {
   modelId?: string
   /** Conversation depth — affects model tier selection */
   conversationDepth?: number
+  /** Channel originating this task (used for product routing) */
+  channelId?: string
 }
 
 export interface RoutingDecision {
@@ -23,6 +26,7 @@ export interface RoutingDecision {
   agentName: string
   modelId: string
   modelTier: string
+  product: Product
   routingReason: string
   classificationConfidence: number
   estimatedCostUsd: number
@@ -94,6 +98,7 @@ export function routeTask(input: TaskInput): RoutingDecision {
   )
 
   const agent = agentRegistry.get(agentId)
+  const product = productForChannel(input.channelId ?? 'web')
   const routingReason = `agent: ${classificationReason}; model: ${modelReason}`
 
   return {
@@ -102,6 +107,7 @@ export function routeTask(input: TaskInput): RoutingDecision {
     agentName: agent?.name ?? agentId,
     modelId,
     modelTier,
+    product,
     routingReason,
     classificationConfidence,
     estimatedCostUsd,

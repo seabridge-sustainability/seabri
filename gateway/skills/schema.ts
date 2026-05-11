@@ -25,6 +25,9 @@ export const COMPLIANCE_TAGS = [
   'SFDR',
   'SEC',
   'GHG_PROTOCOL',
+  'GRESB',
+  'CSDDD',
+  'SCIENCE_BASED',
   'GENERAL',
 ] as const
 
@@ -40,6 +43,8 @@ export interface SkillFrontmatter {
   complianceTags: ComplianceTag[]
   evidenceSource?: string
   costTier?: CostTier
+  domain?: string
+  agents?: string[]
 }
 
 export interface ParsedSkill {
@@ -97,14 +102,16 @@ export function validateFrontmatter(
     if (typeof t !== 'string') {
       throw new SkillValidationError(`skill ${id}: complianceTags must be strings`, id)
     }
-    const upper = t.toUpperCase() as ComplianceTag
-    if (!(COMPLIANCE_TAGS as readonly string[]).includes(upper)) {
+    const matched = COMPLIANCE_TAGS.find(
+      (tag) => tag.toUpperCase() === t.toUpperCase()
+    )
+    if (!matched) {
       throw new SkillValidationError(
         `skill ${id}: unknown compliance tag "${t}" — allowed: ${COMPLIANCE_TAGS.join(', ')}`,
         id
       )
     }
-    tags.push(upper)
+    tags.push(matched)
   }
 
   const costTier =
@@ -120,6 +127,12 @@ export function validateFrontmatter(
     )
   }
 
+  const domain = typeof raw.domain === 'string' ? raw.domain : undefined
+  const agentsRaw = raw.agents
+  const agents = Array.isArray(agentsRaw)
+    ? agentsRaw.filter((a): a is string => typeof a === 'string')
+    : undefined
+
   return {
     id,
     name,
@@ -132,6 +145,8 @@ export function validateFrontmatter(
           ? (raw.evidence_source as string)
           : undefined,
     costTier: costTier as CostTier | undefined,
+    domain,
+    agents: agents && agents.length > 0 ? agents : undefined,
   }
 }
 

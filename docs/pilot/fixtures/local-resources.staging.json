@@ -1,0 +1,54 @@
+{
+  "resources": [
+    {
+      "id": "demo-plumber-miami-001",
+      "name": "STAGING DEMO - Licensed Plumber Test Contact",
+      "category": "plumber",
+      "phone": "+15550101010",
+      "website": "https://example.com/openseabri-demo-plumber",
+      "address": "Demo service area: Miami FL 33101",
+      "hours": "Demo fixture only; no real dispatch",
+      "source": "configured-staging-demo-fixture",
+      "sourceUrl": "docs/pilot/fixtures/local-resources.staging.json",
+      "confidence": "low",
+      "notes": "DEMO PLACEHOLDER for staging workflow testing. Do not present as a real provider."
+    },
+    {
+      "id": "demo-water-mitigation-miami-001",
+      "name": "STAGING DEMO - Water Mitigation Test Contact",
+      "category": "water_mitigation",
+      "phone": "+15550101011",
+      "website": "https://example.com/openseabri-demo-water-mitigation",
+      "address": "Demo service area: Miami FL 33101",
+      "hours": "Demo fixture only; no real dispatch",
+      "source": "configured-staging-demo-fixture",
+      "sourceUrl": "docs/pilot/fixtures/local-resources.staging.json",
+      "confidence": "low",
+      "notes": "DEMO PLACEHOLDER for staging workflow testing. Do not present as a real provider."
+    },
+    {
+      "id": "demo-public-works-miami-001",
+      "name": "STAGING DEMO - City Public Works Placeholder",
+      "category": "city_public_works",
+      "website": "https://example.com/openseabri-demo-public-works",
+      "address": "Demo city area: Miami FL 33101",
+      "hours": "Demo fixture only",
+      "source": "configured-staging-demo-fixture",
+      "sourceUrl": "docs/pilot/fixtures/local-resources.staging.json",
+      "confidence": "low",
+      "notes": "DEMO PLACEHOLDER. Replace with verified city contact before live pilot claims."
+    },
+    {
+      "id": "demo-hotel-miami-001",
+      "name": "STAGING DEMO - Temporary Stay Placeholder",
+      "category": "hotel",
+      "website": "https://example.com/openseabri-demo-hotel",
+      "address": "Demo lodging area: Miami FL 33101",
+      "hours": "Demo fixture only",
+      "source": "configured-staging-demo-fixture",
+      "sourceUrl": "docs/pilot/fixtures/local-resources.staging.json",
+      "confidence": "low",
+      "notes": "DEMO PLACEHOLDER. Replace with verified lodging options before real user use."
+    }
+  ]
+}

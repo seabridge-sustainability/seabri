@@ -1,10 +1,13 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { createServer, type IncomingMessage as HttpIncomingMessage, type ServerResponse } from 'http'
-import { GATEWAY_PORT, TELEGRAM_TOKEN, WHATSAPP_PROVIDER, SEABRIDGE_API_URL, SEABRIDGE_API_KEY, ANTHROPIC_API_KEY } from './config.js'
+import { GATEWAY_PORT, TELEGRAM_TOKEN, WHATSAPP_PROVIDER, ANTHROPIC_API_KEY } from './config.js'
 import { initWorkspace, maybeNudgeUserModel } from './memory/memory.js'
 import { routeMessage, classifyIntent } from './agents/router.js'
 import { startTelegramChannel } from './channels/telegram.js'
 import { startWhatsappChannel, handleWhatsAppWebhook } from './channels/whatsapp.js'
+import { startSmsChannel, handleSmsWebhook, smsChannel } from './channels/sms.js'
+import { handleVoiceWebhook, voiceChannel } from './channels/voice.js'
+import { channelGateSummary, isChannelExplicitlyEnabled } from './channels/enablement.js'
 import { getOrCreateSession, updateSession, resetSession, type Session } from './sessions/index.js'
 import { indexSession } from './memory/search.js'
 import { consultPanel } from './agents/subagent.js'
@@ -15,15 +18,32 @@ import { buildSkillsContext } from './skills/loader.js'
 import { listPersonalities, loadPersonality, getPersonalityPrompt, copyBuiltinToUser } from './personalities/loader.js'
 import { handleAttachmentRequest } from './attachments/http.js'
 import { handleSeabriApiRequest } from './seabri/api-handler.js'
+import { handleClaimApiRequest } from './claim/api-handler.js'
+import { startSessionCleanup } from './claim/session.js'
 import { routeTask } from './seabri/task-router.js'
 import { emitTaskTelemetry } from './seabri/telemetry.js'
+import { runIncidentWorkflow } from './seabri/incident-workflow.js'
+import { analyzeIncidentImage } from './seabri/vision-analysis.js'
 import type { ModelTier } from './orchestrator/model-router.js'
 import { startCanvasServer, stopCanvasServer } from './canvas/server.js'
 import { parseIncomingMessage, type IncomingMessage, type InitMessage, type ChatMessage } from './schemas.js'
+import { extractActionCard, detectActionKind, logConsent, type PendingAction } from './seabri/approval.js'
+import { getExecutor } from './seabri/action-executor.js'
 import { registerBuiltinTools } from './tools/register-builtin.js'
 import { isDbConfigured } from '../db/client.js'
+import { log } from './logger.js'
 
 const VERSION = '0.2.0'
+
+const APPROVAL_TTL_MS = Number(process.env.OPENSEABRI_APPROVAL_TTL_MS ?? 300_000)
+
+interface PendingApprovalItem extends PendingAction {
+  id: string
+}
+
+// Persists pending approvals across WS connections keyed by gateway sessionId.
+// Each session can have multiple concurrent approvals (e.g. multiple contractor calls).
+const sessionApprovals = new Map<string, PendingApprovalItem[]>()
 
 interface Message {
   role: string
@@ -36,26 +56,10 @@ interface ConnectionState {
 }
 
 async function checkSeaBridgeConnection(): Promise<boolean> {
-  if (!SEABRIDGE_API_URL) return false
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 3000)
-    const headers: Record<string, string> = {}
-    if (SEABRIDGE_API_KEY) {
-      headers['Authorization'] = `Bearer ${SEABRIDGE_API_KEY}`
-    }
-    const response = await fetch(`${SEABRIDGE_API_URL}/health`, {
-      signal: controller.signal,
-      headers,
-    })
-    clearTimeout(timeout)
-    return response.ok
-  } catch {
-    return false
-  }
+  return false
 }
 
-function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whatsappActive: boolean): void {
+function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whatsappActive: boolean, smsActive: boolean, voiceActive: boolean): void {
   const seabridgeStatus = seaBridgeConnected
     ? '\x1b[32mConnected\x1b[0m'
     : '\x1b[90mStandalone\x1b[0m'
@@ -65,17 +69,22 @@ function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whats
   const whatsappStatus = whatsappActive
     ? '\x1b[32mActive (/webhooks/whatsapp)\x1b[0m'
     : '\x1b[90mNot configured\x1b[0m'
+  const smsStatus = smsActive
+    ? '\x1b[32mActive (/webhooks/sms)\x1b[0m'
+    : '\x1b[90mNot configured\x1b[0m'
+  const voiceStatus = voiceActive
+    ? '\x1b[32mActive (/webhooks/voice)\x1b[0m'
+    : '\x1b[90mNot configured\x1b[0m'
 
-  console.log(`
-\x1b[1m\x1b[32m🌱 OpenSeaBri Gateway v${VERSION}\x1b[0m
-\x1b[32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
-WebSocket:    \x1b[36mws://localhost:${GATEWAY_PORT}\x1b[0m
-SeaBridgeAI:  ${seabridgeStatus}
-Telegram:     ${telegramStatus}
-WhatsApp:     ${whatsappStatus}
-\x1b[32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m
-Ready. Ctrl+C to stop.
-`)
+  log.info('gateway started', {
+    version: VERSION,
+    port: GATEWAY_PORT,
+    seabridge: seaBridgeConnected,
+    telegram: telegramActive,
+    whatsapp: whatsappActive,
+    sms: smsActive,
+    voice: voiceActive,
+  })
 }
 
 async function startGateway(): Promise<void> {
@@ -84,7 +93,7 @@ async function startGateway(): Promise<void> {
     await initWorkspace()
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.warn(`[Gateway] Workspace init warning: ${message}`)
+    log.warn('workspace init warning', { error: message })
   }
 
   // Register typed tool registry
@@ -92,9 +101,9 @@ async function startGateway(): Promise<void> {
 
   // Report database status
   if (isDbConfigured()) {
-    console.log('[Gateway] PostgreSQL configured')
+    log.info('PostgreSQL configured')
   } else {
-    console.log('[Gateway] No DATABASE_URL — running with file-based sessions')
+    log.info('no DATABASE_URL — running with file-based sessions')
   }
 
   // Check optional connections
@@ -107,6 +116,9 @@ async function startGateway(): Promise<void> {
     // Non-fatal — cron scheduler failure doesn't block gateway
   }
 
+  // Start claim session cleanup (evicts expired sessions every hour)
+  const claimCleanupInterval = startSessionCleanup()
+
   // Start compliance-tagged cron presets (regulation monitoring etc.).
   // Skipped silently when OPENSEABRI_RUN_SECRET is unset — presets cannot
   // mint HMAC approval tokens without it.
@@ -115,11 +127,11 @@ async function startGateway(): Promise<void> {
     if (factory) {
       await startEnabledPresets(factory)
     } else {
-      console.warn('[Gateway] OPENSEABRI_RUN_SECRET unset — cron presets disabled')
+      log.warn('OPENSEABRI_RUN_SECRET unset — cron presets disabled')
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.warn(`[Gateway] Cron presets warning: ${message}`)
+    log.warn('cron presets warning', { error: message })
   }
 
   // Optionally start canvas WS broadcast hub (A2UI / Live Canvas).
@@ -129,24 +141,30 @@ async function startGateway(): Promise<void> {
     await startCanvasServer()
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.warn(`[Gateway] Canvas start warning: ${message}`)
+    log.warn('canvas start warning', { error: message })
   }
 
-  // Optionally start Telegram
+  const configuredChannelGate = channelGateSummary()
+  log.info('live channel startup gate', { enabledChannels: configuredChannelGate })
+
+  // Optionally start Telegram. Credentials alone are not enough: live channels
+  // must be explicitly allowlisted to avoid accidental polling from local .env.
   let telegramActive = false
-  if (TELEGRAM_TOKEN) {
+  if (TELEGRAM_TOKEN && isChannelExplicitlyEnabled('telegram')) {
     try {
       await startTelegramChannel()
       telegramActive = true
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      console.warn(`[Gateway] Telegram start warning: ${message}`)
+      log.warn('telegram start warning', { error: message })
     }
+  } else if (TELEGRAM_TOKEN) {
+    log.warn('telegram credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=telegram to start polling')
   }
 
   // Optionally start WhatsApp
   let whatsappActive = false
-  if (WHATSAPP_PROVIDER) {
+  if (WHATSAPP_PROVIDER && isChannelExplicitlyEnabled('whatsapp')) {
     try {
       await startWhatsappChannel()
       whatsappActive = WHATSAPP_PROVIDER.toLowerCase() === 'cloud'
@@ -154,23 +172,130 @@ async function startGateway(): Promise<void> {
         : false
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      console.warn(`[Gateway] WhatsApp start warning: ${message}`)
+      log.warn('whatsapp start warning', { error: message })
     }
+  } else if (WHATSAPP_PROVIDER) {
+    log.warn('whatsapp provider configured but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=whatsapp to activate webhook processing')
+  }
+
+  // Optionally start SMS (Twilio)
+  let smsActive = false
+  if (isChannelExplicitlyEnabled('sms')) {
+    try {
+      await startSmsChannel()
+      smsActive = smsChannel.isEnabled()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      log.warn('sms start warning', { error: message })
+    }
+  } else if (smsChannel.isEnabled()) {
+    log.warn('twilio sms credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=sms to activate SMS webhooks')
+  }
+
+  // Optionally start Voice (Twilio)
+  let voiceActive = false
+  if (isChannelExplicitlyEnabled('voice')) {
+    try {
+      voiceActive = voiceChannel.isEnabled()
+      if (voiceActive) await voiceChannel.start()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      log.warn('voice start warning', { error: message })
+    }
+  } else if (voiceChannel.isEnabled()) {
+    log.warn('twilio voice credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=voice to activate voice webhooks')
+  }
+
+  // TwiML endpoint — serves spoken text for outbound Twilio Voice calls.
+  // GET /twiml?message=<encoded> → returns TwiML <Response><Say> document.
+  function handleTwimlRequest(req: HttpIncomingMessage, res: ServerResponse): boolean {
+    const urlObj = new URL(req.url ?? '/', `http://localhost:${GATEWAY_PORT}`)
+    if (urlObj.pathname !== '/twiml') return false
+    const message = urlObj.searchParams.get('message') ?? 'Hello. This is SeaBri calling on your behalf.'
+    const safe = message.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] ?? c))
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">${safe}</Say></Response>`
+    res.writeHead(200, { 'content-type': 'text/xml; charset=utf-8' })
+    res.end(twiml)
+    return true
   }
 
   // Shared HTTP server — serves the attachment store over /attachments/* and
   // hosts the WebSocket upgrade on the same port so the gateway keeps a single
   // loopback-bound listener.
+  // ── Rate limiting ────────────────────────────────────────────────────────
+  const RATE_LIMIT_WINDOW_MS = 60_000
+  const RATE_LIMIT_MAX_REQUESTS = parseInt(process.env.OPENSEABRI_RATE_LIMIT || '120', 10)
+  const rateCounts = new Map<string, { count: number; resetAt: number }>()
+
+  function getClientIp(req: HttpIncomingMessage): string {
+    const forwarded = req.headers['x-forwarded-for']
+    if (typeof forwarded === 'string') return forwarded.split(',')[0].trim()
+    return req.socket.remoteAddress || 'unknown'
+  }
+
+  function isRateLimited(ip: string): boolean {
+    const now = Date.now()
+    const entry = rateCounts.get(ip)
+    if (!entry || now >= entry.resetAt) {
+      rateCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+      return false
+    }
+    entry.count++
+    return entry.count > RATE_LIMIT_MAX_REQUESTS
+  }
+
+  // Evict stale rate-limit entries every 5 minutes
+  const rateLimitCleanup = setInterval(() => {
+    const now = Date.now()
+    for (const [ip, entry] of rateCounts) {
+      if (now >= entry.resetAt) rateCounts.delete(ip)
+    }
+  }, 300_000)
+  rateLimitCleanup.unref()
+
+  const CORS_ORIGIN = process.env.OPENSEABRI_CORS_ORIGIN || 'http://localhost:5173'
+
   const httpServer = createServer(async (req: HttpIncomingMessage, res: ServerResponse) => {
+    const clientIp = getClientIp(req)
+    if (isRateLimited(clientIp)) {
+      res.writeHead(429, { 'content-type': 'text/plain', 'retry-after': '60' })
+      res.end('Too Many Requests')
+      return
+    }
+
     try {
+      const reqOrigin = req.headers.origin
+      if (reqOrigin && reqOrigin === CORS_ORIGIN) {
+        res.setHeader('access-control-allow-origin', CORS_ORIGIN)
+        res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
+        res.setHeader('access-control-allow-headers', 'content-type, x-openseabri-key')
+        res.setHeader('access-control-max-age', '86400')
+      }
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204)
+        res.end()
+        return
+      }
+
+      const reqPath = new URL(req.url ?? '/', `http://localhost`).pathname
+      if (req.method === 'GET' && reqPath === '/health') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ status: 'ok', ts: Date.now() }))
+        return
+      }
       if (await handleSeabriApiRequest(req, res)) return
+      if (await handleClaimApiRequest(req, res)) return
       if (await handleAttachmentRequest(req, res)) return
-      if (await handleWhatsAppWebhook(req, res)) return
+      if (whatsappActive && await handleWhatsAppWebhook(req, res)) return
+      if (smsActive && await handleSmsWebhook(req, res)) return
+      if (voiceActive && await handleVoiceWebhook(req, res)) return
+      if (handleTwimlRequest(req, res)) return
       res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
       res.end('Not Found')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
-      console.error(`[Gateway] HTTP handler error: ${message}`)
+      log.error('HTTP handler error', { error: message })
       if (!res.headersSent) {
         res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
       }
@@ -180,23 +305,48 @@ async function startGateway(): Promise<void> {
 
   const wss = new WebSocketServer({ server: httpServer })
 
-  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  wss.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(
-        `\x1b[31mError: Port ${GATEWAY_PORT} is already in use.\x1b[0m\n` +
-          `Another instance of the gateway may be running.\n` +
-          `Set a different port with: GATEWAY_PORT=<port> seabri gateway`
-      )
-      process.exit(1)
+      log.fatal('gateway WebSocket port already in use', { port: GATEWAY_PORT })
+      return
     }
-    console.error(`\x1b[31m[Gateway] HTTP server error: ${err.message}\x1b[0m`)
+    log.error('gateway WebSocket server error', { error: err.message })
   })
 
-  await new Promise<void>((resolve) => httpServer.listen(GATEWAY_PORT, resolve))
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      log.fatal('port already in use', { port: GATEWAY_PORT })
+      process.exit(1)
+    }
+    log.error('HTTP server error', { error: err.message })
+  })
 
-  printBanner(seaBridgeConnected, telegramActive, whatsappActive)
+  const GATEWAY_HOST = process.env.GATEWAY_HOST || '127.0.0.1'
+  await new Promise<void>((resolve) => httpServer.listen(GATEWAY_PORT, GATEWAY_HOST, resolve))
 
-  wss.on('connection', (ws: WebSocket) => {
+  printBanner(seaBridgeConnected, telegramActive, whatsappActive, smsActive, voiceActive)
+
+  const wsToken = process.env.SEABRI_WS_TOKEN
+  if (!wsToken) {
+    log.warn('SEABRI_WS_TOKEN not set — all WebSocket connections will be rejected')
+  }
+
+  wss.on('connection', (ws: WebSocket, req: HttpIncomingMessage) => {
+    if (!wsToken) {
+      ws.close(1008, 'Server not configured for WebSocket auth')
+      return
+    }
+    const wsClientIp = getClientIp(req)
+    if (isRateLimited(wsClientIp)) {
+      ws.close(1008, 'Too many connections')
+      return
+    }
+    const reqUrl = new URL(req.url ?? '/', `http://localhost`)
+    if (reqUrl.searchParams.get('token') !== wsToken) {
+      ws.close(1008, 'Unauthorized')
+      return
+    }
+
     const state: ConnectionState = {
       session: {
         id: '',
@@ -211,12 +361,12 @@ async function startGateway(): Promise<void> {
       initialized: false,
     }
 
-    function sendText(text: string): void {
+    function sendText(text: string, done = true): void {
       if (ws.readyState !== WebSocket.OPEN) return
       for (const char of text) {
         ws.send(JSON.stringify({ type: 'token', content: char }))
       }
-      ws.send(JSON.stringify({ type: 'done' }))
+      if (done) ws.send(JSON.stringify({ type: 'done' }))
     }
 
     async function handleSlashCommand(cmd: string): Promise<string | null> {
@@ -455,6 +605,10 @@ async function startGateway(): Promise<void> {
       // Handle chat message
       if (parsed.type === 'chat') {
         const content = parsed.content.trim()
+        const imageAttachment = parsed.attachments?.find((a) => a.kind === 'image' || a.mime.startsWith('image/'))
+        const workflowContent = imageAttachment
+          ? `${content}\n[image attached: ${imageAttachment.name} ${imageAttachment.mime}]`
+          : content
 
         // Slash command handling
         if (content.startsWith('/')) {
@@ -487,8 +641,70 @@ async function startGateway(): Promise<void> {
           }
 
           // Route task through SeaBri OS to get sustainability-aware model selection
-          const routingDecision = routeTask({ task: content, agentId: effectiveAgent })
+          const routingDecision = routeTask({ task: content, agentId: effectiveAgent, channelId: 'websocket' })
           const chatStartMs = Date.now()
+
+          const incident = runIncidentWorkflow({
+            message: workflowContent,
+            history: state.session.history,
+          })
+          if (incident.handled && incident.response) {
+            let response = incident.response
+            if (imageAttachment) {
+              const analysis = await analyzeIncidentImage({
+                imageBase64: imageAttachment.data,
+                mimeType: imageAttachment.mime,
+                prompt: content,
+                incidentContext: workflowContent,
+              })
+              response += '\n\nIMAGE CHECK:\n'
+              response += analysis.status === 'analyzed'
+                ? `${analysis.summary}\nVisible findings: ${analysis.visibleFindings.join('; ') || 'none returned'}\nConfidence: ${analysis.confidence}`
+                : `${analysis.summary}\nRecommended photos: ${analysis.recommendedAngles.slice(0, 3).join('; ')}`
+            }
+            sendText(response, false)
+
+            emitTaskTelemetry({
+              taskId: routingDecision.taskId,
+              agentId: effectiveAgent,
+              model: 'local-incident-workflow',
+              tier: 'haiku',
+              inputTokens: Math.ceil(content.length / 4),
+              outputTokens: Math.ceil(response.length / 4),
+              latencyMs: Date.now() - chatStartMs,
+            }).catch(() => {})
+
+            state.session.history.push({ role: 'user', content: workflowContent })
+            state.session.history.push({ role: 'assistant', content: response })
+            state.session.turnCount++
+            await updateSession(state.session)
+
+            const actionCardText = extractActionCard(response)
+            if (actionCardText && state.session.id) {
+              const kind = detectActionKind(actionCardText)
+              const approvalItem: PendingApprovalItem = {
+                id: `${state.session.id}-${Date.now()}`,
+                card: actionCardText,
+                expiresAt: Date.now() + APPROVAL_TTL_MS,
+                kind,
+              }
+              const existing = sessionApprovals.get(state.session.id) ?? []
+              sessionApprovals.set(state.session.id, [...existing, approvalItem])
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                  type: 'action_card',
+                  id: approvalItem.id,
+                  kind: approvalItem.kind,
+                  card: approvalItem.card,
+                }))
+              }
+            }
+
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'done' }))
+            }
+            return
+          }
 
           // Stream tokens to the client as they arrive from the API
           const response = await routeMessage(
@@ -526,19 +742,79 @@ async function startGateway(): Promise<void> {
             maybeNudgeUserModel(state.session.turnCount, state.session.history, ANTHROPIC_API_KEY).catch(() => {})
           }
 
+          // Detect action cards that need user approval
+          const actionCardText = extractActionCard(response)
+          if (actionCardText && state.session.id) {
+            const kind = detectActionKind(actionCardText)
+            const approvalItem: PendingApprovalItem = {
+              id: `${state.session.id}-${Date.now()}`,
+              card: actionCardText,
+              expiresAt: Date.now() + APPROVAL_TTL_MS,
+              kind,
+            }
+            const existing = sessionApprovals.get(state.session.id) ?? []
+            sessionApprovals.set(state.session.id, [...existing, approvalItem])
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'action_card',
+                id: approvalItem.id,
+                kind: approvalItem.kind,
+                card: approvalItem.card,
+              }))
+            }
+          }
+
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'done' }))
           }
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err)
+          log.error('WS chat error', { error: message })
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'error', message }))
+            ws.send(JSON.stringify({ type: 'error', message: 'An error occurred processing your message.' }))
           }
         }
         return
       }
 
-      ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${(parsed as { type?: string }).type}` }))
+      // Handle approval / denial of a pending action card
+      if (parsed.type === 'approve' || parsed.type === 'deny') {
+        const { id } = parsed
+        const sessionId = state.session.id
+        const pending = sessionApprovals.get(sessionId) ?? []
+        const item = pending.find((a) => a.id === id && a.expiresAt > Date.now())
+        if (!item) {
+          ws.send(JSON.stringify({ type: 'approval_result', id, ok: false, message: 'Approval request not found or expired.' }))
+          return
+        }
+        // Remove this item from pending list
+        sessionApprovals.set(sessionId, pending.filter((a) => a.id !== id))
+
+        const approved = parsed.type === 'approve'
+        logConsent(sessionId, item.card, approved, sessionId).catch(() => {})
+
+        if (!approved) {
+          ws.send(JSON.stringify({ type: 'approval_result', id, ok: true, message: 'Action cancelled.' }))
+          sendText('Action cancelled. Let me know if you\'d like to change anything.')
+          return
+        }
+
+        try {
+          const executor = getExecutor(item.kind)
+          const result = await executor.execute(item.card, sessionId)
+          ws.send(JSON.stringify({ type: 'approval_result', id, ok: result.ok, message: result.message ?? result.error }))
+          sendText(result.ok
+            ? (result.message ?? 'Action completed successfully.')
+            : `Action failed: ${result.error ?? 'unknown error'}`)
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err)
+          ws.send(JSON.stringify({ type: 'approval_result', id, ok: false, message: msg }))
+          sendText(`Action failed: ${msg}`)
+        }
+        return
+      }
+
+      ws.send(JSON.stringify({ type: 'error', message: 'Unknown message type.' }))
     })
 
     ws.on('close', () => {
@@ -554,27 +830,28 @@ async function startGateway(): Promise<void> {
     })
 
     ws.on('error', (err: Error) => {
-      console.error(`[Gateway] WebSocket error: ${err.message}`)
+      log.error('WebSocket error', { error: err.message })
     })
   })
 
   wss.on('error', (err: Error) => {
-    console.error(`[Gateway] Server error: ${err.message}`)
+    log.error('WSS server error', { error: err.message })
   })
 
   // Graceful shutdown
   function shutdown(): void {
-    console.log('\n[Gateway] Shutting down...')
+    log.info('shutting down')
+    clearInterval(claimCleanupInterval)
     stopCanvasServer().catch(() => {})
     wss.close(() => {
       httpServer.close(() => {
-        console.log('[Gateway] Stopped.')
+        log.info('stopped')
         process.exit(0)
       })
     })
     // Force exit if close takes too long
     setTimeout(() => {
-      console.log('[Gateway] Force exit.')
+      log.warn('force exit')
       process.exit(0)
     }, 3000).unref()
   }
@@ -585,6 +862,6 @@ async function startGateway(): Promise<void> {
 
 startGateway().catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err)
-  console.error(`\x1b[31m[Gateway] Fatal error: ${message}\x1b[0m`)
+  log.fatal('gateway startup failed', { error: message })
   process.exit(1)
 })

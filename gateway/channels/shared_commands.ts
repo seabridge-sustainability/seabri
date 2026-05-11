@@ -1,16 +1,36 @@
-import { AGENTS } from '../config.js'
+import { AGENTS, INBOUND_PHONE_ALLOWLIST } from '../config.js'
 import { getAgentName } from '../agents/agents.js'
 import { readMemory } from '../memory/memory.js'
 import { compressHistory } from '../memory/compress.js'
 import { listPersonalities, loadPersonality } from '../personalities/loader.js'
 import { consultPanel, type PanelResult } from '../agents/subagent.js'
 import { loadUserConfig, setUserConfigField } from '../user_config.js'
+import type { PendingAction } from '../seabri/approval.js'
+import { isSupportedLocale, type Locale } from '../seabri/lang.js'
+import {
+  type UserProfile,
+  getProfile,
+  upsertProfile,
+  deleteProfile,
+  formatProfileDisplay,
+  isProfileComplete,
+} from '../seabri/user-profile.js'
 
 export interface ChannelState {
   agentId: string
   history: Array<{ role: string; content: string }>
   personalityId?: string | null
   thinkMode?: boolean
+  /** Set when the agent's last response contained an action card awaiting YES/NO */
+  pendingApproval?: PendingAction
+  /** Active locale for this session; defaults to 'en' */
+  locale?: Locale
+  /** Loaded user profile — null means no profile exists yet, undefined means not yet loaded */
+  userProfile?: UserProfile | null
+  /** Whether the first-session onboarding prompt has been shown */
+  onboardingShown?: boolean
+  /** Whether we're waiting for the user to reply to the onboarding prompt */
+  awaitingOnboardingReply?: boolean
 }
 
 export interface SlashResult {
@@ -42,6 +62,20 @@ async function personalityListText(active?: string | null): Promise<string> {
   return lines.join('\n')
 }
 
+export function isInboundPhoneAllowed(phone: string): boolean {
+  if (!INBOUND_PHONE_ALLOWLIST) return true
+  const digits = phone.replace(/\D/g, '')
+  return INBOUND_PHONE_ALLOWLIST.some(n => digits.endsWith(n) || n.endsWith(digits))
+}
+
+export function sanitizeForPlainText(text: string): string {
+  return text
+    .replace(/https?:\/\/[^\s)>\]]+/g, '[link removed]')
+    .replace(/```[\s\S]*?```/g, '[code block]')
+    .replace(/<[^>]+>/g, '')
+    .slice(0, 1600)
+}
+
 export async function buildAdditionalContext(
   state: ChannelState,
 ): Promise<string> {
@@ -62,6 +96,15 @@ export async function buildAdditionalContext(
     parts.push(
       '[Extended thinking requested for this turn: take extra care to reason step-by-step, consider tradeoffs, and double-check claims before answering.]',
     )
+  }
+
+  if (state.locale && state.locale !== 'en') {
+    parts.push(`[Language preference: respond in locale "${state.locale}"]`)
+  }
+
+  if (state.userProfile) {
+    const { formatProfileContext } = await import('../seabri/user-profile.js')
+    parts.push(formatProfileContext(state.userProfile))
   }
 
   return parts.join('\n\n---\n\n')
@@ -250,6 +293,34 @@ export async function handleSlashCommand(
       }
     }
 
+    case '/lang': {
+      if (!arg) {
+        const current = state.locale ?? 'en'
+        return {
+          handled: true,
+          reply: [
+            `Current language: \`${current}\``,
+            '',
+            'Supported locales: `en` `es` `pt` `fr` `de` `ar` `zh` `ja` `ko` `hi` `ru` `tr`',
+            '',
+            'Use `/lang <code>` to switch, or `/lang off` to reset to English.',
+          ].join('\n'),
+        }
+      }
+      if (arg === 'off' || arg === 'en') {
+        state.locale = 'en'
+        return { handled: true, reply: 'Language reset to English.' }
+      }
+      if (!isSupportedLocale(arg)) {
+        return {
+          handled: true,
+          reply: `Unsupported locale: \`${arg}\`\n\nSupported: \`en\` \`es\` \`pt\` \`fr\` \`de\` \`ar\` \`zh\` \`ja\` \`ko\` \`hi\` \`ru\` \`tr\``,
+        }
+      }
+      state.locale = arg
+      return { handled: true, reply: `Language set to \`${arg}\`. Responses will use this locale.` }
+    }
+
     case '/panel': {
       if (!arg) {
         return {
@@ -279,6 +350,94 @@ export async function handleSlashCommand(
       return { handled: true, reply: `${header}\n\n${result.synthesis}` }
     }
 
+    case '/profile': {
+      // /profile                    — show profile
+      // /profile set <field> <value> — set one field
+      // /profile delete             — remove all profile data
+      const [sub, ...subArgs] = rest
+      const subCmd = (sub ?? '').toLowerCase()
+
+      // Channel-agnostic: we need userId+channel to load/save; fallback to 'unknown'
+      // Channels that support profiles should pass userId via a wrapper or the state.
+      // For now, shared_commands doesn't have userId — handled per-channel via direct import.
+      // Here we show a static usage hint.
+      if (!subCmd || subCmd === 'show') {
+        const profile = state.userProfile
+        if (!profile) {
+          return {
+            handled: true,
+            reply: [
+              '_No profile saved yet._',
+              '',
+              'Use `/profile set <field> <value>` to set details.',
+              'Fields: `name` `address` `city` `state` `zip` `phone` `language` `emergency` `household` `property`',
+            ].join('\n'),
+          }
+        }
+        return { handled: true, reply: formatProfileDisplay(profile) }
+      }
+
+      if (subCmd === 'set') {
+        const [field, ...valueTokens] = subArgs
+        const value = valueTokens.join(' ').trim()
+        if (!field || !value) {
+          return {
+            handled: true,
+            reply: 'Usage: `/profile set <field> <value>`\nFields: `name` `address` `city` `state` `zip` `phone` `language` `emergency` `household` `property`',
+          }
+        }
+        const fieldMap: Record<string, keyof UserProfile> = {
+          name: 'name', address: 'address', city: 'city', state: 'state', zip: 'zip',
+          phone: 'phone', language: 'preferredLanguage', emergency: 'emergencyContact',
+          household: 'householdNotes', property: 'propertyType',
+        }
+        const profileField = fieldMap[field.toLowerCase()]
+        if (!profileField) {
+          return {
+            handled: true,
+            reply: `Unknown field: \`${field}\`\nValid fields: \`name\` \`address\` \`city\` \`state\` \`zip\` \`phone\` \`language\` \`emergency\` \`household\` \`property\``,
+          }
+        }
+        if (state.userProfile !== undefined && state.userProfile !== null) {
+          ;(state.userProfile as unknown as Record<string, unknown>)[profileField] = value
+          ;(state.userProfile as UserProfile).updatedAt = new Date().toISOString()
+        }
+        return { handled: true, reply: `✅ Profile updated: \`${field}\` → ${value}\n\nNote: Saved in session. Channels that support persistence save automatically.` }
+      }
+
+      if (subCmd === 'delete') {
+        state.userProfile = null
+        return { handled: true, reply: '🗑 Profile data cleared from this session. Use `/profile delete` on a persistent channel to remove stored data.' }
+      }
+
+      return {
+        handled: true,
+        reply: 'Usage: `/profile [show|set <field> <value>|delete]`',
+      }
+    }
+
+    case '/privacy': {
+      return {
+        handled: true,
+        reply: [
+          '*Privacy*',
+          '',
+          'SeaBri stores your profile locally on the device running the gateway.',
+          'Profile data is used only to personalize responses and prepare outbound actions.',
+          'It is never sent to third parties without your explicit approval.',
+          '',
+          'Commands:',
+          '• `/profile delete` — permanently remove your stored profile',
+          '• `/profile show` — view what\'s stored',
+        ].join('\n'),
+      }
+    }
+
+    case '/skip': {
+      // Acknowledge skip during onboarding or any prompted flow
+      return { handled: true, reply: 'No problem — you can always use `/profile` to set this up later.' }
+    }
+
     case '/help': {
       return {
         handled: true,
@@ -288,7 +447,10 @@ export async function handleSlashCommand(
           '`/agents` — list agents',
           '`/switch <id>` — change agent',
           '`/panel <question>` — consult all specialists in parallel',
+          '`/lang [code|off]` — set response language (en es pt fr de ar zh ja ko hi ru tr)',
           '`/company [show|set <id>|sector <name>|asset <id>|clear]` — set company context for bridge data',
+          '`/profile [show|set <field> <value>|delete]` — view and update your profile (name, address, phone, etc.)',
+          '`/privacy` — data storage policy and how to delete your info',
           '`/status` — show current state',
           '`/memory` — show memory summary',
           '`/compact` — compress conversation history',

@@ -15,6 +15,8 @@ upstream drift, and how to bump a pinned commit.
 |----------|-----|-----------|---------|----------|
 | openclaw | https://github.com/openclaw/openclaw | `ff67a890` | MIT | 2026-04-21 |
 | hermes-agent | https://github.com/NousResearch/hermes-agent | `e7f8a5fe` | MIT | 2026-04-21 |
+| nanobot | https://github.com/HKUDS/nanobot | `5853d5df` | MIT | 2026-05-03 |
+| awesome-deepseek-agent | https://github.com/deepseek-ai/awesome-deepseek-agent | `5c11e014` | NOASSERTION | 2026-05-03 |
 
 Per `IMPORT_POLICY.md` §3, only 40-char SHAs are valid. Tags and branches are rejected.
 
@@ -32,6 +34,8 @@ npx tsx scripts/sync-upstream.ts
 # Report a single upstream
 npx tsx scripts/sync-upstream.ts openclaw
 npx tsx scripts/sync-upstream.ts hermes-agent
+npx tsx scripts/sync-upstream.ts nanobot
+npx tsx scripts/sync-upstream.ts awesome-deepseek-agent
 ```
 
 ### Prerequisite: `_upstream/` clones
@@ -43,6 +47,8 @@ First-time setup:
 mkdir -p ../_upstream
 git clone https://github.com/openclaw/openclaw ../_upstream/openclaw
 git clone https://github.com/NousResearch/hermes-agent ../_upstream/hermes-agent
+git clone https://github.com/HKUDS/nanobot ../_upstream/nanobot
+git clone https://github.com/deepseek-ai/awesome-deepseek-agent ../_upstream/awesome-deepseek-agent
 ```
 
 These clones are used only for `git fetch` + `rev-list` + `show`. They carry no

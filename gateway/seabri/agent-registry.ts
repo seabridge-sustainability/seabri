@@ -11,6 +11,12 @@ export type AgentCapability =
   | 'decarbonization-strategy'
   | 'natural-capital-markets'
   | 'general-sustainability'
+  | 'emergency-resilience'
+  | 'insurance-navigation'
+  | 'property-risk'
+  | 'damage-documentation'
+  | 'contractor-coordination'
+  | 'sustainability-companion'
 
 export interface AgentRegistration {
   id: string
@@ -23,6 +29,36 @@ export interface AgentRegistration {
 }
 
 const BUILTIN_METADATA: Record<AgentId, { description: string; capabilities: AgentCapability[] }> = {
+  // SeaBri core agents
+  'seabri-orchestrator': {
+    description: 'SeaBri front door — understands your situation and routes to the right specialist',
+    capabilities: ['general-sustainability'],
+  },
+  'emergency-resilience': {
+    description: 'Active emergencies: flood, wildfire, hurricane, heat — immediate actions and resources',
+    capabilities: ['emergency-resilience'],
+  },
+  'insurance-navigator': {
+    description: 'Insurance policy review, claims filing, coverage gaps, dispute resolution',
+    capabilities: ['insurance-navigation'],
+  },
+  'property-climate-risk': {
+    description: 'Property-level climate risk scorecard: flood, fire, heat, hurricane, drought',
+    capabilities: ['property-risk', 'climate-risk-analysis'],
+  },
+  'damage-documentation': {
+    description: 'Post-disaster damage documentation for insurance claims and FEMA applications',
+    capabilities: ['damage-documentation'],
+  },
+  'contractor-coordination': {
+    description: 'Contractor vetting, red flags, fair pricing, and outreach scripts',
+    capabilities: ['contractor-coordination'],
+  },
+  'sustainability-companion': {
+    description: 'Energy bills, solar, heat pumps, IRA tax credits, water, small business sustainability',
+    capabilities: ['sustainability-companion', 'home-energy-advice'],
+  },
+  // Specialist agents
   'climate-risk': {
     description: 'Physical climate risk — flood, wildfire, heat, drought, sea level rise',
     capabilities: ['climate-risk-analysis'],

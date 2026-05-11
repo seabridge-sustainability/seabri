@@ -11,12 +11,17 @@
  * gateway/index.ts can iterate `channels/registry.ts` uniformly.
  */
 
+import type { Product } from '../product.js'
+
 export interface BaseChannel {
   /** Stable identifier used in policy.channels[<id>] and logs. */
   readonly id: string
 
   /** Human-readable label for banners and `seabri doctor`. */
   readonly displayName: string
+
+  /** Which product surface this channel serves. */
+  readonly product: Product
 
   /**
    * True when required env/config is present. Does NOT verify the SDK package

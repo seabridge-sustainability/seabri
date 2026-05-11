@@ -95,7 +95,10 @@ export async function loadSkillMetadata(): Promise<SkillMeta[]> {
   return skills
 }
 
+const SKILL_ID_RE = /^[a-zA-Z0-9_-]+$/
+
 export async function loadSkillContent(skillId: string): Promise<string | null> {
+  if (!SKILL_ID_RE.test(skillId)) return null
   const skillPath = resolve(SKILLS_DIR, skillId, 'SKILL.md')
   try {
     return await readFile(skillPath, 'utf-8')
@@ -172,6 +175,11 @@ export async function buildRagSkillsContext(query: string, topK = DEFAULT_TOP_K)
   }
 
   return lines.join('\n')
+}
+
+export async function getSkillBody(id: string): Promise<string | null> {
+  await loadSkillMetadata()
+  return cachedBodies.get(id) ?? null
 }
 
 export function invalidateSkillCache(): void {

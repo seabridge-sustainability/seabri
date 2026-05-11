@@ -1,7 +1,11 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { resolve } from 'path'
+import { randomUUID } from 'crypto'
 import { WORKSPACE_DIR } from '../config.js'
 import { parseNaturalLanguageCron } from './parser.js'
+import { createLogger } from '../logger.js'
+
+const log = createLogger('gateway.cron')
 
 const CRONS_FILE = resolve(WORKSPACE_DIR, 'crons.json')
 
@@ -39,7 +43,7 @@ async function saveStore(store: CronStore): Promise<void> {
 }
 
 function generateId(): string {
-  return `cron_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+  return `cron_${randomUUID()}`
 }
 
 export async function addCronJob(
@@ -48,6 +52,17 @@ export async function addCronJob(
 ): Promise<CronJob | null> {
   const parsed = await parseNaturalLanguageCron(naturalLanguage)
   if (!parsed) return null
+
+  // Validate expression before persisting so we never store an invalid job as enabled.
+  try {
+    const cron = await import('node-cron')
+    if (!cron.validate(parsed.expression)) {
+      log.warn('parsed expression invalid — job not created', { expression: parsed.expression })
+      return null
+    }
+  } catch {
+    // node-cron not available; accept the parsed expression and let scheduleJob warn later
+  }
 
   const job: CronJob = {
     id: generateId(),
@@ -125,8 +140,14 @@ function scheduleJob(job: CronJob): void {
   import('node-cron')
     .then((cron) => {
       if (!cron.validate(job.expression)) {
-        console.warn(`[Cron] Invalid expression for job ${job.id}: ${job.expression}`)
+        log.warn('invalid cron expression', { jobId: job.id, expression: job.expression })
         return
+      }
+
+      const existing = activeHandles.get(job.id)
+      if (existing) {
+        existing.stop()
+        activeHandles.delete(job.id)
       }
 
       const handle = cron.schedule(job.expression, async () => {
@@ -136,12 +157,12 @@ function scheduleJob(job: CronJob): void {
       activeHandles.set(job.id, handle)
     })
     .catch(() => {
-      console.warn('[Cron] node-cron not available — scheduled jobs will not run automatically')
+      log.warn('node-cron not available — scheduled jobs will not run automatically')
     })
 }
 
 async function runJob(job: CronJob): Promise<void> {
-  console.log(`[Cron] Running job "${job.description}"`)
+  log.info('running job', { description: job.description })
 
   // Dynamically import router to avoid circular deps at module load time
   try {
@@ -149,20 +170,21 @@ async function runJob(job: CronJob): Promise<void> {
     const response = await routeMessage('general', job.task, [])
 
     if (job.channel === 'console') {
-      console.log(`\n[Cron] ${job.description}\n${response}\n`)
+      log.info('job output', { description: job.description, response })
     }
     // Telegram delivery would happen here if integrated
 
-    // Update last run
+    const now = Date.now()
+    job.lastRun = now
     const store = await loadStore()
-    const stored = store.jobs.find((j) => j.id === job.id)
-    if (stored) {
-      stored.lastRun = Date.now()
+    const idx = store.jobs.findIndex((j) => j.id === job.id)
+    if (idx !== -1) {
+      store.jobs[idx] = { ...store.jobs[idx], lastRun: now }
       await saveStore(store)
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
-    console.error(`[Cron] Job "${job.description}" failed: ${message}`)
+    log.error('job failed', { description: job.description, error: message })
   }
 }
 
@@ -174,6 +196,6 @@ export async function startAllCronJobs(): Promise<void> {
     }
   }
   if (store.jobs.length > 0) {
-    console.log(`[Cron] Started ${store.jobs.filter((j) => j.enabled).length} scheduled job(s)`)
+    log.info('started scheduled jobs', { count: store.jobs.filter((j) => j.enabled).length })
   }
 }

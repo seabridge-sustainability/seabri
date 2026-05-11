@@ -112,7 +112,7 @@ The status badge in the UI and `seabri status` show whether you're connected.
 
 ## Skills
 
-OpenSeaBri ships with 8 starter sustainability methodology skills. Add more from the community or write your own.
+OpenSeaBri ships with 15 starter sustainability methodology skills. Add more from the community or write your own.
 
 ```bash
 seabri skills list         # List available skills
@@ -228,6 +228,30 @@ seabri doctor    # Config, API keys, model, daemon, policy, channels, integratio
 | `TELEGRAM_TOKEN` | No | Telegram bot token |
 | `TAVILY_API_KEY` | No | Web search for research loop |
 | `GATEWAY_PORT` | No | Gateway WebSocket port (default 18790) |
+| `OPENSEABRI_API_KEY` | Production | Required for `/api/seabri/*` via `x-openseabri-key` |
+| `SEABRI_WS_TOKEN` | Production | Required for gateway WebSocket auth |
+| `OPENSEABRI_CANVAS_WS_TOKEN` | Production if canvas enabled | Required for canvas WebSocket auth |
+| `OPENSEABRI_CORS_ORIGIN` | Production | Allowed browser origin |
+| `OPENSEABRI_RATE_LIMIT` | Production | Per-IP requests/minute budget |
+
+Production and staging deployment details live in:
+
+- `docs/deployment/OPENSEABRI_PRODUCTION_DEPLOYMENT.md`
+- `docs/deployment/OPENSEABRI_STAGING_DEPLOYMENT_RUNBOOK.md`
+- `docs/deployment/OPENSEABRI_STAGING_DEPLOYMENT_PACKAGE.md`
+- `docs/deployment/OPENSEABRI_STAGING_EVIDENCE_TEMPLATE.md`
+- `docs/security/OPENSEABRI_SECRET_ROTATION_AND_PROVIDER_VALIDATION.md`
+- `docs/testing/OPENSEABRI_LIVE_PROVIDER_VALIDATION_PLAN.md`
+- `docs/deployment/OPENSEABRI_REGISTRY_TELEMETRY_HARDENING_PLAN.md`
+
+Useful staging checks:
+
+```bash
+npm run validate:staging
+npm run smoke:staging
+curl -H "x-openseabri-key: $OPENSEABRI_API_KEY" http://localhost:18790/api/seabri/admin/provider-readiness
+curl -H "x-openseabri-key: $OPENSEABRI_API_KEY" http://localhost:18790/api/seabri/registry-snapshot
+```
 
 ---
 

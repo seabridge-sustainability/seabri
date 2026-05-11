@@ -46,6 +46,7 @@ Return only valid JSON, no markdown.`
         max_tokens: 256,
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: AbortSignal.timeout(15_000),
     })
 
     if (!response.ok) return null
