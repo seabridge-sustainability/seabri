@@ -117,3 +117,44 @@ export const feedback = pgTable('feedback', {
   index('feedback_agent_id_idx').on(table.agentId),
   index('feedback_session_id_idx').on(table.sessionId),
 ])
+
+export const userProfiles = pgTable('user_profiles', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  channel: text('channel').notNull(),
+  profile: jsonb('profile').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  index('user_profiles_user_id_idx').on(table.userId),
+  index('user_profiles_channel_idx').on(table.channel),
+])
+
+export const telemetryEvents = pgTable('telemetry_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  type: text('type').notNull(),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  data: jsonb('data').notNull(),
+}, (table) => [
+  index('telemetry_events_type_idx').on(table.type),
+  index('telemetry_events_timestamp_idx').on(table.timestamp),
+])
+
+export const providerValidationEvidence = pgTable('provider_validation_evidence', {
+  validationId: text('validation_id').primaryKey(),
+  provider: text('provider').notNull(),
+  mode: text('mode').notNull(),
+  validatedAt: timestamp('validated_at').notNull(),
+  validatedBy: text('validated_by').notNull(),
+  targetLabel: text('target_label'),
+  result: text('result').notNull(),
+  evidenceSummary: text('evidence_summary').notNull(),
+  providerReferenceId: text('provider_reference_id'),
+  notes: text('notes'),
+  expiresAt: timestamp('expires_at'),
+  secretsRedacted: boolean('secrets_redacted').default(true).notNull(),
+}, (table) => [
+  index('provider_validation_evidence_provider_idx').on(table.provider),
+  index('provider_validation_evidence_validated_at_idx').on(table.validatedAt),
+  index('provider_validation_evidence_expires_at_idx').on(table.expiresAt),
+])

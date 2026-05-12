@@ -63,4 +63,23 @@ describe('GATEWAY_PORT', () => {
 
     expect(output.trim()).toBe('19001')
   })
+
+  it('uses provider PORT when GATEWAY_PORT is not set', () => {
+    const output = execFileSync(
+      process.execPath,
+      ['--import', 'tsx', '-e', "import('./gateway/config.ts').then((m) => console.log(m.GATEWAY_PORT))"],
+      {
+        cwd: process.cwd(),
+        env: {
+          ...process.env,
+          GATEWAY_PORT: '',
+          PORT: '19002',
+          OPENSEABRI_DOTENV_OVERRIDE: 'false',
+        },
+        encoding: 'utf8',
+      },
+    )
+
+    expect(output.trim()).toBe('19002')
+  })
 })

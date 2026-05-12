@@ -8,6 +8,13 @@
       "when": 1777730508100,
       "tag": "0000_minor_luminals",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778524629196,
+      "tag": "0001_even_punisher",
+      "breakpoints": true
     }
   ]
 }

@@ -27,7 +27,8 @@ import {
   listToolViews,
 } from './registry-views.js'
 import { buildRegistrySnapshot } from './registry-snapshot.js'
-import { getProviderReadiness, validateProviderReadiness } from './provider-readiness.js'
+import { getProviderReadinessWithEvidence, validateProviderReadiness, type ProviderId } from './provider-readiness.js'
+import { listProviderValidationEvidence, recordProviderValidationEvidence } from './provider-validation-evidence.js'
 import { runIncidentWorkflow } from './incident-workflow.js'
 import { analyzeIncidentImage, IncidentImageInputSchema } from './vision-analysis.js'
 import { createResourceActionCard, searchLocalResources, LocalResourceSearchInputSchema, ResourceCategorySchema } from './local-resources.js'
@@ -77,6 +78,32 @@ const ProviderValidateBodySchema = z.object({
   testTarget: z.string().trim().optional(),
   liveTestRequested: z.boolean().optional(),
 })
+
+const ProviderIdSchema = z.enum([
+  'telegram',
+  'whatsapp',
+  'twilio_sms',
+  'twilio_voice',
+  'llm',
+  'mcp_external_tools',
+  'storage_database',
+  'local_resource_search',
+  'vision',
+])
+
+const ProviderValidationEvidenceBodySchema = z.object({
+  provider: ProviderIdSchema,
+  mode: z.enum(['dry_run', 'test_mode', 'live_approved']),
+  validationId: z.string().trim().max(120).optional(),
+  validatedAt: z.string().datetime().optional(),
+  validatedBy: z.string().trim().min(1).max(120),
+  targetLabel: z.string().trim().max(160).optional(),
+  result: z.enum(['pass', 'fail', 'skipped', 'blocked']),
+  evidenceSummary: z.string().trim().min(1).max(1000),
+  providerReferenceId: z.string().trim().max(240).optional(),
+  notes: z.string().trim().max(1000).optional(),
+  expiresAt: z.string().datetime().optional(),
+}).strict()
 
 const IncidentWorkflowBodySchema = z.object({
   message: z.string().trim().min(1, '"message" string is required').max(100_000),
@@ -206,6 +233,8 @@ function queryParams(url: string): URLSearchParams {
  *   GET  /api/seabri/registry-snapshot         - versioned sanitized registry snapshot
  *   GET  /api/seabri/admin/provider-readiness  - sanitized provider readiness
  *   POST /api/seabri/admin/provider-validate   - safe provider config validation only
+ *   GET  /api/seabri/admin/provider-validation-evidence - sanitized provider validation evidence
+ *   POST /api/seabri/admin/provider-validation-evidence - record provider validation evidence
  *   GET  /api/seabri/agents                    — list all registered agents
  *   GET  /api/seabri/models                    — list all registered models
  *   POST /api/seabri/route                     — route a task (body: { task, agentId?, modelId? })
@@ -286,7 +315,31 @@ export async function handleSeabriApiRequest(
 
     // GET /api/seabri/admin/provider-readiness
     if (url === '/api/seabri/admin/provider-readiness' && method === 'GET') {
-      json(res, 200, { providers: getProviderReadiness() })
+      json(res, 200, { providers: await getProviderReadinessWithEvidence() })
+      return true
+    }
+
+    // GET /api/seabri/admin/provider-validation-evidence
+    if (url.startsWith('/api/seabri/admin/provider-validation-evidence') && method === 'GET') {
+      const params = queryParams(url)
+      const provider = params.get('provider')
+      const parsedProvider = provider ? ProviderIdSchema.safeParse(provider) : null
+      if (provider && !parsedProvider?.success) {
+        json(res, 400, { error: 'Invalid provider' })
+        return true
+      }
+      json(res, 200, { evidence: await listProviderValidationEvidence(parsedProvider?.data as ProviderId | undefined) })
+      return true
+    }
+
+    // POST /api/seabri/admin/provider-validation-evidence
+    if (url === '/api/seabri/admin/provider-validation-evidence' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, ProviderValidationEvidenceBodySchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, { evidence: await recordProviderValidationEvidence(parsed.value) })
       return true
     }
 

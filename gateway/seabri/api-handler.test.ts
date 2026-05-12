@@ -196,6 +196,33 @@ describe('SeaBri core API', () => {
     expect(JSON.stringify(body)).not.toContain('twilio-secret-token')
   })
 
+  it('records and lists sanitized provider validation evidence', async () => {
+    const res = await fetch(`${baseUrl()}/api/seabri/admin/provider-validation-evidence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'telegram',
+        mode: 'dry_run',
+        validatedBy: 'pilot-ops',
+        targetLabel: 'approved staging chat',
+        result: 'pass',
+        evidenceSummary: 'Configuration shape validated; no message sent.',
+        providerReferenceId: 'sensitive-provider-reference-123',
+        expiresAt: '2026-12-31T00:00:00.000Z',
+      }),
+    })
+    expect(res.status).toBe(200)
+    const created = await res.json() as { evidence: { providerReferenceId: string; secretsRedacted: boolean } }
+    expect(created.evidence.secretsRedacted).toBe(true)
+    expect(created.evidence.providerReferenceId).toMatch(/^ref_/)
+
+    const list = await fetch(`${baseUrl()}/api/seabri/admin/provider-validation-evidence?provider=telegram`)
+    expect(list.status).toBe(200)
+    const body = await list.json() as { evidence: Array<{ provider: string; providerReferenceId?: string }> }
+    expect(body.evidence.some((item) => item.provider === 'telegram')).toBe(true)
+    expect(JSON.stringify(body)).not.toContain('sensitive-provider-reference-123')
+  })
+
   it('POST /api/seabri/living-companion/incident returns a deterministic flood workflow', async () => {
     const res = await fetch(`${baseUrl()}/api/seabri/living-companion/incident`, {
       method: 'POST',

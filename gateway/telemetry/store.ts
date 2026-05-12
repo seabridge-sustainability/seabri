@@ -1,5 +1,7 @@
 import { mkdir, appendFile } from 'fs/promises'
 import { dirname, resolve } from 'path'
+import { resolvePersistenceAdapter } from '../persistence/adapter.js'
+import { getDb, schema } from '../../db/client.js'
 
 export type TelemetryEventType =
   | 'provider_readiness_checked'
@@ -62,6 +64,17 @@ export class FileTelemetryStore implements TelemetryStore {
   }
 }
 
+export class DatabaseTelemetryStore implements TelemetryStore {
+  async append(event: TelemetryEvent): Promise<void> {
+    const safe = sanitizeTelemetryEvent(event)
+    await getDb().insert(schema.telemetryEvents).values({
+      type: safe.type,
+      timestamp: new Date(safe.timestamp),
+      data: safe.data,
+    })
+  }
+}
+
 const memoryStore = new InMemoryTelemetryStore()
 let activeStore: TelemetryStore | null = null
 
@@ -71,7 +84,9 @@ export function defaultTelemetryPath(): string {
 
 export function getTelemetryStore(): TelemetryStore {
   if (activeStore) return activeStore
-  if (process.env.OPENSEABRI_TELEMETRY_STORE === 'file') {
+  if (process.env.OPENSEABRI_TELEMETRY_STORE === 'database' || resolvePersistenceAdapter().kind === 'database') {
+    activeStore = new DatabaseTelemetryStore()
+  } else if (process.env.OPENSEABRI_TELEMETRY_STORE === 'file') {
     activeStore = new FileTelemetryStore(process.env.OPENSEABRI_TELEMETRY_PATH || defaultTelemetryPath())
   } else {
     activeStore = memoryStore

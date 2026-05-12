@@ -32,6 +32,8 @@ import { getExecutor } from './seabri/action-executor.js'
 import { registerBuiltinTools } from './tools/register-builtin.js'
 import { isDbConfigured } from '../db/client.js'
 import { log } from './logger.js'
+import { validateStartupConfig } from './startup/production-config.js'
+import { initializePersistenceAdapterForStartup } from './persistence/adapter.js'
 
 const VERSION = '0.2.0'
 
@@ -88,6 +90,32 @@ function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whats
 }
 
 async function startGateway(): Promise<void> {
+  const startupValidation = validateStartupConfig()
+  log.info('startup mode', startupValidation.summary)
+  if (!startupValidation.ok) {
+    for (const err of startupValidation.errors) {
+      log.fatal('startup validation failed', { code: err.code, error: err.message })
+    }
+    process.exit(1)
+  }
+  for (const warn of startupValidation.warnings) {
+    log.warn('startup validation warning', { code: warn.code, warning: warn.message })
+  }
+  try {
+    const persistence = await initializePersistenceAdapterForStartup()
+    log.info('persistence adapter', {
+      kind: persistence.kind,
+      productionSafe: persistence.productionSafe,
+      configured: persistence.configured,
+    })
+  } catch {
+    log.fatal('startup validation failed', {
+      code: 'persistence_initialization_failed',
+      error: 'Production persistence adapter could not initialize. Check database URL, network access, and migrations.',
+    })
+    process.exit(1)
+  }
+
   // Initialize workspace files
   try {
     await initWorkspace()
@@ -103,7 +131,7 @@ async function startGateway(): Promise<void> {
   if (isDbConfigured()) {
     log.info('PostgreSQL configured')
   } else {
-    log.info('no DATABASE_URL — running with file-based sessions')
+    log.info('no DATABASE_URL - running with file-based sessions')
   }
 
   // Check optional connections
@@ -127,7 +155,7 @@ async function startGateway(): Promise<void> {
     if (factory) {
       await startEnabledPresets(factory)
     } else {
-      log.warn('OPENSEABRI_RUN_SECRET unset — cron presets disabled')
+      log.warn('OPENSEABRI_RUN_SECRET unset - cron presets disabled')
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
@@ -328,7 +356,7 @@ async function startGateway(): Promise<void> {
 
   const wsToken = process.env.SEABRI_WS_TOKEN
   if (!wsToken) {
-    log.warn('SEABRI_WS_TOKEN not set — all WebSocket connections will be rejected')
+    log.warn('SEABRI_WS_TOKEN not set - all WebSocket connections will be rejected')
   }
 
   wss.on('connection', (ws: WebSocket, req: HttpIncomingMessage) => {

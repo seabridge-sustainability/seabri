@@ -1,0 +1,30 @@
+services:
+  openseabri:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openseabri:production
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      OPENSEABRI_MODE: production
+      OPENSEABRI_PERSISTENCE_ADAPTER: database
+      GATEWAY_HOST: "0.0.0.0"
+      GATEWAY_PORT: "18790"
+    ports:
+      # Bind locally and terminate TLS/reverse proxy on the host.
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:18790:18790"
+      - "127.0.0.1:18791:18791"
+    volumes:
+      - openseabri_workspace:/root/.openseabri
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:18790/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  openseabri_workspace:
+    driver: local

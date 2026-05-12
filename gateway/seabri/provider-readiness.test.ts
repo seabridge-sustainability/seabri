@@ -20,6 +20,9 @@ const keys = [
   'SEABRI_CALL_TEST_ALLOWED_NUMBERS',
   'OPENSEABRI_LIVE_PROVIDER_TESTS_ENABLED',
   'OPENSEABRI_CHANNELS_ENABLED',
+  'OPENSEABRI_LIVE_PROVIDER_APPROVED',
+  'OPENSEABRI_LOCAL_RESOURCE_FILE',
+  'LOCAL_VISION_URL',
 ]
 
 const oldEnv: Record<string, string | undefined> = {}
@@ -111,5 +114,29 @@ describe('provider readiness', () => {
     })
     expect(result.results[0].status).toBe('passed')
     expect(result.results[0].safeMessage).toContain('No live provider call')
+    expect(result.results[0].readiness.lastValidatedAt).toBeDefined()
+    expect(result.results[0].readiness.dryRunValidationStatus).toBe('passed')
+  })
+
+  it('distinguishes configured, enabled, approved, and live-mode blocked states', () => {
+    process.env.OPENSEABRI_CHANNELS_ENABLED = 'telegram'
+    process.env.TELEGRAM_TOKEN = 'telegram-secret-value'
+
+    const telegram = getProviderReadiness().find((s) => s.provider === 'telegram')
+    expect(telegram?.configured).toBe(true)
+    expect(telegram?.enabled).toBe(true)
+    expect(telegram?.testModeReady).toBe(true)
+    expect(telegram?.liveModeApproved).toBe(false)
+    expect(telegram?.liveModeBlocked).toBe(true)
+    expect(telegram?.canRunLiveTest).toBe(false)
+  })
+
+  it('includes local resource search and vision providers without leaking secrets', () => {
+    process.env.OPENSEABRI_LOCAL_RESOURCE_FILE = 'C:/local/resources.json'
+    process.env.LOCAL_VISION_URL = 'http://127.0.0.1:9999'
+    const statuses = getProviderReadiness()
+    expect(statuses.some((s) => s.provider === 'local_resource_search')).toBe(true)
+    expect(statuses.some((s) => s.provider === 'vision')).toBe(true)
+    expect(JSON.stringify(statuses)).not.toContain('C:/local/resources.json')
   })
 })

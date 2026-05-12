@@ -1,6 +1,8 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { resolve } from 'path'
 import { WORKSPACE_DIR } from '../config.js'
+import { resolvePersistenceAdapter } from '../persistence/adapter.js'
+import { DatabaseProfileStore, type ProfileStore as DatabaseProfileStoreContract } from '../persistence/database-stores.js'
 
 export interface UserProfile {
   userId: string
@@ -46,7 +48,19 @@ function key(userId: string, channel: string): string {
   return `${channel}:${userId}`
 }
 
+let dbProfileStore: DatabaseProfileStoreContract | null = null
+
+function useDatabaseProfileStore(): boolean {
+  return resolvePersistenceAdapter().kind === 'database'
+}
+
+function databaseStore(): DatabaseProfileStoreContract {
+  dbProfileStore ??= new DatabaseProfileStore()
+  return dbProfileStore
+}
+
 export async function getProfile(userId: string, channel: string): Promise<UserProfile | null> {
+  if (useDatabaseProfileStore()) return databaseStore().get(userId, channel)
   const store = await load()
   return store[key(userId, channel)] ?? null
 }
@@ -56,6 +70,7 @@ export async function upsertProfile(
   channel: string,
   updates: Partial<Omit<UserProfile, 'userId' | 'channel' | 'createdAt'>>
 ): Promise<UserProfile> {
+  if (useDatabaseProfileStore()) return databaseStore().upsert(userId, channel, updates)
   const store = await load()
   const k = key(userId, channel)
   const existing = store[k]
@@ -70,6 +85,7 @@ export async function upsertProfile(
 }
 
 export async function deleteProfile(userId: string, channel: string): Promise<boolean> {
+  if (useDatabaseProfileStore()) return databaseStore().delete(userId, channel)
   const store = await load()
   const k = key(userId, channel)
   if (!(k in store)) return false

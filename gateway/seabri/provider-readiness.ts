@@ -1,6 +1,7 @@
 import { mcpRegistry } from '../registries/mcp-registry.js'
 import { recordTelemetryEvent } from '../telemetry/store.js'
 import { isChannelExplicitlyEnabled } from '../channels/enablement.js'
+import { isEvidenceExpired, latestProviderValidationEvidence } from './provider-validation-evidence.js'
 
 export type ProviderId =
   | 'telegram'
@@ -10,15 +11,26 @@ export type ProviderId =
   | 'llm'
   | 'mcp_external_tools'
   | 'storage_database'
+  | 'local_resource_search'
+  | 'vision'
 
 export interface ProviderReadinessStatus {
   provider: ProviderId
   enabled: boolean
   configured: boolean
   testMode: boolean
+  testModeReady: boolean
   liveModeAllowed: boolean
+  liveModeApproved: boolean
+  liveModeBlocked: boolean
   missingConfigKeys: string[]
   lastValidationStatus?: 'not_run' | 'passed' | 'blocked' | 'failed'
+  lastValidatedAt?: string
+  dryRunValidationStatus?: 'not_run' | 'passed' | 'blocked' | 'failed'
+  lastEvidenceStatus?: 'pass' | 'fail' | 'skipped' | 'blocked'
+  evidenceAgeHours?: number
+  evidenceExpired?: boolean
+  requiredValidation?: string
   safeNextStep: string
   canRunLiveTest: boolean
 }
@@ -31,6 +43,7 @@ export interface ProviderValidationResult {
 }
 
 const validationStatus = new Map<ProviderId, ProviderReadinessStatus['lastValidationStatus']>()
+const validationTimestamps = new Map<ProviderId, string>()
 
 function env(name: string): string {
   return process.env[name] || ''
@@ -45,7 +58,7 @@ function missing(keys: string[]): string[] {
 }
 
 function liveProvidersAllowed(): boolean {
-  return env('OPENSEABRI_LIVE_PROVIDER_TESTS_ENABLED') === 'true'
+  return env('OPENSEABRI_LIVE_PROVIDER_APPROVED') === 'true' || env('OPENSEABRI_LIVE_PROVIDER_TESTS_ENABLED') === 'true'
 }
 
 function digitsOnly(value: string): string {
@@ -75,14 +88,20 @@ function status(
   const missingConfigKeys = missing(requiredKeys)
   const configured = requiredKeys.length === 0 ? enabled : missingConfigKeys.length === 0
   const liveModeAllowed = liveProvidersAllowed() && configured && enabled && !testMode
+  const lastValidationStatus = validationStatus.get(provider) ?? 'not_run'
   return {
     provider,
     enabled,
     configured,
     testMode,
+    testModeReady: configured && testMode,
     liveModeAllowed,
+    liveModeApproved: liveProvidersAllowed(),
+    liveModeBlocked: !liveModeAllowed,
     missingConfigKeys,
-    lastValidationStatus: validationStatus.get(provider) ?? 'not_run',
+    lastValidationStatus,
+    lastValidatedAt: validationTimestamps.get(provider),
+    dryRunValidationStatus: lastValidationStatus,
     safeNextStep,
     canRunLiveTest: liveModeAllowed,
   }
@@ -146,7 +165,51 @@ export function getProviderReadiness(): ProviderReadinessStatus[] {
       env('OPENSEABRI_STORAGE_LIVE_MODE') !== 'true',
       'Configure managed storage/database through the staging secret store before persistence.'
     ),
+    status(
+      'local_resource_search',
+      Boolean(env('OPENSEABRI_LOCAL_RESOURCE_FILE') || env('TAVILY_API_KEY') || env('SEABRIDGE_API_URL')),
+      [],
+      env('OPENSEABRI_LOCAL_SEARCH_LIVE_MODE') !== 'true',
+      'Use configured/curated resource files first; enable live search only after source review.'
+    ),
+    status(
+      'vision',
+      Boolean(env('OPENAI_API_KEY') || env('ANTHROPIC_API_KEY') || env('LOCAL_VISION_URL')),
+      [],
+      env('OPENSEABRI_VISION_LIVE_MODE') !== 'true',
+      'Use fallback image guidance unless an approved vision provider is configured.'
+    ),
   ]
+}
+
+export async function getProviderReadinessWithEvidence(): Promise<ProviderReadinessStatus[]> {
+  const statuses = getProviderReadiness()
+  const now = new Date()
+  return Promise.all(statuses.map(async (item) => {
+    const evidence = await latestProviderValidationEvidence(item.provider)
+    if (!evidence) {
+      return {
+        ...item,
+        requiredValidation: item.configured
+          ? 'Run approved dry-run or test-mode validation and attach evidence.'
+          : 'Complete provider configuration before validation evidence can pass.',
+      }
+    }
+    const validatedAt = new Date(evidence.validatedAt)
+    const ageHours = Math.max(0, Math.round(((now.getTime() - validatedAt.getTime()) / 3_600_000) * 100) / 100)
+    const expired = isEvidenceExpired(evidence, now)
+    return {
+      ...item,
+      lastEvidenceStatus: evidence.result,
+      evidenceAgeHours: ageHours,
+      evidenceExpired: expired,
+      requiredValidation: expired
+        ? 'Refresh provider validation evidence before production traffic.'
+        : item.liveModeApproved
+          ? 'Live provider gate is approved; run only the explicitly approved test case.'
+          : 'Live provider remains blocked; keep dry-run/test-mode evidence current.',
+    }
+  }))
 }
 
 export async function validateProviderReadiness(input: {
@@ -194,7 +257,10 @@ export async function validateProviderReadiness(input: {
     }
 
     validationStatus.set(readiness.provider, result.status)
+    validationTimestamps.set(readiness.provider, new Date().toISOString())
     result.readiness.lastValidationStatus = result.status
+    result.readiness.dryRunValidationStatus = result.status
+    result.readiness.lastValidatedAt = validationTimestamps.get(readiness.provider)
     results.push(result)
   }
 

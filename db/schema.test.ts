@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { users, sessions, messages, workflows, workflowRuns, metrics, skills, feedback } from './schema.js'
+import {
+  users,
+  sessions,
+  messages,
+  workflows,
+  workflowRuns,
+  metrics,
+  skills,
+  feedback,
+  userProfiles,
+  telemetryEvents,
+  providerValidationEvidence,
+} from './schema.js'
 
 describe('Database Schema', () => {
   it('exports all expected tables', () => {
@@ -11,6 +23,9 @@ describe('Database Schema', () => {
     expect(metrics).toBeDefined()
     expect(skills).toBeDefined()
     expect(feedback).toBeDefined()
+    expect(userProfiles).toBeDefined()
+    expect(telemetryEvents).toBeDefined()
+    expect(providerValidationEvidence).toBeDefined()
   })
 
   it('users table has expected columns', () => {
@@ -77,5 +92,20 @@ describe('Database Schema', () => {
     expect(cols).toContain('rating')
     expect(cols).toContain('signal')
     expect(cols).toContain('comment')
+  })
+
+  it('production persistence tables have expected columns', () => {
+    expect(Object.keys(userProfiles)).toEqual(expect.arrayContaining(['id', 'userId', 'channel', 'profile', 'updatedAt']))
+    expect(Object.keys(telemetryEvents)).toEqual(expect.arrayContaining(['type', 'timestamp', 'data']))
+    expect(Object.keys(providerValidationEvidence)).toEqual(expect.arrayContaining([
+      'validationId',
+      'provider',
+      'mode',
+      'validatedAt',
+      'validatedBy',
+      'result',
+      'evidenceSummary',
+      'secretsRedacted',
+    ]))
   })
 })

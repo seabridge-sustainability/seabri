@@ -1575,6 +1575,7 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
 
   const tabButton = (id: PilotTab, label: string) => (
     <button
+      key={id}
       onClick={() => setTab(id)}
       style={{
         border: '1px solid var(--border-muted)',

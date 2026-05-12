@@ -1,5 +1,7 @@
 # OpenSeaBri Production Deployment
 
+Current operator path: use `docs/deployment/OPENSEABRI_RELEASE_PACKAGE.md` and `docs/deployment/OPENSEABRI_OWNER_MANUAL_ACTIONS.md` for final deployment execution. This document remains a supporting production configuration reference.
+
 Status: staging-ready once the validation checklist in this document passes. Live provider channels remain gated until approved provider-specific smoke tests are run.
 
 ## Local Development
