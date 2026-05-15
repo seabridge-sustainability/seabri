@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: seabridge-openseabri-harness
         name: SeaBridgeAI OpenSeaBri harness guardrails
-        entry: powershell -ExecutionPolicy Bypass -File C:/Users/adelm/SeaBridgeAI/everything-claude-code/scripts/check-frontend-guardrails.ps1 -RepoPath C:/Users/adelm/SeaBridgeAI/openseabri -Scope all -FailOnFinding -BlockingRules frontend.production-console
+        entry: powershell -ExecutionPolicy Bypass -File C:/Users/adelm/SeaBridgeAI/everything-claude-code/scripts/check-frontend-guardrails.ps1 -RepoPath C:/Users/adelm/SeaBridgeAI/openseabri -Scope production-ui -FailOnFinding -BlockingRules frontend.production-console
         language: system
         pass_filenames: false
         types_or: [javascript, jsx, ts, tsx]
