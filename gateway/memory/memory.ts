@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, access } from 'fs/promises'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { WORKSPACE_DIR } from '../config.js'
+import { ANTHROPIC_API_URL, WORKSPACE_DIR } from '../config.js'
 
 const MEMORY_FILE = resolve(WORKSPACE_DIR, 'MEMORY.md')
 const USER_FILE = resolve(WORKSPACE_DIR, 'USER.md')
@@ -243,7 +243,7 @@ Identify 1-3 new facts about the user's situation, role, or goals that are NOT a
 
 Return only valid JSON, no markdown.`
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
         'x-api-key': apiKey,

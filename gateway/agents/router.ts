@@ -1,4 +1,4 @@
-import { ANTHROPIC_API_KEY, MODEL } from '../config.js'
+import { ANTHROPIC_API_KEY, ANTHROPIC_API_URL, MODEL } from '../config.js'
 import { getSystemPrompt } from './agents.js'
 import { stripModeTag } from '../seabri/modes.js'
 import { buildSystemContext } from '../memory/memory.js'
@@ -25,7 +25,6 @@ import { createLogger } from '../logger.js'
 
 const log = createLogger('gateway.router')
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
 const MAX_TOKENS = 8192
 const MAX_TOOL_ROUNDS = 8

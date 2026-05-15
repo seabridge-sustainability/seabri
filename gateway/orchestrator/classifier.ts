@@ -1,5 +1,5 @@
 import type { AgentId } from '../schemas.js'
-import { ANTHROPIC_API_KEY } from '../config.js'
+import { ANTHROPIC_API_KEY, ANTHROPIC_API_URL } from '../config.js'
 
 export interface ClassificationResult {
   primaryAgent: AgentId
@@ -151,7 +151,7 @@ export async function classifyWithLLM(message: string): Promise<ClassificationRe
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
         'x-api-key': ANTHROPIC_API_KEY,

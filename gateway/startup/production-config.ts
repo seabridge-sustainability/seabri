@@ -94,7 +94,7 @@ export function validateStartupConfig(env: EnvLike = process.env): StartupValida
     if (canvasEnabled && !value(env, 'OPENSEABRI_CANVAS_WS_TOKEN')) {
       warnings.push(issue('missing_canvas_token', 'Canvas WS token is unset; dev mode allows tokenless canvas only outside production.'))
     }
-    if (!hasProductionPersistence(env)) warnings.push(issue('file_persistence', 'No production persistence configured; file/in-memory fallback is staging/dev only.'))
+    if (mode === 'staging' && !hasProductionPersistence(env)) warnings.push(issue('file_persistence', 'No production persistence configured; file/in-memory fallback is staging/dev only.'))
   }
 
   for (const channel of enabledChannels) {

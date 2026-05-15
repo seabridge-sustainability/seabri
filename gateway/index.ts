@@ -187,7 +187,7 @@ async function startGateway(): Promise<void> {
       log.warn('telegram start warning', { error: message })
     }
   } else if (TELEGRAM_TOKEN) {
-    log.warn('telegram credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=telegram to start polling')
+    log.info('telegram credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=telegram to start polling')
   }
 
   // Optionally start WhatsApp
@@ -203,7 +203,7 @@ async function startGateway(): Promise<void> {
       log.warn('whatsapp start warning', { error: message })
     }
   } else if (WHATSAPP_PROVIDER) {
-    log.warn('whatsapp provider configured but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=whatsapp to activate webhook processing')
+    log.info('whatsapp provider configured but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=whatsapp to activate webhook processing')
   }
 
   // Optionally start SMS (Twilio)
@@ -217,7 +217,7 @@ async function startGateway(): Promise<void> {
       log.warn('sms start warning', { error: message })
     }
   } else if (smsChannel.isEnabled()) {
-    log.warn('twilio sms credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=sms to activate SMS webhooks')
+    log.info('twilio sms credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=sms to activate SMS webhooks')
   }
 
   // Optionally start Voice (Twilio)
@@ -231,7 +231,7 @@ async function startGateway(): Promise<void> {
       log.warn('voice start warning', { error: message })
     }
   } else if (voiceChannel.isEnabled()) {
-    log.warn('twilio voice credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=voice to activate voice webhooks')
+    log.info('twilio voice credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=voice to activate voice webhooks')
   }
 
   // TwiML endpoint — serves spoken text for outbound Twilio Voice calls.

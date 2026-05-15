@@ -14,7 +14,10 @@ export const WORKSPACE_DIR = process.env.OPENSEABRI_WORKSPACE ||
 export const CONFIG_FILE = resolve(homedir(), '.openseabri', 'openseabri.json')
 
 export const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || process.env.PORT || '18790', 10)
-export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || ''
+export const AI_ROUTER_BASE_URL = (process.env.AI_ROUTER_BASE_URL || process.env.ANTHROPIC_BASE_URL || '').replace(/\/$/, '')
+export const ANTHROPIC_API_URL = process.env.ANTHROPIC_API_URL ||
+  (AI_ROUTER_BASE_URL ? `${AI_ROUTER_BASE_URL}/messages` : 'https://api.anthropic.com/v1/messages')
+export const ANTHROPIC_API_KEY = process.env.AI_ROUTER_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_API_KEY || ''
 export const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || ''
 export const WHATSAPP_PROVIDER = process.env.WHATSAPP_PROVIDER || ''
 export const WHATSAPP_CLOUD_TOKEN = process.env.WHATSAPP_CLOUD_TOKEN || ''

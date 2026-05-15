@@ -1,7 +1,7 @@
 import { writeFile, mkdir, readFile } from 'fs/promises'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { ANTHROPIC_API_KEY } from '../config.js'
+import { ANTHROPIC_API_KEY, ANTHROPIC_API_URL } from '../config.js'
 import { invalidateSkillCache } from './loader.js'
 import {
   COMPLIANCE_TAGS,
@@ -10,7 +10,6 @@ import {
   SkillValidationError,
 } from './schema.js'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_MODEL = 'claude-sonnet-4-5'
 
 const OPENSEABRI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')

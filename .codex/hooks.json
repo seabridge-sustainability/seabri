@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"C:/Users/adelm/SeaBridgeAI/everything-claude-code/scripts/sentinel_preflight_gate.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
+

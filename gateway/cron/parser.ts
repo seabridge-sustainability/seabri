@@ -1,6 +1,5 @@
-import { ANTHROPIC_API_KEY } from '../config.js'
+import { ANTHROPIC_API_KEY, ANTHROPIC_API_URL } from '../config.js'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 
 export interface ParsedCron {

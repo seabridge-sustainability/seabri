@@ -22,6 +22,12 @@ describe('startup production config validation', () => {
     expect(result.warnings.map((e) => e.code)).toContain('file_persistence')
   })
 
+  it('allows dev file fallback without a production persistence warning', () => {
+    const result = validateStartupConfig({ OPENSEABRI_MODE: 'dev' })
+    expect(result.ok).toBe(true)
+    expect(result.warnings.map((e) => e.code)).not.toContain('file_persistence')
+  })
+
   it('rejects unknown channel names', () => {
     const result = validateStartupConfig({ OPENSEABRI_CHANNELS_ENABLED: 'telegram,unknown-channel' })
     expect(result.ok).toBe(false)

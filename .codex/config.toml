@@ -7,3 +7,6 @@ args = ["mcp", "--server", "classic"]
 "OPENAI_API_KEY" = "${OPENAI_API_KEY}"
 "OPENAI_BASE_URL" = "${OPENAI_BASE_URL}"
 "STRAWBERRY_SERVICE_URL" = "${STRAWBERRY_SERVICE_URL}"
+
+[features]
+codex_hooks = true
