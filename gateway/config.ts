@@ -62,6 +62,19 @@ export const SMTP_USER = process.env.SMTP_USER || ''
 export const SMTP_PASS = process.env.SMTP_PASS || ''
 export const SMTP_FROM = process.env.SMTP_FROM || ''
 
+/** Maximum concurrent WebSocket connections. Connections over this limit are rejected with 1008. */
+export const MAX_WS_CLIENTS = parseInt(process['env']['OPENSEABRI_MAX_WS_CLIENTS'] || '50', 10)
+
+/**
+ * Hermes adapter: comma-separated absolute paths permitted as agentDir values.
+ * When HERMES_ALLOWED_AGENT_DIRS is unset, any absolute path is accepted (dev default).
+ * Set this in production to restrict which agent directories Hermes can execute.
+ */
+export const HERMES_ALLOWED_AGENT_DIRS: readonly string[] | null =
+  process['env']['HERMES_ALLOWED_AGENT_DIRS']
+    ? (process['env']['HERMES_ALLOWED_AGENT_DIRS'] as string).split(',').map((p) => p.trim()).filter(Boolean)
+    : null
+
 export const AGENTS = [
   // ── SeaBri core agents ────────────────────────────────────────────────────
   { id: 'seabri-orchestrator', name: 'SeaBri', icon: '🌊' },

@@ -2,9 +2,10 @@ import type { UpstreamAdapter, UpstreamHealth } from './types.js'
 import { HermesAdapter, type HermesConfig } from './hermes.js'
 import { MiroFishAdapter, type MiroFishConfig } from './mirofish.js'
 import { OpenClawAdapter, type OpenClawConfig } from './openclaw.js'
+import { SpaceAgentInstructionAdapter, type SpaceAgentInstructionConfig } from './space-agent.js'
 
-export { HermesAdapter, MiroFishAdapter, OpenClawAdapter }
-export type { HermesConfig, MiroFishConfig, OpenClawConfig }
+export { HermesAdapter, MiroFishAdapter, OpenClawAdapter, SpaceAgentInstructionAdapter }
+export type { HermesConfig, MiroFishConfig, OpenClawConfig, SpaceAgentInstructionConfig }
 export type { OpenClawRuntime, OpenClawPlugin, OpenClawPluginResponse } from './openclaw.js'
 export type {
   UpstreamAdapter,
@@ -90,11 +91,13 @@ export function createDefaultRegistry(config?: {
   hermes?: HermesConfig
   mirofish?: MiroFishConfig
   openclaw?: OpenClawConfig
+  spaceAgent?: SpaceAgentInstructionConfig
 }): UpstreamRegistry {
   const registry = new UpstreamRegistry()
   registry.register(new HermesAdapter(config?.hermes))
   registry.register(new MiroFishAdapter(config?.mirofish))
   registry.register(new OpenClawAdapter(config?.openclaw))
+  registry.register(new SpaceAgentInstructionAdapter(config?.spaceAgent))
   return registry
 }
 

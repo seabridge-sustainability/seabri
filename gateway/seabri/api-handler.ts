@@ -39,16 +39,24 @@ import {
   CertificationNavigatorInputSchema,
   CommunityResilienceInputSchema,
   CommunityProjectInputSchema,
+  GrantSearchInputSchema,
   HomeEnergyInputSchema,
   HouseholdCarbonInputSchema,
   SustainablePurchasingInputSchema,
+  UtilityBillInputSchema,
+  WasteRecyclingInputSchema,
+  WaterConservationInputSchema,
   buildCommunityResilienceChecklist,
   buildSustainablePurchasingChecklist,
+  buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
   estimateHouseholdCarbon,
+  findGrantOpportunities,
+  interpretUtilityBill,
   navigateCertification,
   planCommunityProject,
   planHomeEnergyActions,
+  planWaterConservation,
 } from './practical-sustainability.js'
 import { deleteProfile, getProfile, upsertProfile } from './user-profile.js'
 import { recordTelemetryEvent } from '../telemetry/store.js'
@@ -537,6 +545,46 @@ export async function handleSeabriApiRequest(
         return true
       }
       json(res, 200, await buildCommunityResilienceChecklist(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/grant-opportunities' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, GrantSearchInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await findGrantOpportunities(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/water-conservation-plan' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, WaterConservationInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await planWaterConservation(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/waste-recycling-guide' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, WasteRecyclingInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await buildWasteRecyclingGuide(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/utility-bill-interpreter' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, UtilityBillInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await interpretUtilityBill(parsed.value))
       return true
     }
 

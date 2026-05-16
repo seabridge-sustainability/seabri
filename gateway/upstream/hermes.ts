@@ -1,5 +1,6 @@
 import { spawn } from 'child_process'
 import { isAbsolute } from 'path'
+import { HERMES_ALLOWED_AGENT_DIRS } from '../config.js'
 import type {
   UpstreamAdapter,
   UpstreamContext,
@@ -53,6 +54,9 @@ export class HermesAdapter implements UpstreamAdapter {
     const agentDir = config.agentDir ?? process.env.HERMES_AGENT_DIR ?? ''
     if (agentDir && !isAbsolute(agentDir)) {
       throw new Error('agentDir must be an absolute path')
+    }
+    if (agentDir && HERMES_ALLOWED_AGENT_DIRS !== null && !HERMES_ALLOWED_AGENT_DIRS.includes(agentDir)) {
+      throw new Error(`agentDir not in HERMES_ALLOWED_AGENT_DIRS allowlist: ${agentDir}`)
     }
 
     this.pythonPath = pythonPath

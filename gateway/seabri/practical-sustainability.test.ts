@@ -3,11 +3,15 @@ import { InMemoryTelemetryStore, setTelemetryStoreForTesting } from '../telemetr
 import {
   buildCommunityResilienceChecklist,
   buildSustainablePurchasingChecklist,
+  buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
   estimateHouseholdCarbon,
+  findGrantOpportunities,
+  interpretUtilityBill,
   navigateCertification,
   planCommunityProject,
   planHomeEnergyActions,
+  planWaterConservation,
 } from './practical-sustainability.js'
 
 describe('practical sustainability workflows', () => {
@@ -118,5 +122,118 @@ describe('practical sustainability workflows', () => {
     expect(result.localPartnerCategories).toContain('city emergency management')
     expect(result.drillExercisePlan).toContain('Test contact tree.')
     expect(JSON.stringify(result)).not.toMatch(/specific partner|Acme/i)
+  })
+
+  it('plans water conservation without inventing local restrictions', async () => {
+    const store = new InMemoryTelemetryStore()
+    setTelemetryStoreForTesting(store)
+    const result = await planWaterConservation({
+      householdType: 'single_family',
+      location: '33101',
+      monthlyWaterUseGallons: 9000,
+      painPoints: ['high bill', 'lawn irrigation'],
+      preferredLanguage: 'Spanish',
+    })
+
+    expect(result.summary).toContain('Water conservation plan')
+    expect(result.noCostActions).toContain('Check toilets, faucets, hose bibs, and irrigation valves for silent leaks.')
+    expect(result.lowCostActions).toContain('Install WaterSense-labeled showerheads or faucet aerators where fixtures are old.')
+    expect(result.outdoorWateringActions).toContain('Water early morning only when plants need it; follow verified local rules if they exist.')
+    expect(result.localRulesStatus).toBe('not_verified')
+    expect(result.labels.actions).toBe('Acciones recomendadas')
+    expect(store.events.some((event) => event.data.workflow === 'water_conservation_planner')).toBe(true)
+    setTelemetryStoreForTesting(null)
+  })
+
+  it('builds waste and recycling guidance with hazardous warnings and local lookup status', async () => {
+    const result = await buildWasteRecyclingGuide({
+      itemOrMaterial: 'old laptop battery',
+      location: '33101',
+      condition: 'broken',
+      quantity: '2 items',
+    })
+
+    expect(result.summary).toContain('Waste and recycling guide')
+    expect(result.hazardousWarning).toContain('batter')
+    expect((result.localLookup as { status: string }).status).toBe('not_verified')
+    expect(result.nextSteps).toContain('Check your city or county solid waste site for ZIP-specific rules before disposal.')
+    expect(JSON.stringify(result)).not.toMatch(/accepted by Miami|guaranteed/i)
+  })
+
+  it('interprets utility bills with transparent missing data and no fake savings', async () => {
+    const result = await interpretUtilityBill({
+      utilityType: 'electricity',
+      billingDays: 31,
+      totalCostUsd: 185,
+      totalUsage: 980,
+      usageUnit: 'kWh',
+      location: '33101',
+      householdSize: 3,
+    })
+
+    expect(result.summary).toContain('Utility bill interpretation')
+    expect(result.billBreakdown).toHaveProperty('estimatedUnitCost')
+    expect(result.noFakeSavingsClaim).toContain('not a savings guarantee')
+    expect(result.nextSteps).toContain('Compare at least 12 months of bills before judging a trend.')
+    expect(result.assumptions).toContain('This tool interprets user-provided bill fields only.')
+  })
+
+  it('findGrantOpportunities returns strategies without inventing specific grants', async () => {
+    const result = await findGrantOpportunities({
+      organizationType: 'nonprofit',
+      projectDescription: 'Community solar installation for low-income households in Miami',
+      location: 'Miami, FL',
+      budgetUsd: 150000,
+    }) as Record<string, unknown>
+    expect(result.noSpecificGrantsDisclaimer).toContain('No specific grant listings are provided')
+    expect(Array.isArray(result.searchStrategies)).toBe(true)
+    expect((result.searchStrategies as string[]).length).toBeGreaterThan(0)
+    expect(Array.isArray(result.typesToLook)).toBe(true)
+    expect(Array.isArray(result.keyQuestions)).toBe(true)
+    expect(Array.isArray(result.timingAdvice)).toBe(true)
+    expect(result.confidence).toBe('low')
+    expect(result.dataStatus).toBe('not_verified')
+  })
+
+  it('findGrantOpportunities contains dataStatus not_verified', async () => {
+    const result = await findGrantOpportunities({
+      organizationType: 'school',
+      projectDescription: 'Rainwater harvesting and resilience education program',
+    }) as Record<string, unknown>
+    expect(result.dataStatus).toBe('not_verified')
+  })
+
+  it('findGrantOpportunities returns Spanish labels when preferredLanguage is Spanish', async () => {
+    const result = await findGrantOpportunities({
+      organizationType: 'organización sin fines de lucro',
+      projectDescription: 'Proyecto de energía solar comunitaria para familias de bajos ingresos',
+      preferredLanguage: 'Spanish',
+    }) as Record<string, unknown>
+    const lbl = result.labels as Record<string, string>
+    expect(lbl.searchStrategies).toBe('Estrategias de búsqueda')
+    expect(lbl.keyQuestions).toBe('Preguntas clave de elegibilidad')
+    expect(lbl.confidence).toBe('Confianza')
+  })
+
+  it('findGrantOpportunities returns safe output when location is omitted', async () => {
+    const result = await findGrantOpportunities({
+      organizationType: 'community group',
+      projectDescription: 'Neighborhood resilience training and emergency preparedness workshops',
+    }) as Record<string, unknown>
+    expect(result.confidence).toBe('low')
+    expect(result.dataStatus).toBe('not_verified')
+    expect(Array.isArray(result.searchStrategies)).toBe(true)
+  })
+
+  it('findGrantOpportunities emits telemetry event', async () => {
+    const store = new InMemoryTelemetryStore()
+    setTelemetryStoreForTesting(store)
+    await findGrantOpportunities({
+      organizationType: 'NGO',
+      projectDescription: 'Urban tree canopy expansion project to reduce heat island effects',
+      location: 'Chicago, IL',
+    })
+    expect(store.events.some((e) => e.data.workflow === 'grant_search_guidance')).toBe(true)
+    setTelemetryStoreForTesting(null)
   })
 })

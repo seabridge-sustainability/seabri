@@ -143,6 +143,56 @@ describe('core product APIs', () => {
     })
     expect(resilience.status).toBe(200)
     expect(await resilience.json()).toHaveProperty('communicationPlan')
+
+    const grant = await api('/api/seabri/living-companion/grant-opportunities', {
+      organizationType: 'nonprofit',
+      projectDescription: 'Community cooling center and flood preparedness workshops',
+      location: 'Miami, FL',
+      budgetUsd: 150000,
+      preferredLanguage: 'Spanish',
+    })
+    expect(grant.status).toBe(200)
+    const grantBody = await grant.json() as { dataStatus: string; noSpecificGrantsDisclaimer: string; labels: { confidence: string } }
+    expect(grantBody.dataStatus).toBe('not_verified')
+    expect(grantBody.noSpecificGrantsDisclaimer).toContain('No specific grant listings')
+    expect(grantBody.labels.confidence).toBe('Confianza')
+
+    const water = await api('/api/seabri/living-companion/water-conservation-plan', {
+      householdType: 'single_family',
+      location: '33101',
+      monthlyWaterUseGallons: 9000,
+      painPoints: ['high bill', 'irrigation'],
+      preferredLanguage: 'Spanish',
+    })
+    expect(water.status).toBe(200)
+    const waterBody = await water.json() as { localRulesStatus: string; labels: { actions: string } }
+    expect(waterBody.localRulesStatus).toBe('not_verified')
+    expect(waterBody.labels.actions).toBe('Acciones recomendadas')
+
+    const waste = await api('/api/seabri/living-companion/waste-recycling-guide', {
+      itemOrMaterial: 'old laptop battery',
+      location: '33101',
+      condition: 'broken',
+      quantity: '2',
+    })
+    expect(waste.status).toBe(200)
+    const wasteBody = await waste.json() as { hazardousWarning: string; localLookup: { status: string } }
+    expect(wasteBody.hazardousWarning).toContain('batter')
+    expect(wasteBody.localLookup.status).toBe('not_verified')
+
+    const utility = await api('/api/seabri/living-companion/utility-bill-interpreter', {
+      utilityType: 'electricity',
+      billingDays: 31,
+      totalCostUsd: 185,
+      totalUsage: 980,
+      usageUnit: 'kWh',
+      location: '33101',
+      householdSize: 3,
+    })
+    expect(utility.status).toBe(200)
+    const utilityBody = await utility.json() as { noFakeSavingsClaim: string; billBreakdown: Record<string, unknown> }
+    expect(utilityBody.noFakeSavingsClaim).toContain('not a savings guarantee')
+    expect(utilityBody.billBreakdown).toHaveProperty('estimatedUnitCost')
   })
 
   it('returns client-safe local resource fallback over HTTP', async () => {

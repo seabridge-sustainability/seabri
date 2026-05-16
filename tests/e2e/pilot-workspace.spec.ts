@@ -2,13 +2,59 @@ import { test, expect } from '@playwright/test'
 
 test.describe('OpenSeaBri Pilot Workspace', () => {
   test('renders guided workflows, profile controls, and activity history', async ({ page }) => {
+    await page.route('**/api/seabri/**', async (route) => {
+      const url = route.request().url()
+      const payload =
+        url.includes('water-conservation-plan')
+          ? {
+              summary: 'Water plan ready',
+              confidence: 'medium',
+              leakCheckSteps: ['Check the meter during a no-use hour.'],
+              noCostActions: ['Run full laundry loads.'],
+              assumptions: ['Local watering rules were not verified.'],
+              unknowns: ['Exact fixture flow rates.'],
+            }
+          : url.includes('waste-recycling-guide')
+            ? {
+                summary: 'Waste guide ready',
+                confidence: 'medium',
+                reuseRepairRecycleDisposeGuidance: ['Use a certified battery drop-off before disposal.'],
+                hazardousWarning: 'Battery-like items may be hazardous.',
+                assumptions: ['Local acceptance was not verified.'],
+                unknowns: ['Municipal drop-off site hours.'],
+              }
+          : url.includes('grant-opportunities')
+            ? {
+                summary: 'Grant guidance ready',
+                confidence: 'low',
+                dataStatus: 'not_verified',
+                searchStrategies: ['Search source grant portals and verify deadlines.'],
+                assumptions: ['No live grant database was queried.'],
+                unknowns: ['Current deadlines and eligibility.'],
+              }
+          : url.includes('utility-bill-interpreter')
+              ? {
+                  summary: 'Utility bill interpreted',
+                  confidence: 'medium',
+                  nextSteps: ['Compare the unit cost with the previous bill.'],
+                  assumptions: ['Rate schedule was not verified.'],
+                  unknowns: ['Taxes and rider details.'],
+                }
+              : { ok: true }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload),
+      })
+    })
+
     await page.goto('/')
     await page.getByText('Demos').click()
 
     await expect(page.getByRole('heading', { name: 'OpenSeaBri Pilot Workspace' })).toBeVisible()
     await expect(page.getByText('Personal Sustainability')).toBeVisible()
     await expect(page.getByText('Community & NGO Tools')).toBeVisible()
-    await expect(page.getByText('Sustainable AI / Agent Harness')).toBeVisible()
+    await expect(page.getByText('Sustainable Compute / Agent Harness')).toBeVisible()
     await expect(page.getByLabel('Pilot profile')).toBeVisible()
     await page.getByLabel('Name', { exact: true }).fill('Pilot User')
     await page.getByLabel('Street address', { exact: true }).fill('123 Water St')
@@ -50,6 +96,30 @@ test.describe('OpenSeaBri Pilot Workspace', () => {
     await page.getByRole('button', { name: 'Purchasing' }).click()
     await expect(page.getByLabel('Sustainable purchasing workflow')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Build buying checklist' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Grant Funding' }).click()
+    const grantWorkflow = page.getByLabel('Grant funding workflow')
+    await expect(grantWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Build funding search' }).click()
+    await expect(grantWorkflow.getByText('Grant guidance ready', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Water' }).click()
+    const waterWorkflow = page.getByLabel('Water conservation workflow')
+    await expect(waterWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Plan water savings' }).click()
+    await expect(waterWorkflow.getByText('Water plan ready', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Waste & Recycling' }).click()
+    const wasteWorkflow = page.getByLabel('Waste and recycling workflow')
+    await expect(wasteWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Build local guide' }).click()
+    await expect(wasteWorkflow.getByText('Waste guide ready', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Utility Bill' }).click()
+    const utilityWorkflow = page.getByLabel('Utility bill workflow')
+    await expect(utilityWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Interpret bill' }).click()
+    await expect(utilityWorkflow.getByText('Utility bill interpreted', { exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: 'Resilience' }).click()
     await expect(page.getByLabel('Community resilience workflow')).toBeVisible()

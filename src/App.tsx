@@ -36,7 +36,7 @@ function SeabriMascot() {
   return (
     <img
       src="/img/seabri-mascot.png"
-      alt="Seabri"
+      alt="OpenSeaBri"
       style={{ width: 340, height: 340, objectFit: 'contain', position: 'relative', zIndex: 1 }}
     />
   )
@@ -75,7 +75,7 @@ function SiteHeader({ onNav, activeView }: { onNav?: (v: AppView) => void; activ
           style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 20, letterSpacing: '-0.02em', color: 'var(--sb-navy)', cursor: 'pointer' }}
           onClick={() => onNav?.('landing')}
         >
-          Seabri
+          OpenSeaBri
         </span>
         <span style={{ fontSize: 11, color: 'var(--accent-green-2)', border: '1px solid var(--accent-green)', padding: '2px 8px', borderRadius: 999, letterSpacing: '0.08em', textTransform: 'uppercase', marginLeft: 8 }}>
           Free &amp; Open Source
@@ -133,7 +133,7 @@ function Hero() {
             marginTop: 24,
           }}
         >
-          Seabri is a free, open-source sustainability AI for individuals, homeowners,
+          OpenSeaBri is a free, open-source sustainability AI for individuals, homeowners,
           farmers, small businesses, and communities. Understand flood, wildfire, heat,
           drought, insurance, and nature risk — in plain language, not consultant-speak.
         </p>
@@ -301,7 +301,7 @@ function SiteFooter() {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 16 }}>🌱</span>
-        <span>Seabri · Free sustainability intelligence for everyone · MIT licensed</span>
+        <span>OpenSeaBri · Free sustainability intelligence for everyone · MIT licensed</span>
       </div>
       <div>Built on SeaBridge · Open source forever</div>
     </footer>
@@ -1132,7 +1132,7 @@ function WorkflowView({ onNav }: { onNav: (v: AppView) => void }) {
 
 const PILOT_STATE_KEY = 'openseabri.pilot.state.v1'
 
-type PilotTab = 'living' | 'comparison' | 'carbon' | 'energy' | 'community' | 'certification' | 'offset' | 'purchasing' | 'resilience' | 'compute' | 'catalog'
+type PilotTab = 'living' | 'comparison' | 'carbon' | 'energy' | 'community' | 'grant' | 'certification' | 'offset' | 'purchasing' | 'water' | 'waste' | 'utility' | 'resilience' | 'compute' | 'catalog'
 
 const panelStyle: CSSProperties = {
   border: '1px solid var(--border-muted)',
@@ -1203,6 +1203,9 @@ function ResultBox({ title, value }: { title: string; value?: string }) {
     ...list('noCostActions'),
     ...list('buyingChecklist'),
     ...list('preparednessChecklist'),
+    ...list('searchStrategies'),
+    ...list('leakCheckSteps'),
+    ...list('reuseRepairRecycleDisposeGuidance'),
     ...list('nextSteps'),
   ].slice(0, 5)
   return (
@@ -1299,9 +1302,13 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
   const [carbonForm, setCarbonForm] = useState({ householdSize: '3', monthlyElectricityKwh: '800', vehicleMiles: '120', dietPattern: 'average' })
   const [energyForm, setEnergyForm] = useState({ homeType: 'single_family', monthlyBillUsd: '220', heatingCoolingType: 'central AC and gas heat', budgetLevel: 'low' })
   const [communityForm, setCommunityForm] = useState({ organizationType: 'school', goal: 'plan a community cleanup', timeline: 'one month', budgetUsd: '500', volunteers: '20' })
+  const [grantForm, setGrantForm] = useState({ organizationType: 'nonprofit', projectDescription: 'Community cooling center and flood preparedness workshops', budgetUsd: '150000' })
   const [certificationForm, setCertificationForm] = useState({ userType: 'small_business', goal: 'reduce energy use and prepare ESG documents', budgetLevel: 'low' })
   const [offsetForm, setOffsetForm] = useState({ projectName: 'Forest offset option', projectType: 'forest', registry: '', pricePerTonUsd: '2' })
   const [purchasingForm, setPurchasingForm] = useState({ productCategory: 'backpack', budgetUsd: '80', durabilityNeed: 'high', repairabilityPreference: 'high' })
+  const [waterForm, setWaterForm] = useState({ householdType: 'single_family', monthlyWaterUseGallons: '9000', outdoorArea: 'small', painPoints: 'high bill, irrigation' })
+  const [wasteForm, setWasteForm] = useState({ itemOrMaterial: 'old laptop battery', condition: 'broken', quantity: '2 items' })
+  const [utilityForm, setUtilityForm] = useState({ utilityType: 'electricity', billingDays: '31', totalCostUsd: '185', totalUsage: '980', usageUnit: 'kWh' })
   const [resilienceForm, setResilienceForm] = useState({ communityType: 'neighborhood', hazards: 'flood, heat', volunteers: '8', vulnerableGroups: 'older adults, renters' })
   const base = GATEWAY_URL.replace(/\/+$/, '')
   const profile = state.profile
@@ -1473,6 +1480,23 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
     }
   }
 
+  const runGrant = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/grant-opportunities', {
+        organizationType: grantForm.organizationType,
+        projectDescription: grantForm.projectDescription,
+        location: profile.city || profile.zip || undefined,
+        budgetUsd: Number(grantForm.budgetUsd),
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'grant', title: 'Grant search guidance built', detail: 'Funding categories, eligibility questions, timing advice, and not-verified status generated.' }, { lastGrant: text })
+      setStatus('Grant guidance completed without inventing specific open grants.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Grant guidance unavailable.')
+    }
+  }
+
   const runCertification = async () => {
     try {
       const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/certification-navigator', {
@@ -1522,6 +1546,60 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
       setStatus('Sustainable purchasing checklist completed without inventing certifications.')
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Purchasing checklist unavailable.')
+    }
+  }
+
+  const runWater = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/water-conservation-plan', {
+        householdType: waterForm.householdType,
+        location: profile.zip || profile.city || undefined,
+        monthlyWaterUseGallons: Number(waterForm.monthlyWaterUseGallons),
+        outdoorArea: waterForm.outdoorArea,
+        painPoints: waterForm.painPoints.split(',').map((p) => p.trim()).filter(Boolean),
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'water', title: 'Water conservation plan built', detail: 'Leak checks, fixture actions, outdoor steps, and local-rule caveats generated.' }, { lastWater: text })
+      setStatus('Water conservation plan completed without inventing local restrictions.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Water conservation planner unavailable.')
+    }
+  }
+
+  const runWaste = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/waste-recycling-guide', {
+        itemOrMaterial: wasteForm.itemOrMaterial,
+        location: profile.zip || profile.city || undefined,
+        condition: wasteForm.condition,
+        quantity: wasteForm.quantity,
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'waste', title: 'Waste and recycling guide built', detail: 'Reuse, repair, recycle, hazardous warning, and local lookup status generated.' }, { lastWaste: text })
+      setStatus('Waste and recycling guide completed without fake local acceptance claims.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Waste and recycling guide unavailable.')
+    }
+  }
+
+  const runUtility = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/utility-bill-interpreter', {
+        utilityType: utilityForm.utilityType,
+        billingDays: Number(utilityForm.billingDays),
+        totalCostUsd: Number(utilityForm.totalCostUsd),
+        totalUsage: Number(utilityForm.totalUsage),
+        usageUnit: utilityForm.usageUnit,
+        location: profile.zip || profile.city || undefined,
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'utility', title: 'Utility bill interpreted', detail: 'Bill fields, unit cost, trend caveats, and next steps generated.' }, { lastUtility: text })
+      setStatus('Utility bill interpretation completed without fake savings claims.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Utility bill interpreter unavailable.')
     }
   }
 
@@ -1641,9 +1719,13 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
             <div style={{ display: 'grid', gap: 10 }}>
               {[
                 ['Living Companion', [['living', 'Incident Help']]],
-                ['Personal Sustainability', [['comparison', 'Product Comparison'], ['carbon', 'Carbon Footprint'], ['energy', 'Home Energy'], ['certification', 'Certification'], ['offset', 'Offset Checker'], ['purchasing', 'Purchasing']]],
-                ['Community & NGO Tools', [['community', 'Project Planner'], ['resilience', 'Resilience']]],
-                ['Sustainable AI / Agent Harness', [['compute', 'Sustainable Compute'], ['catalog', 'Skills & Tools']]],
+                ['Personal Sustainability', [['carbon', 'Carbon Footprint'], ['certification', 'Certification']]],
+                ['Homeowner Resilience', [['energy', 'Home Energy']]],
+                ['Community & NGO Tools', [['community', 'Project Planner'], ['grant', 'Grant Funding'], ['resilience', 'Resilience']]],
+                ['Product & Purchasing', [['comparison', 'Product Comparison'], ['purchasing', 'Purchasing'], ['offset', 'Offset Checker']]],
+                ['Carbon / Energy / Water / Waste', [['water', 'Water'], ['waste', 'Waste & Recycling'], ['utility', 'Utility Bill']]],
+                ['Sustainable Compute / Agent Harness', [['compute', 'Sustainable Compute']]],
+                ['Skills & Tools Catalog', [['catalog', 'Skills & Tools']]],
               ].map(([section, rows]) => (
                 <div key={section as string}>
                   <div style={{ color: 'var(--text-faint)', fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 5 }}>{section as string}</div>
@@ -1809,6 +1891,24 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
               </section>
             )}
 
+            {tab === 'grant' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Grant funding workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Grant and funding assistant</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Build funding search strategies, eligibility questions, and timing advice without inventing specific grants.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <Field label="Organization type" value={grantForm.organizationType} onChange={(organizationType) => setGrantForm((f) => ({ ...f, organizationType }))} />
+                  <Field label="Project description" value={grantForm.projectDescription} onChange={(projectDescription) => setGrantForm((f) => ({ ...f, projectDescription }))} />
+                  <Field label="Budget" type="number" value={grantForm.budgetUsd} onChange={(budgetUsd) => setGrantForm((f) => ({ ...f, budgetUsd }))} />
+                </div>
+                <WorkflowButton onClick={runGrant}>Build funding search</WorkflowButton>
+                <ResultBox title="Last grant funding guidance" value={state.lastGrant} />
+              </section>
+            )}
+
             {tab === 'certification' && (
               <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Certification navigator workflow">
                 <div>
@@ -1888,6 +1988,98 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
                 </div>
                 <WorkflowButton onClick={runPurchasing}>Build buying checklist</WorkflowButton>
                 <ResultBox title="Last purchasing checklist" value={state.lastPurchasing} />
+              </section>
+            )}
+
+            {tab === 'water' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Water conservation workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Water conservation planner</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Build leak checks, no-cost actions, low-cost fixes, upgrades, and outdoor watering guidance with local-rule caveats.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Household type
+                    <select value={waterForm.householdType} onChange={(e) => setWaterForm((f) => ({ ...f, householdType: e.target.value }))} style={inputStyle}>
+                      <option value="single_family">single family</option>
+                      <option value="apartment">apartment</option>
+                      <option value="condo">condo</option>
+                      <option value="mobile_home">mobile home</option>
+                      <option value="small_business">small business</option>
+                    </select>
+                  </label>
+                  <Field label="Monthly gallons" type="number" value={waterForm.monthlyWaterUseGallons} onChange={(monthlyWaterUseGallons) => setWaterForm((f) => ({ ...f, monthlyWaterUseGallons }))} />
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Outdoor area
+                    <select value={waterForm.outdoorArea} onChange={(e) => setWaterForm((f) => ({ ...f, outdoorArea: e.target.value }))} style={inputStyle}>
+                      <option value="none">none</option>
+                      <option value="small">small</option>
+                      <option value="medium">medium</option>
+                      <option value="large">large</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                  <Field label="Pain points" value={waterForm.painPoints} onChange={(painPoints) => setWaterForm((f) => ({ ...f, painPoints }))} />
+                </div>
+                <WorkflowButton onClick={runWater}>Plan water savings</WorkflowButton>
+                <ResultBox title="Last water conservation plan" value={state.lastWater} />
+              </section>
+            )}
+
+            {tab === 'waste' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Waste and recycling workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Waste and recycling local guide</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Route reuse, repair, recycling, hazardous handling, and disposal without claiming local acceptance.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <Field label="Item or material" value={wasteForm.itemOrMaterial} onChange={(itemOrMaterial) => setWasteForm((f) => ({ ...f, itemOrMaterial }))} />
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Condition
+                    <select value={wasteForm.condition} onChange={(e) => setWasteForm((f) => ({ ...f, condition: e.target.value }))} style={inputStyle}>
+                      <option value="usable">usable</option>
+                      <option value="repairable">repairable</option>
+                      <option value="broken">broken</option>
+                      <option value="expired">expired</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                  <Field label="Quantity" value={wasteForm.quantity} onChange={(quantity) => setWasteForm((f) => ({ ...f, quantity }))} />
+                </div>
+                <WorkflowButton onClick={runWaste}>Build local guide</WorkflowButton>
+                <ResultBox title="Last waste and recycling guide" value={state.lastWaste} />
+              </section>
+            )}
+
+            {tab === 'utility' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Utility bill workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Utility bill interpreter</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Read electricity, gas, or water bill fields and produce transparent next steps without fake savings.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Utility type
+                    <select value={utilityForm.utilityType} onChange={(e) => setUtilityForm((f) => ({ ...f, utilityType: e.target.value }))} style={inputStyle}>
+                      <option value="electricity">electricity</option>
+                      <option value="gas">gas</option>
+                      <option value="water">water</option>
+                      <option value="other">other</option>
+                    </select>
+                  </label>
+                  <Field label="Billing days" type="number" value={utilityForm.billingDays} onChange={(billingDays) => setUtilityForm((f) => ({ ...f, billingDays }))} />
+                  <Field label="Total cost" type="number" value={utilityForm.totalCostUsd} onChange={(totalCostUsd) => setUtilityForm((f) => ({ ...f, totalCostUsd }))} />
+                  <Field label="Total usage" type="number" value={utilityForm.totalUsage} onChange={(totalUsage) => setUtilityForm((f) => ({ ...f, totalUsage }))} />
+                  <Field label="Usage unit" value={utilityForm.usageUnit} onChange={(usageUnit) => setUtilityForm((f) => ({ ...f, usageUnit }))} />
+                </div>
+                <WorkflowButton onClick={runUtility}>Interpret bill</WorkflowButton>
+                <ResultBox title="Last utility bill interpretation" value={state.lastUtility} />
               </section>
             )}
 

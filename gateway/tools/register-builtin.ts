@@ -9,11 +9,15 @@ import { optimizeSustainableCompute } from '../seabri/sustainable-compute.js'
 import {
   buildCommunityResilienceChecklist,
   buildSustainablePurchasingChecklist,
+  buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
   estimateHouseholdCarbon,
+  findGrantOpportunities,
+  interpretUtilityBill,
   navigateCertification,
   planCommunityProject,
   planHomeEnergyActions,
+  planWaterConservation,
 } from '../seabri/practical-sustainability.js'
 
 const CLIMATE_AGENTS: AgentId[] = ['climate-risk', 'home-community', 'investment-screening']
@@ -289,5 +293,86 @@ export function registerBuiltinTools(): void {
     },
     async (input) => JSON.stringify(await buildCommunityResilienceChecklist(input)),
     ['sustainability-companion', 'emergency-resilience', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'plan_water_conservation',
+      description: 'Build a household water conservation plan with no-cost, low-cost, fixture/appliance, outdoor watering, and leak-check actions without inventing local rules.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          householdType: { type: 'string', description: 'Household type.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          monthlyWaterUseGallons: { type: 'number', description: 'Monthly water use if known.' },
+          painPoints: { type: 'array', description: 'Pain points such as high bill, leaks, or irrigation.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['householdType'],
+      },
+    },
+    async (input) => JSON.stringify(await planWaterConservation(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'build_waste_recycling_guide',
+      description: 'Build reuse, repair, recycling, hazardous warning, and disposal guidance without fake local acceptance claims.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          itemOrMaterial: { type: 'string', description: 'Item or material.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          condition: { type: 'string', description: 'usable, repairable, broken, expired, or unknown.' },
+          quantity: { type: 'string', description: 'Optional quantity.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['itemOrMaterial'],
+      },
+    },
+    async (input) => JSON.stringify(await buildWasteRecyclingGuide(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'find_grant_opportunities',
+      description: 'Provide grant-search strategies, funding type guidance, and eligibility questions for sustainability and resilience projects. Does not invent specific grant listings.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          organizationType: { type: 'string', description: 'Type of organization (NGO, school, municipality, etc.).' },
+          projectDescription: { type: 'string', description: 'Brief description of the project seeking funding.' },
+          location: { type: 'string', description: 'Project location (city, state, ZIP).' },
+          budgetUsd: { type: 'number', description: 'Approximate project budget in USD if known.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language for labels.' },
+        },
+        required: ['organizationType', 'projectDescription'],
+      },
+    },
+    async (input) => JSON.stringify(await findGrantOpportunities(input as Parameters<typeof findGrantOpportunities>[0])),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'interpret_utility_bill',
+      description: 'Interpret a utility bill from user-provided fields with transparent assumptions and no fake savings guarantee.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          utilityType: { type: 'string', description: 'electricity, gas, water, or other.' },
+          billingDays: { type: 'number', description: 'Billing days.' },
+          totalCostUsd: { type: 'number', description: 'Total cost.' },
+          totalUsage: { type: 'number', description: 'Total usage.' },
+          usageUnit: { type: 'string', description: 'Usage unit.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['utilityType'],
+      },
+    },
+    async (input) => JSON.stringify(await interpretUtilityBill(input)),
+    ['sustainability-companion', 'home-community', 'general'],
   )
 }

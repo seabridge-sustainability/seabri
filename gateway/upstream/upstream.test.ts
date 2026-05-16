@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { HermesAdapter } from './hermes.js'
 import { MiroFishAdapter } from './mirofish.js'
 import { OpenClawAdapter } from './openclaw.js'
+import { SpaceAgentInstructionAdapter } from './space-agent.js'
 import { UpstreamRegistry, createDefaultRegistry } from './index.js'
 import type { UpstreamAdapter } from './types.js'
 
@@ -139,6 +140,36 @@ describe('OpenClawAdapter', () => {
   })
 })
 
+describe('SpaceAgentInstructionAdapter', () => {
+  const documents = {
+    'README.md': '# Space Agent\n\nA local app for running agent workflows and hosting yourself.',
+    'commands/AGENTS.md': '# Commands\n\nUse commands to load skills, run workflow instructions, and keep desktop packaging separate.',
+    'server/AGENTS.md': '# Server\n\nServer work must keep API boundaries explicit and avoid leaking secrets.',
+  }
+
+  it('has correct identity fields', () => {
+    const adapter = new SpaceAgentInstructionAdapter({ documents })
+    expect(adapter.id).toBe('space-agent-instructions')
+    expect(adapter.name).toBe('Space Agent Instruction Loader')
+    expect(adapter.type).toBe('service')
+  })
+
+  it('isAvailable returns true with injected documents', async () => {
+    const adapter = new SpaceAgentInstructionAdapter({ documents })
+    expect(await adapter.isAvailable()).toBe(true)
+  })
+
+  it('routes prompts to relevant instruction excerpts without launching upstream code', async () => {
+    const adapter = new SpaceAgentInstructionAdapter({ documents })
+    const result = await adapter.routeMessage('How should workflow commands load skills?')
+    expect(result.source).toBe('space-agent-instructions')
+    expect(result.content).toContain('commands/AGENTS.md')
+    expect(result.content).toContain('load skills')
+    expect(result.toolCalls?.[0].name).toBe('load_space_agent_instructions')
+    expect(result.toolCalls?.[0].arguments.patternOnly).toBe(true)
+  })
+})
+
 describe('UpstreamRegistry', () => {
   let registry: UpstreamRegistry
 
@@ -220,6 +251,7 @@ describe('createDefaultRegistry', () => {
     expect(registry.has('hermes')).toBe(true)
     expect(registry.has('mirofish')).toBe(true)
     expect(registry.has('openclaw')).toBe(true)
-    expect(registry.list()).toHaveLength(3)
+    expect(registry.has('space-agent-instructions')).toBe(true)
+    expect(registry.list()).toHaveLength(4)
   })
 })

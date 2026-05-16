@@ -1,6 +1,11 @@
 import { mkdir, appendFile } from 'fs/promises'
 import { resolve } from 'path'
 import { randomUUID } from 'crypto'
+
+/** Sanitize a userId for use as a filesystem path segment. Strips any chars that could cause path traversal. */
+function safeUserSegment(userId: string): string {
+  return userId.replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 64) || 'anonymous'
+}
 import { initiateOutboundCall, initiateOutboundSms } from './outbound.js'
 import {
   TWILIO_ACCOUNT_SID,
@@ -172,6 +177,8 @@ export const ACTION_EXECUTORS: ActionExecutor[] = [
         const transporter = nodemailer.createTransport({
           host: SMTP_HOST,
           port: SMTP_PORT,
+          secure: SMTP_PORT === 465,
+          requireTLS: SMTP_PORT !== 465,
           auth: { user: SMTP_USER, pass: SMTP_PASS },
         })
         try {
@@ -194,7 +201,7 @@ export const ACTION_EXECUTORS: ActionExecutor[] = [
   {
     kind: 'document_damage',
     async execute(card, userId) {
-      const dir = resolve(WORKSPACE_DIR, 'damage-reports')
+      const dir = resolve(WORKSPACE_DIR, 'damage-reports', safeUserSegment(userId))
       await mkdir(dir, { recursive: true })
       const record = JSON.stringify({
         id: randomUUID(),
@@ -209,7 +216,7 @@ export const ACTION_EXECUTORS: ActionExecutor[] = [
   {
     kind: 'schedule_appointment',
     async execute(card, userId) {
-      const dir = resolve(WORKSPACE_DIR, 'appointments')
+      const dir = resolve(WORKSPACE_DIR, 'appointments', safeUserSegment(userId))
       await mkdir(dir, { recursive: true })
       const record = JSON.stringify({
         id: randomUUID(),

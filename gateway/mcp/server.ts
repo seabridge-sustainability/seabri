@@ -34,11 +34,15 @@ import { optimizeSustainableCompute } from '../seabri/sustainable-compute.js'
 import {
   buildCommunityResilienceChecklist,
   buildSustainablePurchasingChecklist,
+  buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
   estimateHouseholdCarbon,
+  findGrantOpportunities,
+  interpretUtilityBill,
   navigateCertification,
   planCommunityProject,
   planHomeEnergyActions,
+  planWaterConservation,
 } from '../seabri/practical-sustainability.js'
 import { fileURLToPath } from 'url'
 
@@ -118,7 +122,7 @@ function toolsForAgents(): JsonValue {
             description: 'Optional session id for MCP context continuity. The deterministic incident tool does not require it.',
           },
         },
-        required: ['prompt'],
+        required: ['prompt', 'householdType'],
       },
     },
     {
@@ -132,7 +136,7 @@ function toolsForAgents(): JsonValue {
           location: { type: 'string', description: 'City, ZIP, or address context.' },
           sessionId: { type: 'string', description: 'Optional session id for context continuity.' },
         },
-        required: ['prompt'],
+        required: ['prompt', 'itemOrMaterial'],
       },
     },
     {
@@ -147,7 +151,7 @@ function toolsForAgents(): JsonValue {
           incidentContext: { type: 'string', description: 'Incident context.' },
           sessionId: { type: 'string', description: 'Optional session id for context continuity.' },
         },
-        required: ['prompt'],
+        required: ['prompt', 'utilityType'],
       },
     },
     {
@@ -161,7 +165,7 @@ function toolsForAgents(): JsonValue {
           priorities: { type: 'array', description: 'Optional priorities.' },
           sessionId: { type: 'string', description: 'Optional session id for context continuity.' },
         },
-        required: ['prompt'],
+        required: ['prompt', 'organizationType', 'projectDescription'],
       },
     },
     {
@@ -290,6 +294,75 @@ function toolsForAgents(): JsonValue {
           hazards: { type: 'array', description: 'Hazards of concern.' },
           volunteers: { type: 'number', description: 'Volunteer count if known.' },
           preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt'],
+      },
+    },
+    {
+      name: 'plan_water_conservation',
+      description: 'Build a household sustainability water conservation plan with no-cost steps, low-cost fixes, upgrade ideas, outdoor watering actions, leak checks, assumptions, and unverified local-rule status.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          householdType: { type: 'string', description: 'single_family, apartment, condo, mobile_home, small_business, or unknown.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          monthlyWaterUseGallons: { type: 'number', description: 'Monthly water use if known.' },
+          painPoints: { type: 'array', description: 'Pain points such as high bill, leaks, or irrigation.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt'],
+      },
+    },
+    {
+      name: 'build_waste_recycling_guide',
+      description: 'Build a safe sustainability reuse, repair, recycling, hazardous, or disposal guide for an item without inventing local recycling acceptance rules.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          itemOrMaterial: { type: 'string', description: 'Item or material to route.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          condition: { type: 'string', description: 'usable, repairable, broken, expired, or unknown.' },
+          quantity: { type: 'string', description: 'Optional quantity.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt'],
+      },
+    },
+    {
+      name: 'interpret_utility_bill',
+      description: 'Interpret an electricity, gas, water, or other utility bill for sustainability planning using user-provided fields, transparent assumptions, and no fake savings claim.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          utilityType: { type: 'string', description: 'electricity, gas, water, or other.' },
+          billingDays: { type: 'number', description: 'Billing period length.' },
+          totalCostUsd: { type: 'number', description: 'Total bill cost.' },
+          totalUsage: { type: 'number', description: 'Total usage.' },
+          usageUnit: { type: 'string', description: 'Usage unit such as kWh, therms, gallons, or CCF.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt'],
+      },
+    },
+    {
+      name: 'find_grant_opportunities',
+      description: 'Provide grant-search strategies, funding type guidance, and eligibility questions for sustainability and resilience projects. Does not invent specific grant listings.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          organizationType: { type: 'string', description: 'Type of organization (NGO, school, municipality, etc.).' },
+          projectDescription: { type: 'string', description: 'Brief description of the project seeking funding.' },
+          location: { type: 'string', description: 'Project location (city, state, ZIP).' },
+          budgetUsd: { type: 'number', description: 'Approximate project budget in USD if known.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language for labels.' },
           sessionId: { type: 'string', description: 'Optional session id.' },
         },
         required: ['prompt'],
@@ -450,6 +523,26 @@ async function handleToolCall(params: Record<string, unknown>): Promise<JsonValu
   if (name === 'build_community_resilience_checklist') {
     const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
     const result = await buildCommunityResilienceChecklist(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'plan_water_conservation') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await planWaterConservation(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'build_waste_recycling_guide') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await buildWasteRecyclingGuide(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'interpret_utility_bill') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await interpretUtilityBill(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'find_grant_opportunities') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await findGrantOpportunities(toolInput as Parameters<typeof findGrantOpportunities>[0])
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
   }
   if (!VALID_AGENT_IDS.has(name)) throw new Error(`unknown agent: ${name}`)

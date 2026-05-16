@@ -228,6 +228,26 @@ describe('dispatch', () => {
         args: { prompt: 'Make a resilience plan', communityType: 'neighborhood', hazards: ['flood'] },
         expected: 'communicationPlan',
       },
+      {
+        name: 'find_grant_opportunities',
+        args: { prompt: 'Find funding', organizationType: 'nonprofit', projectDescription: 'Community flood preparedness workshops' },
+        expected: 'noSpecificGrantsDisclaimer',
+      },
+      {
+        name: 'plan_water_conservation',
+        args: { prompt: 'Reduce my water bill', householdType: 'single_family', location: '33101', monthlyWaterUseGallons: 9000 },
+        expected: 'localRulesStatus',
+      },
+      {
+        name: 'build_waste_recycling_guide',
+        args: { prompt: 'How do I dispose of this?', itemOrMaterial: 'old laptop battery', location: '33101' },
+        expected: 'hazardousWarning',
+      },
+      {
+        name: 'interpret_utility_bill',
+        args: { prompt: 'Read my bill', utilityType: 'electricity', billingDays: 31, totalCostUsd: 185, totalUsage: 980, usageUnit: 'kWh' },
+        expected: 'noFakeSavingsClaim',
+      },
     ]
 
     for (const item of cases) {

@@ -8,9 +8,13 @@ export type PilotWorkflow =
   | 'carbon'
   | 'energy'
   | 'community'
+  | 'grant'
   | 'certification'
   | 'offset'
   | 'purchasing'
+  | 'water'
+  | 'waste'
+  | 'utility'
   | 'resilience'
   | 'catalog'
 
@@ -44,9 +48,13 @@ export interface PilotState {
   lastCarbon?: string
   lastEnergy?: string
   lastCommunity?: string
+  lastGrant?: string
   lastCertification?: string
   lastOffset?: string
   lastPurchasing?: string
+  lastWater?: string
+  lastWaste?: string
+  lastUtility?: string
   lastResilience?: string
   lastCatalog?: string
 }

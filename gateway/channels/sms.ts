@@ -23,6 +23,120 @@
 
 import type { IncomingMessage, ServerResponse } from 'http'
 import { createHmac, timingSafeEqual } from 'crypto'
+
+// ── Exported flag ─────────────────────────────────────────────────────────────
+
+export const SMS_CHANNEL_ENABLED = process.env.OPENSEABRI_SMS_ENABLED === 'true'
+
+// ── Public types ──────────────────────────────────────────────────────────────
+
+export interface SmsInboundMessage {
+  from: string
+  to: string
+  body: string
+  messageSid: string
+  mediaUrl?: string
+  mediaContentType?: string
+}
+
+export type SmsRouteStatus = 'gated' | 'routed'
+
+export interface SmsRouteResult {
+  status: SmsRouteStatus
+  twiml: string
+}
+
+// ── Parse ─────────────────────────────────────────────────────────────────────
+
+export function parseSmsInbound(body: Record<string, string>): SmsInboundMessage {
+  const msg: SmsInboundMessage = {
+    from: body['From'] ?? '',
+    to: body['To'] ?? '',
+    body: body['Body'] ?? '',
+    messageSid: body['MessageSid'] ?? '',
+  }
+  const numMedia = parseInt(body['NumMedia'] ?? '0', 10)
+  if (numMedia > 0 && body['MediaUrl0']) {
+    msg.mediaUrl = body['MediaUrl0']
+    if (body['MediaContentType0']) {
+      msg.mediaContentType = body['MediaContentType0']
+    }
+  }
+  return msg
+}
+
+// ── Signature verification ────────────────────────────────────────────────────
+
+/**
+ * Validate Twilio webhook X-Twilio-Signature.
+ *
+ * Algorithm (standard Twilio pattern):
+ *   1. Start with the full URL.
+ *   2. Sort POST params alphabetically by key.
+ *   3. Append each key+value pair (no separator) to the URL string.
+ *   4. HMAC-SHA1 the result with the auth token.
+ *   5. Base64-encode and compare to the provided signature using timing-safe equals.
+ */
+export function verifySmsWebhookSignature(
+  authToken: string,
+  url: string,
+  params: Record<string, string>,
+  signature: string
+): boolean {
+  if (!authToken || !signature) return false
+
+  const sortedKeys = Object.keys(params).sort()
+  let s = url
+  for (const key of sortedKeys) {
+    s += key + (params[key] ?? '')
+  }
+
+  const expected = createHmac('sha1', authToken).update(s, 'utf8').digest('base64')
+
+  try {
+    const expectedBuf = Buffer.from(expected, 'utf8')
+    const providedBuf = Buffer.from(signature, 'utf8')
+    if (expectedBuf.length !== providedBuf.length) return false
+    return timingSafeEqual(expectedBuf, providedBuf)
+  } catch {
+    return false
+  }
+}
+
+// ── Format ────────────────────────────────────────────────────────────────────
+
+const SMS_MAX_TWIML_LENGTH = 1600
+
+export function formatSmsTwimlResponse(text: string): string {
+  const truncated = text.length > SMS_MAX_TWIML_LENGTH ? text.slice(0, SMS_MAX_TWIML_LENGTH) : text
+  const escaped = truncated
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+  return `<Response><Message>${escaped}</Message></Response>`
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────────
+
+export function routeSmsMessage(
+  message: SmsInboundMessage,
+  options: { liveApproved: boolean }
+): SmsRouteResult {
+  if (!options.liveApproved) {
+    return {
+      status: 'gated',
+      twiml: '<Response><Message>OpenSeaBri SMS pilot is not yet active. Visit the web app to get started.</Message></Response>',
+    }
+  }
+  const responseText = `Hello from OpenSeaBri! You sent: ${message.body.slice(0, 100)}`
+  return {
+    status: 'routed',
+    twiml: formatSmsTwimlResponse(responseText),
+  }
+}
+
 import { routeMessage } from '../agents/router.js'
 import {
   isApproved,
@@ -464,6 +578,10 @@ export const smsChannel: BaseChannel = {
         '[SMS] TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER not set — SMS channel not started.'
       )
       return
+    }
+    const liveApproved = process.env.OPENSEABRI_SMS_LIVE_APPROVED === 'true'
+    if (SMS_CHANNEL_ENABLED && !liveApproved) {
+      console.log('[SMS] channel active but gated — set OPENSEABRI_SMS_LIVE_APPROVED=true to enable real routing')
     }
     console.log(`[SMS] Twilio channel ready — webhook at /webhooks/sms (from: ${fromNumber()})`)
   },

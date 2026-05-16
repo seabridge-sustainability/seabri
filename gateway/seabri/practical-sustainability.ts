@@ -121,6 +121,48 @@ export const CommunityResilienceInputSchema = z.object({
   preferredLanguage: LanguageSchema,
 }).strict()
 
+export const WaterConservationInputSchema = z.object({
+  householdType: z.enum(['single_family', 'apartment', 'condo', 'mobile_home', 'small_business', 'unknown']),
+  location: z.string().trim().max(160).optional(),
+  householdSize: z.number().int().positive().max(100).optional(),
+  monthlyWaterUseGallons: z.number().nonnegative().max(1_000_000).optional(),
+  monthlyWaterBillUsd: z.number().nonnegative().max(100_000).optional(),
+  outdoorArea: z.enum(['none', 'small', 'medium', 'large', 'unknown']).default('unknown'),
+  painPoints: z.array(z.string().trim().max(120)).max(12).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const WasteRecyclingInputSchema = z.object({
+  itemOrMaterial: z.string().trim().min(2).max(160),
+  location: z.string().trim().max(160).optional(),
+  condition: z.enum(['usable', 'repairable', 'broken', 'expired', 'unknown']).default('unknown'),
+  quantity: z.string().trim().max(80).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const UtilityBillInputSchema = z.object({
+  utilityType: z.enum(['electricity', 'gas', 'water', 'other']),
+  billingDays: z.number().int().positive().max(400).optional(),
+  totalCostUsd: z.number().nonnegative().max(1_000_000).optional(),
+  totalUsage: z.number().nonnegative().max(100_000_000).optional(),
+  usageUnit: z.string().trim().max(30).optional(),
+  fixedFeesUsd: z.number().nonnegative().max(1_000_000).optional(),
+  demandChargeUsd: z.number().nonnegative().max(1_000_000).optional(),
+  previousUsage: z.number().nonnegative().max(100_000_000).optional(),
+  location: z.string().trim().max(160).optional(),
+  householdSize: z.number().int().positive().max(100).optional(),
+  notes: z.string().trim().max(600).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const GrantSearchInputSchema = z.object({
+  organizationType: z.string().trim().min(2).max(120),
+  projectDescription: z.string().trim().min(10).max(500),
+  location: z.string().trim().max(160).optional(),
+  budgetUsd: z.number().nonnegative().max(100_000_000).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
 export type HouseholdCarbonInput = z.infer<typeof HouseholdCarbonInputSchema>
 export type HomeEnergyInput = z.infer<typeof HomeEnergyInputSchema>
 export type CommunityProjectInput = z.infer<typeof CommunityProjectInputSchema>
@@ -128,6 +170,10 @@ export type CertificationNavigatorInput = z.infer<typeof CertificationNavigatorI
 export type CarbonOffsetCheckerInput = z.infer<typeof CarbonOffsetCheckerInputSchema>
 export type SustainablePurchasingInput = z.infer<typeof SustainablePurchasingInputSchema>
 export type CommunityResilienceInput = z.infer<typeof CommunityResilienceInputSchema>
+export type WaterConservationInput = z.infer<typeof WaterConservationInputSchema>
+export type WasteRecyclingInput = z.infer<typeof WasteRecyclingInputSchema>
+export type UtilityBillInput = z.infer<typeof UtilityBillInputSchema>
+export type GrantSearchInput = z.infer<typeof GrantSearchInputSchema>
 
 export interface PracticalSustainabilityResult {
   labels: Record<string, string>
@@ -428,5 +474,233 @@ export async function buildCommunityResilienceChecklist(input: unknown): Promise
     unknowns: [parsed.volunteers === undefined ? 'volunteer count' : '', !parsed.availableResources?.length ? 'available resources' : ''].filter(Boolean),
   }
   await telemetry('community_resilience_checklist', result.confidence)
+  return result
+}
+
+export async function planWaterConservation(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = WaterConservationInputSchema.parse(input)
+  const highUse = parsed.monthlyWaterUseGallons !== undefined && parsed.monthlyWaterUseGallons > 8000
+  const irrigationConcern = (parsed.painPoints ?? []).some((p) => /lawn|irrigat|sprinkler|outdoor|garden/i.test(p)) || parsed.outdoorArea === 'large'
+  const leakConcern = highUse || (parsed.painPoints ?? []).some((p) => /leak|high bill|running toilet/i.test(p))
+  const unknowns = [
+    !parsed.location ? 'ZIP/location for local water rules' : '',
+    parsed.monthlyWaterUseGallons === undefined && parsed.monthlyWaterBillUsd === undefined ? 'water use or bill amount' : '',
+    parsed.householdSize === undefined ? 'household size' : '',
+    parsed.outdoorArea === 'unknown' ? 'outdoor irrigation area' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Water conservation plan for ${parsed.householdType.replace('_', ' ')}. Local watering rules are not verified by this tool.`,
+    noCostActions: [
+      'Check toilets, faucets, hose bibs, and irrigation valves for silent leaks.',
+      'Run full dishwasher and laundry loads where practical.',
+      'Shorten showers by a few minutes before buying equipment.',
+      'Sweep hard surfaces instead of hosing them down.',
+    ],
+    lowCostActions: [
+      'Install WaterSense-labeled showerheads or faucet aerators where fixtures are old.',
+      'Add toilet leak dye tablets or food coloring checks this week.',
+      'Use a hose shutoff nozzle and mulch exposed soil.',
+      'Repair dripping faucets and worn toilet flappers promptly.',
+    ],
+    fixtureApplianceUpgrades: [
+      'Prioritize WaterSense toilets if current toilets are old or frequently running.',
+      'Choose efficient washing machines only when replacement is already needed.',
+      'Consider smart leak sensors near water heater, washing machine, and sinks.',
+    ],
+    outdoorWateringActions: irrigationConcern
+      ? ['Water early morning only when plants need it; follow verified local rules if they exist.', 'Check sprinkler heads for overspray onto pavement.', 'Group plants by water need and consider drought-tolerant landscaping over time.']
+      : ['Skip outdoor irrigation actions unless you have a yard, garden, or shared landscaping responsibility.'],
+    leakCheckSteps: [
+      'Turn off fixtures and check whether the water meter still moves.',
+      'Put dye in toilet tanks and wait 10 minutes without flushing.',
+      'Inspect under sinks, around the water heater, washing machine, and outdoor hose bibs.',
+      'If the meter moves with everything off, call the utility or a licensed plumber for next steps.',
+    ],
+    localRulesStatus: 'not_verified',
+    localLookupPrompt: parsed.location ? `Search: water restrictions rebate WaterSense ${parsed.location}` : 'Add ZIP or city to look up verified water restrictions and rebates.',
+    priority: leakConcern ? 'Start with leak checks before behavior changes or upgrades.' : 'Start with fixtures and outdoor watering habits that match your home.',
+    confidence: unknowns.length <= 1 ? 'medium' : 'low',
+    assumptions: ['No live utility, rebate, or local watering-rule database is queried.', 'Recommendations are general conservation steps and must be checked against local rules.'],
+    unknowns,
+  }
+  await telemetry('water_conservation_planner', result.confidence)
+  return result
+}
+
+export async function buildWasteRecyclingGuide(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = WasteRecyclingInputSchema.parse(input)
+  const item = parsed.itemOrMaterial.toLowerCase()
+  const hazardous = /\b(batter|paint|solvent|oil|pesticide|chemical|propane|electronics?|laptop|phone|fluorescent|medicine|sharps|needle)\b/i.test(item)
+  const reusable = parsed.condition === 'usable' || parsed.condition === 'repairable'
+  const unknowns = [!parsed.location ? 'ZIP/location for local recycling rules' : '', !parsed.quantity ? 'quantity' : ''].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Waste and recycling guide for ${parsed.itemOrMaterial}. Local acceptance rules are not verified by this tool.`,
+    reuseRepairRecycleDisposeGuidance: [
+      reusable ? 'Reuse, repair, donate, or sell first if the item is safe and functional.' : 'Reuse is unlikely if the item is broken or expired; prioritize safe handling.',
+      hazardous ? 'Do not place hazardous or battery-containing items in normal trash or curbside recycling unless your local program explicitly says to.' : 'Check whether your local program accepts this material curbside, drop-off only, or not at all.',
+      'Keep materials clean, dry, and separated where your local program requires it.',
+      'When in doubt, search your city/county solid waste site rather than wishcycling.',
+    ],
+    hazardousWarning: hazardous
+      ? 'Possible hazardous or special-handling item: batteries, electronics, chemicals, oils, paints, medicines, and sharp items need verified local instructions.'
+      : 'No obvious hazardous-material flag from the item name, but local rules still control disposal.',
+    localLookup: {
+      status: parsed.location ? 'not_verified' : 'location_needed',
+      prompt: parsed.location ? `Search: ${parsed.itemOrMaterial} recycle dispose ${parsed.location}` : 'Add ZIP or city to verify reuse, recycling, hazardous waste, or disposal options.',
+    },
+    nextSteps: [
+      'Check your city or county solid waste site for ZIP-specific rules before disposal.',
+      hazardous ? 'Look for household hazardous waste, battery, electronics, or medication take-back programs.' : 'Check curbside, drop-off, reuse, and donation options in that order.',
+      'Avoid mixing unknown items into recycling bins.',
+    ],
+    confidence: unknowns.length === 0 ? 'medium' : 'low',
+    assumptions: ['No municipal recycling database is queried.', 'Guidance is conservative and avoids fake local acceptance claims.'],
+    unknowns,
+  }
+  await telemetry('waste_recycling_local_guide', result.confidence)
+  return result
+}
+
+export async function interpretUtilityBill(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = UtilityBillInputSchema.parse(input)
+  const usageUnit = parsed.usageUnit || (parsed.utilityType === 'electricity' ? 'kWh' : parsed.utilityType === 'water' ? 'gallons or CCF' : 'units')
+  const variableCost = Math.max(0, (parsed.totalCostUsd ?? 0) - (parsed.fixedFeesUsd ?? 0) - (parsed.demandChargeUsd ?? 0))
+  const unitCost = parsed.totalUsage && parsed.totalUsage > 0 && parsed.totalCostUsd !== undefined
+    ? parsed.totalCostUsd / parsed.totalUsage
+    : undefined
+  const dailyUsage = parsed.totalUsage !== undefined && parsed.billingDays ? parsed.totalUsage / parsed.billingDays : undefined
+  const changeFromPrevious = parsed.totalUsage !== undefined && parsed.previousUsage !== undefined && parsed.previousUsage > 0
+    ? ((parsed.totalUsage - parsed.previousUsage) / parsed.previousUsage) * 100
+    : undefined
+  const unknowns = [
+    parsed.totalCostUsd === undefined ? 'total cost' : '',
+    parsed.totalUsage === undefined ? 'total usage' : '',
+    !parsed.billingDays ? 'billing days' : '',
+    !parsed.usageUnit ? 'usage unit' : '',
+    !parsed.location ? 'location/utility territory' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Utility bill interpretation for ${parsed.utilityType}. Use this as a bill-reading aid, not a savings guarantee.`,
+    billBreakdown: {
+      totalCostUsd: parsed.totalCostUsd ?? 'unknown',
+      totalUsage: parsed.totalUsage ?? 'unknown',
+      usageUnit,
+      estimatedUnitCost: unitCost !== undefined ? `$${unitCost.toFixed(3)} per ${usageUnit}` : 'unknown',
+      estimatedDailyUsage: dailyUsage !== undefined ? `${dailyUsage.toFixed(1)} ${usageUnit}/day` : 'unknown',
+      fixedFeesUsd: parsed.fixedFeesUsd ?? 'unknown',
+      demandChargeUsd: parsed.demandChargeUsd ?? 'unknown',
+      estimatedVariableCostUsd: parsed.totalCostUsd !== undefined ? Number(variableCost.toFixed(2)) : 'unknown',
+      changeFromPrevious: changeFromPrevious !== undefined ? `${changeFromPrevious.toFixed(1)}%` : 'unknown',
+    },
+    interpretationFlags: [
+      unitCost !== undefined ? 'Unit cost estimated from total bill divided by usage; tariffs may include tiers and fixed fees.' : 'Unit cost cannot be calculated without both cost and usage.',
+      parsed.demandChargeUsd ? 'Demand charge is present; peak load management may matter.' : 'Demand charge not supplied or not present.',
+      changeFromPrevious !== undefined && Math.abs(changeFromPrevious) > 15 ? 'Usage changed materially from the previous bill; check weather, occupancy, leaks, or equipment.' : 'Trend cannot be judged from one bill alone.',
+    ],
+    nextSteps: [
+      'Compare at least 12 months of bills before judging a trend.',
+      parsed.utilityType === 'water' ? 'Check for leaks if usage or cost jumped.' : 'Separate usage changes from rate, fee, and weather changes.',
+      'Ask the utility about rebates, bill assistance, rate plans, or audit programs where relevant.',
+    ],
+    noFakeSavingsClaim: 'This interpretation is not a savings guarantee and does not estimate avoided cost without local tariff and baseline data.',
+    confidence: unknowns.length <= 1 ? 'medium' : 'low',
+    assumptions: ['This tool interprets user-provided bill fields only.', 'Tariff, weather, utility territory, and household baseline are not independently verified.'],
+    unknowns,
+  }
+  await telemetry('utility_bill_interpreter', result.confidence)
+  return result
+}
+
+function grantLabels(language?: string): Record<string, string> {
+  if (!isSpanish(language)) {
+    return {
+      title: 'Grant Search Guidance',
+      searchStrategies: 'Search strategies',
+      typesToLook: 'Types of funding to look for',
+      keyQuestions: 'Key eligibility questions',
+      timingAdvice: 'Timing advice',
+      assumptions: 'Assumptions',
+      confidence: 'Confidence',
+      disclaimer: 'Disclaimer',
+    }
+  }
+  return {
+    title: 'Orientación para búsqueda de subvenciones',
+    searchStrategies: 'Estrategias de búsqueda',
+    typesToLook: 'Tipos de financiamiento a buscar',
+    keyQuestions: 'Preguntas clave de elegibilidad',
+    timingAdvice: 'Consejos de timing',
+    assumptions: 'Supuestos',
+    confidence: 'Confianza',
+    disclaimer: 'Aviso',
+  }
+}
+
+export async function findGrantOpportunities(input: z.infer<typeof GrantSearchInputSchema>): Promise<object> {
+  const parsed = GrantSearchInputSchema.parse(input)
+  const loc = parsed.location ? ` ${parsed.location}` : ''
+  const lbl = grantLabels(parsed.preferredLanguage)
+
+  const result = {
+    labels: lbl,
+    summary: `Grant-search guidance for ${parsed.organizationType}: ${parsed.projectDescription.slice(0, 80)}${parsed.projectDescription.length > 80 ? '...' : ''}`,
+    noSpecificGrantsDisclaimer: 'No specific grant listings are provided. Grant availability, eligibility, and deadlines change constantly and must be verified directly at each source.',
+    searchStrategies: [
+      `Search Grants.gov for federal opportunities matching your project type${loc}.`,
+      `Search your state's environmental, housing, or community development agency website for state grants${loc}.`,
+      parsed.organizationType.toLowerCase().includes('ngo') || parsed.organizationType.toLowerCase().includes('nonprofit') || parsed.organizationType.toLowerCase().includes('non-profit')
+        ? 'Search Foundation Directory Online (Candid/GrantStation) for foundation funding relevant to your mission.'
+        : `Search local community foundations and county government grant portals${loc}.`,
+      `Search EPA Environmental Justice grants and USDA Rural Development grants if the project has an environmental or rural component.`,
+      `Search HUD Community Development Block Grants (CDBG) for community and resilience projects.`,
+      `Search DOE Weatherization and State Energy Program grants for energy-related projects.`,
+      `Search corporate foundation grant portals (energy utilities, banks, local employers) for community sustainability grants.`,
+      `Contact your local United Way, community foundation, or nonprofit resource center for local grant databases${loc}.`,
+    ],
+    typesToLook: [
+      'Federal formula grants distributed through states (CDBG, BRIC, LIHEAP)',
+      'Federal competitive grants (EPA, USDA, DOE, HUD, FEMA)',
+      'State environmental and resilience grants',
+      'Foundation grants from private and community foundations',
+      'Corporate social responsibility (CSR) grants from utilities, banks, and local employers',
+      'Local government small grants and mini-grants programs',
+      'Capacity-building grants for nonprofit organizational strength',
+      'Matching or challenge grants that leverage local contributions',
+    ],
+    keyQuestions: [
+      'Is your organization a registered 501(c)(3), government entity, tribal nation, or other eligible applicant type?',
+      'Does the project location match the funder\'s geographic eligibility requirements?',
+      'Does your project goal match the specific program priority areas described in the Notice of Funding Availability (NOFA)?',
+      'What is the application deadline and are you in the current cycle?',
+      'Are there cost-share or matching fund requirements you can meet?',
+      'Does your organization have the fiscal and reporting capacity to manage grant funds?',
+      'Are there audit or compliance requirements (OMB Uniform Guidance, 2 CFR 200) your organization can satisfy?',
+    ],
+    timingAdvice: [
+      'Federal grants often open in the fall or spring; check Grants.gov and agency websites for current cycles.',
+      'Foundation grants have varied cycles; some accept letters of inquiry (LOIs) before full applications.',
+      'Build relationships with program officers before deadlines — a brief pre-application call can save significant effort.',
+      'Allow at least 4–8 weeks to write a strong proposal; competitive grants require clear outcomes and a realistic budget.',
+      'Track deadlines in a shared calendar and set alerts 6 weeks before each target deadline.',
+    ],
+    budgetContext: parsed.budgetUsd !== undefined
+      ? `For a project of approximately $${parsed.budgetUsd.toLocaleString()}, look for grants that match this scale. Small grants (<$25k) are often less competitive but require the same application effort. Large grants (>$250k) typically require detailed financials and audited statements.`
+      : 'Budget size affects grant eligibility. Many programs have minimum and maximum award ranges. Confirm award sizes early before investing application effort.',
+    confidence: 'low' as const,
+    dataStatus: 'not_verified' as const,
+    assumptions: [
+      'This guidance is based on general knowledge of US grant programs as of the model training date.',
+      'Program availability, eligibility rules, and deadlines change frequently and must be verified at source.',
+      'No live database or grant API is queried by this tool.',
+    ],
+  }
+
+  await recordTelemetryEvent({ type: 'sustainability_scored', data: { workflow: 'grant_search_guidance', confidence: result.confidence } })
   return result
 }

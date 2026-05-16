@@ -113,7 +113,11 @@ async function main(): Promise<void> {
     if (responseText.includes(secret)) fail('secret leaked in operational smoke response')
   }
 
-  await wsSmoke()
+  if (process.env.OPENSEABRI_SKIP_WS_SMOKE === 'true') {
+    console.log('[check:operational] websocket smoke: SKIPPED (OPENSEABRI_SKIP_WS_SMOKE=true)')
+  } else {
+    await wsSmoke()
+  }
   await canvasSmoke()
   console.log('[check:operational] PASS')
 }

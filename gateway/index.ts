@@ -30,6 +30,7 @@ import { parseIncomingMessage, type IncomingMessage, type InitMessage, type Chat
 import { extractActionCard, detectActionKind, logConsent, type PendingAction } from './seabri/approval.js'
 import { getExecutor } from './seabri/action-executor.js'
 import { registerBuiltinTools } from './tools/register-builtin.js'
+import { timingSafeEqual } from 'crypto'
 import { isDbConfigured } from '../db/client.js'
 import { log } from './logger.js'
 import { validateStartupConfig } from './startup/production-config.js'
@@ -37,6 +38,7 @@ import { initializePersistenceAdapterForStartup } from './persistence/adapter.js
 
 const VERSION = '0.2.0'
 
+const MAX_WS_CONNECTIONS = parseInt(process['env']['OPENSEABRI_MAX_WS_CLIENTS'] || '50', 10)
 const APPROVAL_TTL_MS = Number(process.env.OPENSEABRI_APPROVAL_TTL_MS ?? 300_000)
 
 interface PendingApprovalItem extends PendingAction {
@@ -365,12 +367,19 @@ async function startGateway(): Promise<void> {
       return
     }
     const wsClientIp = getClientIp(req)
+    if (wss.clients.size >= MAX_WS_CONNECTIONS) {
+      ws.close(1008, 'Too many concurrent connections')
+      return
+    }
     if (isRateLimited(wsClientIp)) {
       ws.close(1008, 'Too many connections')
       return
     }
     const reqUrl = new URL(req.url ?? '/', `http://localhost`)
-    if (reqUrl.searchParams.get('token') !== wsToken) {
+    const providedToken = reqUrl.searchParams.get('token') ?? ''
+    const tokenMatches = providedToken.length === wsToken.length &&
+      timingSafeEqual(Buffer.from(providedToken), Buffer.from(wsToken))
+    if (!tokenMatches) {
       ws.close(1008, 'Unauthorized')
       return
     }

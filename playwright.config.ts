@@ -15,6 +15,10 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --port 5173',
     url: 'http://localhost:5173',
+    env: {
+      VITE_GATEWAY_URL: 'http://localhost:5173',
+      VITE_OPENSEABRI_API_KEY: 'playwright-local-key',
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
