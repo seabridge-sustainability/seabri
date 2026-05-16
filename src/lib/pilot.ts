@@ -12,6 +12,10 @@ export type PilotWorkflow =
   | 'certification'
   | 'offset'
   | 'purchasing'
+  | 'repair'
+  | 'retrofit'
+  | 'materials'
+  | 'preparedness'
   | 'water'
   | 'waste'
   | 'utility'
@@ -52,6 +56,10 @@ export interface PilotState {
   lastCertification?: string
   lastOffset?: string
   lastPurchasing?: string
+  lastRepair?: string
+  lastRetrofit?: string
+  lastMaterials?: string
+  lastPreparedness?: string
   lastWater?: string
   lastWaste?: string
   lastUtility?: string

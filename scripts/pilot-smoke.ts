@@ -145,6 +145,52 @@ async function main() {
     assert(offset.summary.includes('Verification status is not invented'), 'offset verification guard missing')
     console.log('[smoke:pilot] offset quality checker: PASS')
 
+    const repair = await post('/api/seabri/living-companion/repair-vs-replace', {
+      productType: 'washing machine',
+      ageYears: 9,
+      estimatedRepairCostUsd: 180,
+      replacementBudgetUsd: 900,
+      energyEfficiency: 'average',
+      condition: 'repairable',
+    })
+    assert(String(repair.sustainabilityTradeoff).includes('avoids waste'), 'repair-vs-replace sustainability tradeoff missing')
+    assert(!JSON.stringify(repair).match(/\b\d+\.\d{2,}\s*(kg|tCO2e)\b/i), 'repair-vs-replace used fake carbon precision')
+    console.log('[smoke:pilot] repair vs replace assistant: PASS')
+
+    const retrofit = await post('/api/seabri/living-companion/home-resilience-retrofit-plan', {
+      homeType: 'single_family',
+      location: '33101',
+      hazards: ['flood', 'storm', 'power_outage'],
+      budgetLevel: 'medium',
+      painPoints: ['basement water', 'power outages'],
+    })
+    assert(retrofit.localRiskStatus === 'not_verified', 'retrofit local risk status missing')
+    assert(Array.isArray(retrofit.prioritizedResilienceUpgrades), 'retrofit priorities missing')
+    console.log('[smoke:pilot] home resilience retrofit planner: PASS')
+
+    const materials = await post('/api/seabri/living-companion/building-material-comparison', {
+      materialCategory: 'flooring',
+      durabilityNeed: 'high',
+      moistureConcern: true,
+      budgetLevel: 'medium',
+      maintenanceTolerance: 'low',
+    })
+    assert(Array.isArray(materials.materialOptions), 'building material options missing')
+    assert(String(materials.embodiedCarbonGuidance).includes('screening guidance'), 'building material embodied-carbon caveat missing')
+    console.log('[smoke:pilot] building material comparator: PASS')
+
+    const preparedness = await post('/api/seabri/living-companion/emergency-preparedness-plan', {
+      householdSize: 4,
+      location: 'Miami, FL',
+      hazards: ['storm', 'flood', 'heat'],
+      hasPets: true,
+      hasChildren: true,
+      evacuationConstraints: ['one car'],
+    })
+    assert(preparedness.localGuidanceStatus === 'not_verified', 'preparedness local guidance status missing')
+    assert(Array.isArray(preparedness.emergencyChecklist), 'emergency preparedness checklist missing')
+    console.log('[smoke:pilot] emergency preparedness planner: PASS')
+
     const compute = await post('/api/seabri/harness/optimize-sustainable-compute', {
       workflow_name: 'pilot incident triage',
       task_type: 'classification',
@@ -172,6 +218,10 @@ async function main() {
       'plan_community_sustainability_project',
       'navigate_sustainability_certification',
       'check_carbon_offset_quality',
+      'advise_repair_vs_replace',
+      'plan_home_resilience_retrofits',
+      'compare_building_materials',
+      'plan_emergency_preparedness',
     ]) {
       assert(snapshotText.includes(toolName), `registry snapshot missing ${toolName}`)
     }

@@ -224,6 +224,26 @@ describe('dispatch', () => {
         expected: 'buyingChecklist',
       },
       {
+        name: 'advise_repair_vs_replace',
+        args: { prompt: 'Repair or replace?', productType: 'washing machine', ageYears: 9, estimatedRepairCostUsd: 180, replacementBudgetUsd: 900, energyEfficiency: 'average', condition: 'repairable' },
+        expected: 'sustainabilityTradeoff',
+      },
+      {
+        name: 'plan_home_resilience_retrofits',
+        args: { prompt: 'Plan resilience retrofits', homeType: 'single_family', hazards: ['flood', 'storm'], budgetLevel: 'medium' },
+        expected: 'localRiskStatus',
+      },
+      {
+        name: 'compare_building_materials',
+        args: { prompt: 'Compare flooring', materialCategory: 'flooring', durabilityNeed: 'high', moistureConcern: true, budgetLevel: 'medium', maintenanceTolerance: 'low' },
+        expected: 'embodiedCarbonGuidance',
+      },
+      {
+        name: 'plan_emergency_preparedness',
+        args: { prompt: 'Make an emergency plan', householdSize: 4, hazards: ['storm', 'flood'], hasPets: true, hasChildren: true },
+        expected: 'localGuidanceStatus',
+      },
+      {
         name: 'build_community_resilience_checklist',
         args: { prompt: 'Make a resilience plan', communityType: 'neighborhood', hazards: ['flood'] },
         expected: 'communicationPlan',

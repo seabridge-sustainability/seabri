@@ -7,16 +7,20 @@ import { searchLocalResources } from '../seabri/local-resources.js'
 import { analyzeIncidentImage } from '../seabri/vision-analysis.js'
 import { optimizeSustainableCompute } from '../seabri/sustainable-compute.js'
 import {
+  adviseRepairVsReplace,
   buildCommunityResilienceChecklist,
   buildSustainablePurchasingChecklist,
   buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
+  compareBuildingMaterials,
   estimateHouseholdCarbon,
   findGrantOpportunities,
   interpretUtilityBill,
   navigateCertification,
+  planEmergencyPreparedness,
   planCommunityProject,
   planHomeEnergyActions,
+  planHomeResilienceRetrofits,
   planWaterConservation,
 } from '../seabri/practical-sustainability.js'
 
@@ -274,6 +278,95 @@ export function registerBuiltinTools(): void {
     },
     async (input) => JSON.stringify(await buildSustainablePurchasingChecklist(input)),
     ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'advise_repair_vs_replace',
+      description: 'Advise on repair versus replacement for household products and appliances with sustainability, financial, waste, assumptions, and confidence guidance.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          productType: { type: 'string', description: 'Product or appliance type.' },
+          ageYears: { type: 'number', description: 'Approximate age in years.' },
+          estimatedRepairCostUsd: { type: 'number', description: 'Estimated repair cost.' },
+          replacementBudgetUsd: { type: 'number', description: 'Replacement quote or budget.' },
+          energyEfficiency: { type: 'string', description: 'poor, average, good, or unknown.' },
+          condition: { type: 'string', description: 'working, repairable, broken, unsafe, or unknown.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['productType'],
+      },
+    },
+    async (input) => JSON.stringify(await adviseRepairVsReplace(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'plan_home_resilience_retrofits',
+      description: 'Plan practical homeowner resilience retrofits for flood, storm, heat, outage, smoke, and other hazards without inventing local risk or insurance facts.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          homeType: { type: 'string', description: 'Home type.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          hazards: { type: 'array', description: 'Hazards of concern.' },
+          budgetLevel: { type: 'string', description: 'no_cost, low, medium, or high.' },
+          painPoints: { type: 'array', description: 'Known home weak points or recurring problems.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['homeType', 'hazards', 'budgetLevel'],
+      },
+    },
+    async (input) => JSON.stringify(await planHomeResilienceRetrofits(input)),
+    ['sustainability-companion', 'emergency-resilience', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'compare_building_materials',
+      description: 'Compare sustainable building and renovation material choices using durability, moisture, fire, maintenance, embodied-carbon caveats, and indoor-air guidance.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          materialCategory: { type: 'string', description: 'Material category such as flooring, roofing, insulation, or paint.' },
+          durabilityNeed: { type: 'string', description: 'low, medium, high, or unknown.' },
+          moistureConcern: { type: 'boolean', description: 'Whether moisture exposure is a concern.' },
+          fireConcern: { type: 'boolean', description: 'Whether fire/code exposure is a concern.' },
+          budgetLevel: { type: 'string', description: 'low, medium, high, or unknown.' },
+          maintenanceTolerance: { type: 'string', description: 'low, medium, high, or unknown.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['materialCategory'],
+      },
+    },
+    async (input) => JSON.stringify(await compareBuildingMaterials(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'plan_emergency_preparedness',
+      description: 'Build a household emergency preparedness sustainability and resilience plan with supplies, communication, evacuation considerations, assumptions, and official-guidance caveats.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          householdSize: { type: 'number', description: 'Number of people in the household.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          hazards: { type: 'array', description: 'Hazards of concern.' },
+          hasPets: { type: 'boolean', description: 'Whether pets are present.' },
+          hasChildren: { type: 'boolean', description: 'Whether children are present.' },
+          hasOlderAdults: { type: 'boolean', description: 'Whether older adults are present.' },
+          medicalNeeds: { type: 'array', description: 'Medication, device, or support needs.' },
+          evacuationConstraints: { type: 'array', description: 'Transportation, mobility, school, work, or caregiver constraints.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['householdSize', 'hazards'],
+      },
+    },
+    async (input) => JSON.stringify(await planEmergencyPreparedness(input)),
+    ['sustainability-companion', 'emergency-resilience', 'home-community', 'general'],
   )
 
   registerTool(

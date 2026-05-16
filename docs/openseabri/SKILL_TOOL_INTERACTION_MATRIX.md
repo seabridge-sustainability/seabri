@@ -17,6 +17,10 @@ Status terms:
 | Home energy action plan | Homeowner | Native | `gateway/seabri/practical-sustainability.ts` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | Utility tariff lookup not live | Add verified tariff/local rebate lookup |
 | Product comparison | Product & purchasing | Native | `gateway/seabri/practical-sustainability.ts` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | External catalog lookup not live | Add verified product data connectors |
 | Sustainable purchasing checklist | Product & purchasing | Native | `gateway/seabri/practical-sustainability.ts` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | Product proof remains user-supplied | Add optional verified marketplace lookup |
+| Repair vs Replace Assistant | Product & purchasing | Native | `gateway/seabri/practical-sustainability.ts`; `skills/repair-vs-replace-assistant/SKILL.md` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | Product-specific repairability, warranty, and energy label data are user-supplied | Add optional verified product/serviceability data lookup |
+| Home Resilience Retrofit Planner | Homeowner resilience | Native | `gateway/seabri/practical-sustainability.ts`; `skills/home-resilience-retrofit-planner/SKILL.md` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | Local hazard, permit, contractor, and insurance data intentionally not invented | Add verified hazard/permit/insurance-document adapter |
+| Sustainable Building Material Comparator | Building & renovation | Native | `gateway/seabri/practical-sustainability.ts`; `skills/building-material-comparator/SKILL.md` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | Product-specific EPD/certification/code data not queried | Add optional verified EPD/material database connector |
+| Emergency Preparedness Planner | Homeowner resilience | Native | `gateway/seabri/practical-sustainability.ts`; `skills/emergency-preparedness-planner/SKILL.md` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | Live alerts, shelters, and evacuation orders intentionally not queried | Add official alert/shelter adapter only with provider approval |
 | Carbon offset quality checker | Product & purchasing | Native | `gateway/seabri/practical-sustainability.ts` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI | working | Does not certify credits | Keep as screening aid |
 | Water Conservation Planner | Carbon / Energy / Water / Waste | Native | `gateway/seabri/practical-sustainability.ts`; `skills/water-conservation-planner/SKILL.md` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI target | working | Local water rules not verified | Add optional municipal lookup |
 | Waste and Recycling Local Guide | Carbon / Energy / Water / Waste | Native | `gateway/seabri/practical-sustainability.ts`; `skills/waste-recycling-local-guide/SKILL.md` | Registered | Working | Working | Working | Routed | Routed | Routed | Working | Unit/API/MCP/UI target | working | Local rules intentionally not invented | Add verified city/county lookup |
@@ -53,14 +57,14 @@ Status terms:
 
 Individuals and households:
 
-- Production-ready: household carbon footprint, home energy action planning, product comparison, sustainable purchasing, carbon offset quality screening, water conservation planning, waste/recycling guidance, utility bill interpretation, incident triage, approval-gated action cards.
+- Production-ready: household carbon footprint, home energy action planning, product comparison, sustainable purchasing, repair-vs-replace guidance, building material comparison, emergency preparedness planning, carbon offset quality screening, water conservation planning, waste/recycling guidance, utility bill interpretation, incident triage, approval-gated action cards.
 - Partial: climate/property risk, insurance document support, local resource search, PDF/image media parsing.
 - Missing/high-priority: verified local rules for water, recycling, rebates, and local government resources.
 
 Homeowners:
 
-- Production-ready: flood/water damage workflow, storm damage workflow, power outage guidance, home energy plan, utility bill interpretation, action-card outreach prep.
-- Partial: insurance policy/declarations review, contractor/plumber outreach, local public works guidance, temp-stay support, retrofit prioritization.
+- Production-ready: flood/water damage workflow, storm damage workflow, power outage guidance, home energy plan, home resilience retrofit planner, emergency preparedness planner, utility bill interpretation, action-card outreach prep.
+- Partial: insurance policy/declarations review, contractor/plumber outreach, local public works guidance, temp-stay support, verified retrofit incentive and permit lookup.
 - Missing/high-priority: verified local contractor/public-works directory and robust insurance PDF extraction.
 
 Communities, NGOs, and schools:

@@ -1132,7 +1132,7 @@ function WorkflowView({ onNav }: { onNav: (v: AppView) => void }) {
 
 const PILOT_STATE_KEY = 'openseabri.pilot.state.v1'
 
-type PilotTab = 'living' | 'comparison' | 'carbon' | 'energy' | 'community' | 'grant' | 'certification' | 'offset' | 'purchasing' | 'water' | 'waste' | 'utility' | 'resilience' | 'compute' | 'catalog'
+type PilotTab = 'living' | 'comparison' | 'carbon' | 'energy' | 'community' | 'grant' | 'certification' | 'offset' | 'purchasing' | 'repair' | 'retrofit' | 'materials' | 'preparedness' | 'water' | 'waste' | 'utility' | 'resilience' | 'compute' | 'catalog'
 
 const panelStyle: CSSProperties = {
   border: '1px solid var(--border-muted)',
@@ -1202,6 +1202,11 @@ function ResultBox({ title, value }: { title: string; value?: string }) {
     ...list('reductionActions'),
     ...list('noCostActions'),
     ...list('buyingChecklist'),
+    ...list('prioritizedResilienceUpgrades'),
+    ...list('emergencyChecklist'),
+    ...list('supplyList'),
+    ...list('materialOptions'),
+    ...list('nextPreparednessSteps'),
     ...list('preparednessChecklist'),
     ...list('searchStrategies'),
     ...list('leakCheckSteps'),
@@ -1306,6 +1311,10 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
   const [certificationForm, setCertificationForm] = useState({ userType: 'small_business', goal: 'reduce energy use and prepare ESG documents', budgetLevel: 'low' })
   const [offsetForm, setOffsetForm] = useState({ projectName: 'Forest offset option', projectType: 'forest', registry: '', pricePerTonUsd: '2' })
   const [purchasingForm, setPurchasingForm] = useState({ productCategory: 'backpack', budgetUsd: '80', durabilityNeed: 'high', repairabilityPreference: 'high' })
+  const [repairForm, setRepairForm] = useState({ productType: 'washing machine', ageYears: '9', estimatedRepairCostUsd: '180', replacementBudgetUsd: '900', energyEfficiency: 'average', condition: 'repairable' })
+  const [retrofitForm, setRetrofitForm] = useState({ homeType: 'single_family', hazards: 'flood, storm, power_outage', budgetLevel: 'medium', painPoints: 'basement water, power outages' })
+  const [materialsForm, setMaterialsForm] = useState({ materialCategory: 'flooring', durabilityNeed: 'high', moistureConcern: true, fireConcern: false, budgetLevel: 'medium', maintenanceTolerance: 'low' })
+  const [preparednessForm, setPreparednessForm] = useState({ householdSize: '4', hazards: 'storm, flood, heat', hasPets: true, hasChildren: true, hasOlderAdults: false, medicalNeeds: '', evacuationConstraints: 'one car, school pickup' })
   const [waterForm, setWaterForm] = useState({ householdType: 'single_family', monthlyWaterUseGallons: '9000', outdoorArea: 'small', painPoints: 'high bill, irrigation' })
   const [wasteForm, setWasteForm] = useState({ itemOrMaterial: 'old laptop battery', condition: 'broken', quantity: '2 items' })
   const [utilityForm, setUtilityForm] = useState({ utilityType: 'electricity', billingDays: '31', totalCostUsd: '185', totalUsage: '980', usageUnit: 'kWh' })
@@ -1549,6 +1558,83 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
     }
   }
 
+  const runRepair = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/repair-vs-replace', {
+        productType: repairForm.productType,
+        ageYears: Number(repairForm.ageYears),
+        estimatedRepairCostUsd: Number(repairForm.estimatedRepairCostUsd),
+        replacementBudgetUsd: Number(repairForm.replacementBudgetUsd),
+        energyEfficiency: repairForm.energyEfficiency,
+        condition: repairForm.condition,
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'repair', title: 'Repair or replace checked', detail: 'Repair, replacement, financial, sustainability, and waste tradeoffs generated.' }, { lastRepair: text })
+      setStatus('Repair vs replace guidance completed with assumptions and no fake carbon precision.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Repair vs replace assistant unavailable.')
+    }
+  }
+
+  const runRetrofit = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/home-resilience-retrofit-plan', {
+        homeType: retrofitForm.homeType,
+        location: profile.zip || profile.city || undefined,
+        hazards: retrofitForm.hazards.split(',').map((h) => h.trim()).filter(Boolean),
+        budgetLevel: retrofitForm.budgetLevel,
+        painPoints: retrofitForm.painPoints.split(',').map((p) => p.trim()).filter(Boolean),
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'retrofit', title: 'Home retrofit plan built', detail: 'Resilience upgrades, seasonal priorities, insurance caveats, and next steps generated.' }, { lastRetrofit: text })
+      setStatus('Home resilience retrofit plan completed without inventing local hazard or insurance details.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Home resilience retrofit planner unavailable.')
+    }
+  }
+
+  const runMaterials = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/building-material-comparison', {
+        materialCategory: materialsForm.materialCategory,
+        durabilityNeed: materialsForm.durabilityNeed,
+        moistureConcern: materialsForm.moistureConcern,
+        fireConcern: materialsForm.fireConcern,
+        budgetLevel: materialsForm.budgetLevel,
+        maintenanceTolerance: materialsForm.maintenanceTolerance,
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'materials', title: 'Building materials compared', detail: 'Durability, maintenance, embodied-carbon caveats, and indoor-air guidance generated.' }, { lastMaterials: text })
+      setStatus('Building material comparison completed without fake certifications or exact carbon claims.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Building material comparator unavailable.')
+    }
+  }
+
+  const runPreparedness = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/emergency-preparedness-plan', {
+        householdSize: Number(preparednessForm.householdSize),
+        location: profile.zip || profile.city || undefined,
+        hazards: preparednessForm.hazards.split(',').map((h) => h.trim()).filter(Boolean),
+        hasPets: preparednessForm.hasPets,
+        hasChildren: preparednessForm.hasChildren,
+        hasOlderAdults: preparednessForm.hasOlderAdults,
+        medicalNeeds: preparednessForm.medicalNeeds.split(',').map((m) => m.trim()).filter(Boolean),
+        evacuationConstraints: preparednessForm.evacuationConstraints.split(',').map((c) => c.trim()).filter(Boolean),
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'preparedness', title: 'Emergency plan built', detail: 'Supplies, communication, evacuation considerations, and official-guidance caveats generated.' }, { lastPreparedness: text })
+      setStatus('Emergency preparedness plan completed with official-guidance caveats.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Emergency preparedness planner unavailable.')
+    }
+  }
+
   const runWater = async () => {
     try {
       const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/water-conservation-plan', {
@@ -1720,9 +1806,10 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
               {[
                 ['Living Companion', [['living', 'Incident Help']]],
                 ['Personal Sustainability', [['carbon', 'Carbon Footprint'], ['certification', 'Certification']]],
-                ['Homeowner Resilience', [['energy', 'Home Energy']]],
+                ['Homeowner Resilience', [['energy', 'Home Energy'], ['retrofit', 'Retrofit Plan'], ['preparedness', 'Emergency Prep']]],
                 ['Community & NGO Tools', [['community', 'Project Planner'], ['grant', 'Grant Funding'], ['resilience', 'Resilience']]],
-                ['Product & Purchasing', [['comparison', 'Product Comparison'], ['purchasing', 'Purchasing'], ['offset', 'Offset Checker']]],
+                ['Product & Purchasing', [['comparison', 'Product Comparison'], ['purchasing', 'Purchasing'], ['repair', 'Repair or Replace'], ['offset', 'Offset Checker']]],
+                ['Building & Renovation', [['materials', 'Materials']]],
                 ['Carbon / Energy / Water / Waste', [['water', 'Water'], ['waste', 'Waste & Recycling'], ['utility', 'Utility Bill']]],
                 ['Sustainable Compute / Agent Harness', [['compute', 'Sustainable Compute']]],
                 ['Skills & Tools Catalog', [['catalog', 'Skills & Tools']]],
@@ -1988,6 +2075,165 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
                 </div>
                 <WorkflowButton onClick={runPurchasing}>Build buying checklist</WorkflowButton>
                 <ResultBox title="Last purchasing checklist" value={state.lastPurchasing} />
+              </section>
+            )}
+
+            {tab === 'repair' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Repair versus replace workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Repair vs replace assistant</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Decide whether to fix or replace a household item using repair cost, age, efficiency, waste, and uncertainty.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                  <Field label="Product type" value={repairForm.productType} onChange={(productType) => setRepairForm((f) => ({ ...f, productType }))} />
+                  <Field label="Age years" type="number" value={repairForm.ageYears} onChange={(ageYears) => setRepairForm((f) => ({ ...f, ageYears }))} />
+                  <Field label="Repair cost" type="number" value={repairForm.estimatedRepairCostUsd} onChange={(estimatedRepairCostUsd) => setRepairForm((f) => ({ ...f, estimatedRepairCostUsd }))} />
+                  <Field label="Replacement budget" type="number" value={repairForm.replacementBudgetUsd} onChange={(replacementBudgetUsd) => setRepairForm((f) => ({ ...f, replacementBudgetUsd }))} />
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Efficiency
+                    <select value={repairForm.energyEfficiency} onChange={(e) => setRepairForm((f) => ({ ...f, energyEfficiency: e.target.value }))} style={inputStyle}>
+                      <option value="poor">poor</option>
+                      <option value="average">average</option>
+                      <option value="good">good</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Condition
+                    <select value={repairForm.condition} onChange={(e) => setRepairForm((f) => ({ ...f, condition: e.target.value }))} style={inputStyle}>
+                      <option value="working">working</option>
+                      <option value="repairable">repairable</option>
+                      <option value="broken">broken</option>
+                      <option value="unsafe">unsafe</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                </div>
+                <WorkflowButton onClick={runRepair}>Advise repair or replace</WorkflowButton>
+                <ResultBox title="Last repair vs replace guidance" value={state.lastRepair} />
+              </section>
+            )}
+
+            {tab === 'retrofit' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Home resilience retrofit workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Home resilience retrofit planner</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Prioritize practical home upgrades for hazards without claiming verified local risk, permits, or insurance benefits.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Home type
+                    <select value={retrofitForm.homeType} onChange={(e) => setRetrofitForm((f) => ({ ...f, homeType: e.target.value }))} style={inputStyle}>
+                      <option value="single_family">single family</option>
+                      <option value="apartment">apartment</option>
+                      <option value="condo">condo</option>
+                      <option value="mobile_home">mobile home</option>
+                      <option value="townhouse">townhouse</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                  <Field label="Hazards" value={retrofitForm.hazards} onChange={(hazards) => setRetrofitForm((f) => ({ ...f, hazards }))} />
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Budget level
+                    <select value={retrofitForm.budgetLevel} onChange={(e) => setRetrofitForm((f) => ({ ...f, budgetLevel: e.target.value }))} style={inputStyle}>
+                      <option value="no_cost">no cost</option>
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                    </select>
+                  </label>
+                  <Field label="Pain points" value={retrofitForm.painPoints} onChange={(painPoints) => setRetrofitForm((f) => ({ ...f, painPoints }))} />
+                </div>
+                <WorkflowButton onClick={runRetrofit}>Plan resilience retrofits</WorkflowButton>
+                <ResultBox title="Last home resilience retrofit plan" value={state.lastRetrofit} />
+              </section>
+            )}
+
+            {tab === 'materials' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Building material comparison workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Sustainable building material comparator</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Compare renovation materials by durability, moisture/fire fit, maintenance, indoor air, and embodied-carbon caveats.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <Field label="Material category" value={materialsForm.materialCategory} onChange={(materialCategory) => setMaterialsForm((f) => ({ ...f, materialCategory }))} />
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Durability need
+                    <select value={materialsForm.durabilityNeed} onChange={(e) => setMaterialsForm((f) => ({ ...f, durabilityNeed: e.target.value }))} style={inputStyle}>
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Budget level
+                    <select value={materialsForm.budgetLevel} onChange={(e) => setMaterialsForm((f) => ({ ...f, budgetLevel: e.target.value }))} style={inputStyle}>
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Maintenance tolerance
+                    <select value={materialsForm.maintenanceTolerance} onChange={(e) => setMaterialsForm((f) => ({ ...f, maintenanceTolerance: e.target.value }))} style={inputStyle}>
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: 12 }}>
+                  <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                    <input type="checkbox" checked={materialsForm.moistureConcern} onChange={(e) => setMaterialsForm((f) => ({ ...f, moistureConcern: e.target.checked }))} />
+                    moisture concern
+                  </label>
+                  <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                    <input type="checkbox" checked={materialsForm.fireConcern} onChange={(e) => setMaterialsForm((f) => ({ ...f, fireConcern: e.target.checked }))} />
+                    fire concern
+                  </label>
+                </div>
+                <WorkflowButton onClick={runMaterials}>Compare materials</WorkflowButton>
+                <ResultBox title="Last building material comparison" value={state.lastMaterials} />
+              </section>
+            )}
+
+            {tab === 'preparedness' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Emergency preparedness workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Emergency preparedness planner</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Build a household checklist, supply list, communication plan, and evacuation considerations with official-guidance caveats.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <Field label="Household size" type="number" value={preparednessForm.householdSize} onChange={(householdSize) => setPreparednessForm((f) => ({ ...f, householdSize }))} />
+                  <Field label="Hazards" value={preparednessForm.hazards} onChange={(hazards) => setPreparednessForm((f) => ({ ...f, hazards }))} />
+                  <Field label="Medical needs" value={preparednessForm.medicalNeeds} onChange={(medicalNeeds) => setPreparednessForm((f) => ({ ...f, medicalNeeds }))} />
+                  <Field label="Evacuation constraints" value={preparednessForm.evacuationConstraints} onChange={(evacuationConstraints) => setPreparednessForm((f) => ({ ...f, evacuationConstraints }))} />
+                </div>
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: 12 }}>
+                  {([
+                    ['hasPets', 'pets'],
+                    ['hasChildren', 'children'],
+                    ['hasOlderAdults', 'older adults'],
+                  ] as const).map(([key, label]) => (
+                    <label key={key} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                      <input type="checkbox" checked={preparednessForm[key]} onChange={(e) => setPreparednessForm((f) => ({ ...f, [key]: e.target.checked }))} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <WorkflowButton onClick={runPreparedness}>Build emergency plan</WorkflowButton>
+                <ResultBox title="Last emergency preparedness plan" value={state.lastPreparedness} />
               </section>
             )}
 

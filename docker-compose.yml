@@ -1,11 +1,29 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    # LOCAL DEV ONLY — not a real credential; use managed DB in production
+    environment:
+      POSTGRES_DB: openseabri
+      POSTGRES_USER: openseabri
+      POSTGRES_PASSWORD: openseabri
+    volumes:
+      - openseabri-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openseabri"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   openseabri:
     build: .
     ports:
       - "3000:3000"      # Web UI
       - "18790:18790"    # Gateway WebSocket
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       # Required: your Anthropic API key
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -23,6 +41,10 @@ services:
 
       # Optional: web search for research loop
       # - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+
+      # LOCAL DEV database — replace with SEABRI_DATABASE_URL=<managed-url> in production
+      - SEABRI_DATABASE_URL=postgresql://openseabri:openseabri@postgres:5432/openseabri
+      - OPENSEABRI_PERSISTENCE_ADAPTER=database
 
       # Gateway configuration
       - GATEWAY_PORT=18790
@@ -54,4 +76,6 @@ services:
 
 volumes:
   openseabri-workspace:
+    driver: local
+  openseabri-postgres:
     driver: local

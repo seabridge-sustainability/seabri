@@ -163,6 +163,47 @@ export const GrantSearchInputSchema = z.object({
   preferredLanguage: LanguageSchema,
 }).strict()
 
+export const RepairVsReplaceInputSchema = z.object({
+  productType: z.string().trim().min(2).max(120),
+  ageYears: z.number().nonnegative().max(100).optional(),
+  estimatedRepairCostUsd: z.number().nonnegative().max(1_000_000).optional(),
+  replacementBudgetUsd: z.number().nonnegative().max(1_000_000).optional(),
+  energyEfficiency: z.enum(['poor', 'average', 'good', 'unknown']).default('unknown'),
+  condition: z.enum(['working', 'repairable', 'broken', 'unsafe', 'unknown']).default('unknown'),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const HomeResilienceRetrofitInputSchema = z.object({
+  homeType: z.enum(['single_family', 'apartment', 'condo', 'mobile_home', 'townhouse', 'unknown']),
+  location: z.string().trim().max(160).optional(),
+  hazards: z.array(z.enum(['flood', 'storm', 'wildfire', 'heat', 'power_outage', 'air_quality', 'freeze', 'drought', 'other'])).min(1).max(10),
+  budgetLevel: z.enum(['no_cost', 'low', 'medium', 'high']),
+  painPoints: z.array(z.string().trim().max(120)).max(12).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const BuildingMaterialInputSchema = z.object({
+  materialCategory: z.string().trim().min(2).max(120),
+  durabilityNeed: z.enum(['low', 'medium', 'high', 'unknown']).default('unknown'),
+  moistureConcern: z.boolean().optional(),
+  fireConcern: z.boolean().optional(),
+  budgetLevel: z.enum(['low', 'medium', 'high', 'unknown']).default('unknown'),
+  maintenanceTolerance: z.enum(['low', 'medium', 'high', 'unknown']).default('unknown'),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const EmergencyPreparednessInputSchema = z.object({
+  householdSize: z.number().int().positive().max(100),
+  location: z.string().trim().max(160).optional(),
+  hazards: z.array(z.enum(['flood', 'storm', 'wildfire', 'heat', 'power_outage', 'air_quality', 'freeze', 'earthquake', 'other'])).min(1).max(10),
+  hasPets: z.boolean().optional(),
+  hasChildren: z.boolean().optional(),
+  hasOlderAdults: z.boolean().optional(),
+  medicalNeeds: z.array(z.string().trim().max(120)).max(12).optional(),
+  evacuationConstraints: z.array(z.string().trim().max(160)).max(12).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
 export type HouseholdCarbonInput = z.infer<typeof HouseholdCarbonInputSchema>
 export type HomeEnergyInput = z.infer<typeof HomeEnergyInputSchema>
 export type CommunityProjectInput = z.infer<typeof CommunityProjectInputSchema>
@@ -174,6 +215,10 @@ export type WaterConservationInput = z.infer<typeof WaterConservationInputSchema
 export type WasteRecyclingInput = z.infer<typeof WasteRecyclingInputSchema>
 export type UtilityBillInput = z.infer<typeof UtilityBillInputSchema>
 export type GrantSearchInput = z.infer<typeof GrantSearchInputSchema>
+export type RepairVsReplaceInput = z.infer<typeof RepairVsReplaceInputSchema>
+export type HomeResilienceRetrofitInput = z.infer<typeof HomeResilienceRetrofitInputSchema>
+export type BuildingMaterialInput = z.infer<typeof BuildingMaterialInputSchema>
+export type EmergencyPreparednessInput = z.infer<typeof EmergencyPreparednessInputSchema>
 
 export interface PracticalSustainabilityResult {
   labels: Record<string, string>
@@ -446,6 +491,227 @@ export async function buildSustainablePurchasingChecklist(input: unknown): Promi
     unknowns,
   }
   await telemetry('sustainable_purchasing_checklist', result.confidence)
+  return result
+}
+
+export async function adviseRepairVsReplace(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = RepairVsReplaceInputSchema.parse(input)
+  const repairCostKnown = parsed.estimatedRepairCostUsd !== undefined
+  const replacementKnown = parsed.replacementBudgetUsd !== undefined
+  const repairRatio = repairCostKnown && replacementKnown && parsed.replacementBudgetUsd! > 0
+    ? parsed.estimatedRepairCostUsd! / parsed.replacementBudgetUsd!
+    : undefined
+  const oldItem = (parsed.ageYears ?? 0) >= 10
+  const unsafe = parsed.condition === 'unsafe'
+  const inefficient = parsed.energyEfficiency === 'poor'
+  const repairFavored = !unsafe && (parsed.condition === 'repairable' || parsed.condition === 'working') && (repairRatio === undefined || repairRatio < 0.5) && !(oldItem && inefficient)
+  const unknowns = [
+    parsed.ageYears === undefined ? 'product age' : '',
+    !repairCostKnown ? 'repair cost' : '',
+    !replacementKnown ? 'replacement budget or quote' : '',
+    parsed.energyEfficiency === 'unknown' ? 'energy efficiency' : '',
+    parsed.condition === 'unknown' ? 'condition and safety status' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Repair vs replace screening for ${parsed.productType}. This is a decision aid, not a product audit.`,
+    decision: unsafe
+      ? 'Do not keep using an unsafe item; get qualified safety guidance and compare repair versus replacement after safety is addressed.'
+      : repairFavored
+        ? 'Repair first if a qualified repair is available and the item can keep working safely.'
+        : 'Compare replacement options because age, efficiency, condition, or repair cost may make replacement reasonable.',
+    repairRecommendation: unsafe
+      ? 'Pause normal repair decisions until safety is checked by a qualified professional.'
+      : repairFavored
+        ? 'Repair is the first sustainability choice when the item can be made reliable at a modest repair cost.'
+        : 'Repair may still be worthwhile if it extends useful life, but confirm reliability and parts availability before spending.',
+    replacementRecommendation: unsafe || (oldItem && inefficient)
+      ? 'Replacement may be justified if the current item is unsafe, very inefficient, or near end of useful life; choose durable and repairable options.'
+      : 'Delay replacement unless repair is unavailable, unreliable, or close to replacement cost.',
+    sustainabilityTradeoff: repairFavored
+      ? 'Repair usually avoids waste and delays manufacturing impacts when the item can remain useful and safe.'
+      : 'Replacement may reduce operating energy or water use for inefficient appliances, but creates disposal and manufacturing impacts.',
+    financialTradeoff: repairRatio !== undefined
+      ? `Known repair cost is about ${Math.round(repairRatio * 100)}% of the replacement budget; use this as a rough threshold, not a rule.`
+      : 'Repair cost and replacement budget are incomplete, so compare written repair quotes, warranty, expected life, and operating costs.',
+    wasteImpact: 'Keep the old item out of disposal when safe; if replacing, use take-back, donation, repair resale, or verified recycling routes before trash.',
+    nextSteps: [
+      'Get one written repair diagnosis with parts/labor and expected life.',
+      'Compare warranty, repair parts availability, and likely operating use of replacement options.',
+      'Check whether the old item can be donated, reused for parts, or recycled through a verified program.',
+      'Avoid buying only because of vague eco claims; look for durability and serviceability.',
+    ],
+    confidence: unknowns.length <= 1 ? 'medium' : 'low',
+    assumptions: ['No product database, warranty database, energy label database, or lifecycle database is queried.', 'Operating savings and embodied impacts are qualitative unless the user provides verified data.'],
+    unknowns,
+  }
+  await telemetry('repair_vs_replace_assistant', result.confidence)
+  return result
+}
+
+export async function planHomeResilienceRetrofits(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = HomeResilienceRetrofitInputSchema.parse(input)
+  const hazards = new Set(parsed.hazards)
+  const flood = hazards.has('flood')
+  const storm = hazards.has('storm')
+  const heat = hazards.has('heat')
+  const wildfire = hazards.has('wildfire') || hazards.has('air_quality')
+  const outage = hazards.has('power_outage')
+  const unknowns = [
+    !parsed.location ? 'location for local hazard and permit checks' : '',
+    !parsed.painPoints?.length ? 'specific weak points or prior damage history' : '',
+  ].filter(Boolean)
+
+  const prioritizedResilienceUpgrades = [
+    'Inspect drainage paths, gutters, downspouts, and grading before buying equipment.',
+    flood ? 'Move critical items, documents, mechanicals, and electrical loads above likely water lines where practical.' : '',
+    storm ? 'Check roof, flashing, shutters, window/door seals, and tree-limb risks before storm season.' : '',
+    outage ? 'Create a backup power plan for phones, lights, refrigeration, and medical devices before buying a generator.' : '',
+    heat ? 'Prioritize shade, air sealing, safe cooling rooms, and HVAC maintenance before peak heat.' : '',
+    wildfire ? 'Improve filtration, close smoke entry points, and maintain defensible space where locally applicable.' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Home resilience retrofit plan for ${parsed.homeType.replace('_', ' ')}. Local hazard maps, permits, and insurance terms are not verified by this tool.`,
+    prioritizedResilienceUpgrades,
+    lowCostActions: [
+      'Move important documents and valuables above likely water lines.',
+      'Photograph home systems and keep policy, deed/lease, and receipts in cloud plus waterproof storage.',
+      'Clear gutters, drains, and debris around doors, vents, and exterior drains.',
+      outage ? 'Add battery packs, flashlights, and a refrigerator/medical-device outage plan.' : 'Create a basic power outage plan even if outages are not the main concern.',
+    ],
+    majorUpgrades: [
+      flood ? 'Professional drainage, sump pump, backflow preventer, or floodproofing evaluation where flood risk is verified.' : 'Professional site drainage evaluation if water enters or pools near the home.',
+      storm ? 'Roof reinforcement, impact-rated openings, or storm shutters after local code and permit review.' : 'Envelope repairs such as roof, window, and door upgrades when inspection evidence supports them.',
+      outage ? 'Transfer-switch and battery/backup-power design by qualified professionals if backup power is needed.' : 'Electrical and mechanical upgrades only after a qualified assessment.',
+    ],
+    expectedResilienceImpact: 'Low-cost actions improve readiness and reduce avoidable damage; major upgrades should be prioritized only after verified hazard, inspection, permit, and budget review.',
+    seasonalPriority: flood || storm ? 'Complete drainage, roof, and document-prep tasks before storm season.' : heat ? 'Prepare cooling and HVAC maintenance before peak heat.' : 'Start with household readiness and the highest verified local hazard.',
+    insuranceImplications: 'Ask the insurer what documentation, inspections, deductibles, exclusions, and mitigation discounts apply. This tool does not promise coverage or lower insurance cost.',
+    nextSteps: [
+      'Verify hazards with local emergency management, flood maps, utility outage history, and insurer resources.',
+      'Get qualified inspections before structural, electrical, drainage, gas, or roof work.',
+      'Prioritize fixes that reduce immediate failure points before cosmetic upgrades.',
+    ],
+    localRiskStatus: 'not_verified',
+    confidence: unknowns.length <= 1 ? 'medium' : 'low',
+    assumptions: ['No live hazard map, permit database, contractor database, or insurance policy is queried.', 'Recommendations are screening guidance and may not fit every building or code jurisdiction.'],
+    unknowns,
+  }
+  await telemetry('home_resilience_retrofit_planner', result.confidence)
+  return result
+}
+
+export async function compareBuildingMaterials(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = BuildingMaterialInputSchema.parse(input)
+  const moisture = parsed.moistureConcern === true
+  const fire = parsed.fireConcern === true
+  const lowMaintenance = parsed.maintenanceTolerance === 'low'
+  const materialOptions = [
+    'Durable reclaimed, salvaged, or refurbished materials where quality and safety can be inspected.',
+    'Long-life conventional materials with repairable parts, replaceable sections, and clear maintenance instructions.',
+    moisture ? 'Moisture-tolerant assemblies and finishes that can dry, be inspected, and resist mold in wet areas.' : 'Lower-impact finishes with low-VOC documentation where moisture exposure is limited.',
+    fire ? 'Noncombustible or ignition-resistant options that match local code and wildfire/fire exposure.' : 'Locally available options that balance durability, maintenance, and cost.',
+  ]
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Building material comparison for ${parsed.materialCategory}. Use this to narrow options before getting product-specific documentation.`,
+    materialOptions,
+    prosCons: [
+      'Reused or salvaged materials can reduce waste, but quality, contaminants, fit, and code acceptance must be checked.',
+      'High-durability materials can lower replacement frequency, but may cost more up front.',
+      'Low-maintenance materials reduce upkeep burden, but some options are harder to repair or recycle.',
+      'Bio-based or recycled-content materials need product-specific moisture, fire, and indoor-air documentation.',
+    ],
+    sustainabilityConsiderations: [
+      'Favor long service life, repairability, low waste, and product transparency over vague green claims.',
+      'Ask for Environmental Product Declarations only when project scale warrants it; do not assume an EPD means best choice.',
+      'Prefer right-sized materials and avoid overbuilding when durability requirements are moderate.',
+    ],
+    durability: parsed.durabilityNeed === 'high'
+      ? 'High durability is a primary requirement; avoid fragile finishes that need frequent replacement.'
+      : 'Match durability to room use so the lowest-impact material is not replaced prematurely.',
+    maintenance: lowMaintenance
+      ? 'Choose materials with simple cleaning, replaceable sections, and clear maintenance instructions.'
+      : 'Higher-maintenance materials can work if the household can keep up with sealing, cleaning, or refinishing.',
+    embodiedCarbonGuidance: 'This is screening guidance only. Do not claim precise embodied-carbon performance without product-specific quantity takeoff, EPDs, transport assumptions, and service-life comparison.',
+    indoorAirQualityConcerns: 'Ask for low-VOC finishes, adhesives, sealants, and ventilation guidance; avoid products with unclear emissions information in bedrooms, nurseries, or tight homes.',
+    bestFitRecommendation: moisture
+      ? 'Best fit is a durable, moisture-tolerant, repairable option with low-VOC finish documentation and installer experience in wet areas.'
+      : fire
+        ? 'Best fit is a durable option that meets local fire/code requirements with clear maintenance and product documentation.'
+        : 'Best fit is the longest-lived repairable option within budget that avoids vague green claims and provides clear maintenance information.',
+    confidence: parsed.durabilityNeed !== 'unknown' && parsed.budgetLevel !== 'unknown' ? 'medium' : 'low',
+    assumptions: ['No brand, EPD, certification, code, or supplier database is queried.', 'Material fit depends on installation quality, local code, moisture exposure, and maintenance.'],
+    unknowns: [
+      parsed.budgetLevel === 'unknown' ? 'budget level' : '',
+      parsed.durabilityNeed === 'unknown' ? 'durability requirement' : '',
+      parsed.maintenanceTolerance === 'unknown' ? 'maintenance tolerance' : '',
+      parsed.moistureConcern === undefined ? 'moisture exposure' : '',
+      parsed.fireConcern === undefined ? 'fire/code concern' : '',
+    ].filter(Boolean),
+  }
+  await telemetry('building_material_comparator', result.confidence)
+  return result
+}
+
+export async function planEmergencyPreparedness(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = EmergencyPreparednessInputSchema.parse(input)
+  const hazards = new Set(parsed.hazards)
+  const hasFlood = hazards.has('flood')
+  const hasStorm = hazards.has('storm')
+  const hasHeat = hazards.has('heat')
+  const hasOutage = hazards.has('power_outage') || hasStorm
+  const unknowns = [
+    !parsed.location ? 'location for verified alerts, evacuation zones, and shelters' : '',
+    !parsed.evacuationConstraints?.length ? 'evacuation constraints' : '',
+    !parsed.medicalNeeds?.length && !parsed.hasOlderAdults ? 'medical/device support needs' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Emergency preparedness plan for a ${parsed.householdSize}-person household. Verify all local orders and shelter information with official sources.`,
+    emergencyChecklist: [
+      'Sign up for verified local emergency alerts and keep a battery-powered way to receive updates.',
+      'Choose a safe room or meetup point for shelter-in-place and one backup location outside the hazard area.',
+      'Photograph IDs, insurance, medicines, pets, home systems, and important documents before an event.',
+      hasFlood ? 'Move documents, chargers, medications, and valuables above likely water lines before heavy rain.' : 'Keep documents and chargers in a grab-and-go location.',
+      hasHeat ? 'Identify a cooling plan for the hottest room, vulnerable people, and medication storage.' : 'Include heat and cold contingencies even if they are not the main hazard.',
+    ],
+    supplyList: [
+      'Water, shelf-stable food, manual can opener, first aid, sanitation supplies, and flashlights.',
+      hasOutage ? 'Battery packs, spare cables, headlamps, and a refrigeration plan for food or medicine.' : 'Basic lights and chargers for short outages.',
+      parsed.hasPets ? 'Pet food, leash/carrier, medication, and vaccination records if pets are present.' : 'Pet supplies if pets join the household later or visitors bring animals.',
+      parsed.hasChildren ? 'Child-specific food, comfort items, school pickup contacts, and copies of custody/medical documents if relevant.' : 'Household-specific comfort and accessibility items.',
+      parsed.medicalNeeds?.length ? 'Medication list, device power needs, prescriptions, and clinician/pharmacy contacts.' : 'A printed medication and allergy list if anyone uses regular medicine.',
+    ],
+    communicationPlan: [
+      'Choose one out-of-area contact and one neighborhood check-in contact.',
+      'Write down phone numbers because phones may be locked, lost, or uncharged.',
+      'Set a check-in schedule for before, during, and after the event.',
+      'Plan language, accessibility, child pickup, and pet communication needs.',
+    ],
+    evacuationConsiderations: [
+      hasStorm || hasFlood ? 'Know your evacuation zone from official local sources before a storm or flood threat.' : 'Identify at least two routes away from the home.',
+      parsed.evacuationConstraints?.length ? `Constraints to plan around: ${parsed.evacuationConstraints.join(', ')}.` : 'Add transportation, mobility, work, school, and caregiver constraints.',
+      'Keep fuel/charging, keys, go-bags, documents, and pet carriers ready when risk is elevated.',
+      'Do not wait for this app if officials issue evacuation or safety instructions.',
+    ],
+    nextPreparednessSteps: [
+      'Verify local alert signup, evacuation zone, and shelter sources.',
+      'Build or refresh supplies this week using what the household actually eats and uses.',
+      'Run a 15-minute household drill: lights out, phones low, one person away from home.',
+      'Update the plan every season and after any incident.',
+    ],
+    localGuidanceStatus: 'not_verified',
+    confidence: unknowns.length <= 1 ? 'medium' : 'low',
+    assumptions: ['No live emergency alert, weather, shelter, evacuation, or public-safety provider is queried.', 'Official local instructions override this general preparedness checklist.'],
+    unknowns,
+  }
+  await telemetry('emergency_preparedness_planner', result.confidence)
   return result
 }
 

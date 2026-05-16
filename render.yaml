@@ -1,0 +1,54 @@
+# OpenSeaBri Render Blueprint
+# Use in Render dashboard: New > Blueprint > connect this repo > select render.yaml
+#
+# After deploy, add these secrets manually in the Render dashboard:
+#   - LLM provider API key (see docs/deployment/OPENSEABRI_OWNER_MANUAL_ACTIONS.md)
+#   - OPENSEABRI_CORS_ORIGIN (set to https://app.<your-domain>)
+#   - Any channel provider keys (Telegram, Twilio, etc.) when approved
+
+services:
+  - type: web
+    name: openseabri-gateway
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm run gateway
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OPENSEABRI_MODE
+        value: production
+      - key: GATEWAY_PORT
+        fromService:
+          type: web
+          name: openseabri-gateway
+          property: port
+      - key: OPENSEABRI_API_KEY
+        generateValue: true
+      - key: SEABRI_WS_TOKEN
+        generateValue: true
+      - key: OPENSEABRI_CANVAS_WS_TOKEN
+        generateValue: true
+      - key: SEABRI_DATABASE_URL
+        fromDatabase:
+          name: openseabri-db
+          property: connectionString
+      - key: OPENSEABRI_PERSISTENCE_ADAPTER
+        value: database
+      - key: OPENSEABRI_TELEMETRY_STORE
+        value: database
+      - key: OPENSEABRI_RATE_LIMIT
+        value: "120"
+      - key: OPENSEABRI_CHANNELS_ENABLED
+        value: ""
+      - key: OPENSEABRI_LIVE_PROVIDER_APPROVED
+        value: "false"
+      - key: OPENSEABRI_LIVE_PROVIDER_TESTS_ENABLED
+        value: "false"
+
+databases:
+  - name: openseabri-db
+    plan: starter
+    databaseName: openseabri
+    user: openseabri

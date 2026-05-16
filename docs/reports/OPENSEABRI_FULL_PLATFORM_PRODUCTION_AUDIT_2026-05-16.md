@@ -12,6 +12,8 @@ OpenSeaBri is locally functional as a production package candidate. The full saf
 
 The main code-level gap closed in this audit was the NGO grant/funding assistant exposure: it was already present in implementation, MCP, and registry surfaces, but not API/UI complete. It is now exposed through API, MCP, registry, UI, skill catalog, telemetry, and tests.
 
+Follow-up homeowner ecosystem expansion also closed four practical day-to-day workflow gaps: Repair vs Replace Assistant, Home Resilience Retrofit Planner, Sustainable Building Material Comparator, and Emergency Preparedness Planner. These are now exposed through API, MCP, tool registry, skill resources, Pilot Workspace UI, recent activity, and automated tests.
+
 ## Conditions Closed
 
 - Grant/funding assistant is no longer partial for local product use:
@@ -20,6 +22,13 @@ The main code-level gap closed in this audit was the NGO grant/funding assistant
   - MCP schema and test coverage updated.
   - Skill catalog entry added.
   - Interaction matrix updated.
+- Practical homeowner/individual skills expanded:
+  - Repair vs Replace Assistant added.
+  - Home Resilience Retrofit Planner added.
+  - Sustainable Building Material Comparator added.
+  - Emergency Preparedness Planner added.
+  - `docs/openseabri/HOMEOWNER_AND_INDIVIDUAL_SKILL_REVIEW.md` added.
+  - Pilot Workspace navigation now includes Repair or Replace, Retrofit Plan, Materials, and Emergency Prep.
 - Municipal/local lookup foundation is present:
   - Default production adapter returns `not_verified`.
   - Fixture adapter is labeled example-only.
@@ -43,9 +52,9 @@ The main code-level gap closed in this audit was the NGO grant/funding assistant
 
 | Platform/surface | Status | Evidence |
 |---|---|---|
-| Web app | Working locally | Playwright passed; Pilot Workspace renders required sections and completes Water, Waste, Utility, and Grant workflows with mocked safe gateway responses. |
-| API | Working locally | Core product API tests passed; grant, water, waste, utility, carbon, energy, purchasing, offset, resilience, profile, registry, and provider endpoints covered. |
-| MCP | Working locally | MCP server tests passed; new tools callable and schema requirements aligned with implementation inputs. |
+| Web app | Working locally | Playwright passed; Pilot Workspace renders required sections and completes Water, Waste, Utility, Grant, Repair/Replace, Retrofit, Materials, and Emergency Prep workflows with mocked safe gateway responses. |
+| API | Working locally | Core product API tests passed; grant, water, waste, utility, carbon, energy, purchasing, repair/replace, retrofit, materials, preparedness, offset, resilience, profile, registry, and provider endpoints covered. |
+| MCP | Working locally | MCP server tests passed; new tools callable and schema requirements aligned with implementation inputs, including homeowner workflow tools. |
 | WebSocket/chat | Working locally | Staging and operational smokes passed WebSocket slash path against temporary local gateway. |
 | Telegram | Mocked/gated working | Telegram integration tests cover photo, voice fallback, PDF, approval flow, outbound-call approval path, denial, and expiry. |
 | WhatsApp | Mocked/gated working | Mocked live-channel smoke covers WhatsApp text and media routing plus provider failure hiding. |
@@ -137,4 +146,3 @@ Low:
 PUBLIC PILOT CANDIDATE.
 
 OpenSeaBri is locally functional and safe-gated across the tested platform surfaces. It should not be called fully deployed production until owner deployment configuration and live-provider validation are completed.
-

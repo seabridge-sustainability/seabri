@@ -32,16 +32,20 @@ import { analyzeIncidentImage } from '../seabri/vision-analysis.js'
 import { compareProducts } from '../sustainability/product-comparison.js'
 import { optimizeSustainableCompute } from '../seabri/sustainable-compute.js'
 import {
+  adviseRepairVsReplace,
   buildCommunityResilienceChecklist,
   buildSustainablePurchasingChecklist,
   buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
+  compareBuildingMaterials,
   estimateHouseholdCarbon,
   findGrantOpportunities,
   interpretUtilityBill,
   navigateCertification,
+  planEmergencyPreparedness,
   planCommunityProject,
   planHomeEnergyActions,
+  planHomeResilienceRetrofits,
   planWaterConservation,
 } from '../seabri/practical-sustainability.js'
 import { fileURLToPath } from 'url'
@@ -122,7 +126,7 @@ function toolsForAgents(): JsonValue {
             description: 'Optional session id for MCP context continuity. The deterministic incident tool does not require it.',
           },
         },
-        required: ['prompt', 'householdType'],
+        required: ['prompt'],
       },
     },
     {
@@ -136,7 +140,7 @@ function toolsForAgents(): JsonValue {
           location: { type: 'string', description: 'City, ZIP, or address context.' },
           sessionId: { type: 'string', description: 'Optional session id for context continuity.' },
         },
-        required: ['prompt', 'itemOrMaterial'],
+        required: ['prompt', 'category', 'location'],
       },
     },
     {
@@ -151,7 +155,7 @@ function toolsForAgents(): JsonValue {
           incidentContext: { type: 'string', description: 'Incident context.' },
           sessionId: { type: 'string', description: 'Optional session id for context continuity.' },
         },
-        required: ['prompt', 'utilityType'],
+        required: ['prompt', 'imageBase64'],
       },
     },
     {
@@ -165,7 +169,7 @@ function toolsForAgents(): JsonValue {
           priorities: { type: 'array', description: 'Optional priorities.' },
           sessionId: { type: 'string', description: 'Optional session id for context continuity.' },
         },
-        required: ['prompt', 'organizationType', 'projectDescription'],
+        required: ['prompt', 'products'],
       },
     },
     {
@@ -281,6 +285,83 @@ function toolsForAgents(): JsonValue {
           sessionId: { type: 'string', description: 'Optional session id.' },
         },
         required: ['prompt'],
+      },
+    },
+    {
+      name: 'advise_repair_vs_replace',
+      description: 'Advise on repair versus replacement for household products and appliances with sustainability, financial, waste, assumptions, and confidence guidance.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          productType: { type: 'string', description: 'Product or appliance type.' },
+          ageYears: { type: 'number', description: 'Approximate age in years.' },
+          estimatedRepairCostUsd: { type: 'number', description: 'Estimated repair cost.' },
+          replacementBudgetUsd: { type: 'number', description: 'Replacement quote or budget.' },
+          energyEfficiency: { type: 'string', description: 'poor, average, good, or unknown.' },
+          condition: { type: 'string', description: 'working, repairable, broken, unsafe, or unknown.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt', 'productType'],
+      },
+    },
+    {
+      name: 'plan_home_resilience_retrofits',
+      description: 'Plan practical homeowner sustainability and resilience retrofits for flood, storm, heat, outage, smoke, and other hazards without inventing local risk or insurance facts.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          homeType: { type: 'string', description: 'single_family, apartment, condo, mobile_home, townhouse, or unknown.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          hazards: { type: 'array', description: 'Hazards of concern.' },
+          budgetLevel: { type: 'string', description: 'no_cost, low, medium, or high.' },
+          painPoints: { type: 'array', description: 'Known home weak points or recurring problems.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt', 'homeType', 'hazards', 'budgetLevel'],
+      },
+    },
+    {
+      name: 'compare_building_materials',
+      description: 'Compare sustainability-focused building and renovation material choices using durability, moisture, fire, maintenance, embodied-carbon caveats, and indoor-air guidance.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          materialCategory: { type: 'string', description: 'Material category such as flooring, roofing, insulation, or paint.' },
+          durabilityNeed: { type: 'string', description: 'low, medium, high, or unknown.' },
+          moistureConcern: { type: 'boolean', description: 'Whether moisture exposure is a concern.' },
+          fireConcern: { type: 'boolean', description: 'Whether fire/code exposure is a concern.' },
+          budgetLevel: { type: 'string', description: 'low, medium, high, or unknown.' },
+          maintenanceTolerance: { type: 'string', description: 'low, medium, high, or unknown.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt', 'materialCategory'],
+      },
+    },
+    {
+      name: 'plan_emergency_preparedness',
+      description: 'Build a household emergency preparedness sustainability and resilience plan with supplies, communication, evacuation considerations, assumptions, and official-guidance caveats.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          householdSize: { type: 'number', description: 'Number of people in the household.' },
+          location: { type: 'string', description: 'ZIP, city, or location.' },
+          hazards: { type: 'array', description: 'Hazards of concern.' },
+          hasPets: { type: 'boolean', description: 'Whether pets are present.' },
+          hasChildren: { type: 'boolean', description: 'Whether children are present.' },
+          hasOlderAdults: { type: 'boolean', description: 'Whether older adults are present.' },
+          medicalNeeds: { type: 'array', description: 'Medication, device, or support needs.' },
+          evacuationConstraints: { type: 'array', description: 'Transportation, mobility, school, work, or caregiver constraints.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt', 'householdSize', 'hazards'],
       },
     },
     {
@@ -518,6 +599,26 @@ async function handleToolCall(params: Record<string, unknown>): Promise<JsonValu
   if (name === 'build_sustainable_purchasing_checklist') {
     const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
     const result = await buildSustainablePurchasingChecklist(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'advise_repair_vs_replace') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await adviseRepairVsReplace(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'plan_home_resilience_retrofits') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await planHomeResilienceRetrofits(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'compare_building_materials') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await compareBuildingMaterials(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'plan_emergency_preparedness') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await planEmergencyPreparedness(toolInput)
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
   }
   if (name === 'build_community_resilience_checklist') {

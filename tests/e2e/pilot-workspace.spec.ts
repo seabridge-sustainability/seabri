@@ -32,6 +32,40 @@ test.describe('OpenSeaBri Pilot Workspace', () => {
                 assumptions: ['No live grant database was queried.'],
                 unknowns: ['Current deadlines and eligibility.'],
               }
+          : url.includes('repair-vs-replace')
+            ? {
+                summary: 'Repair guidance ready',
+                confidence: 'medium',
+                repairRecommendation: 'Repair first if safe and reliable.',
+                nextSteps: ['Get a written repair quote.'],
+                assumptions: ['No product database was queried.'],
+                unknowns: ['Exact remaining life.'],
+              }
+          : url.includes('home-resilience-retrofit-plan')
+            ? {
+                summary: 'Retrofit plan ready',
+                confidence: 'medium',
+                prioritizedResilienceUpgrades: ['Inspect drainage before buying equipment.'],
+                assumptions: ['Local hazard maps were not verified.'],
+                unknowns: ['Permit requirements.'],
+              }
+          : url.includes('building-material-comparison')
+            ? {
+                summary: 'Material comparison ready',
+                confidence: 'medium',
+                materialOptions: ['Durable repairable option with low-VOC documentation.'],
+                assumptions: ['No product EPD database was queried.'],
+                unknowns: ['Product-specific documentation.'],
+              }
+          : url.includes('emergency-preparedness-plan')
+            ? {
+                summary: 'Emergency plan ready',
+                confidence: 'medium',
+                emergencyChecklist: ['Sign up for verified local alerts.'],
+                supplyList: ['Water and battery packs.'],
+                assumptions: ['Official local guidance was not queried.'],
+                unknowns: ['Evacuation zone.'],
+              }
           : url.includes('utility-bill-interpreter')
               ? {
                   summary: 'Utility bill interpreted',
@@ -96,6 +130,30 @@ test.describe('OpenSeaBri Pilot Workspace', () => {
     await page.getByRole('button', { name: 'Purchasing' }).click()
     await expect(page.getByLabel('Sustainable purchasing workflow')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Build buying checklist' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Repair or Replace' }).click()
+    const repairWorkflow = page.getByLabel('Repair versus replace workflow')
+    await expect(repairWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Advise repair or replace' }).click()
+    await expect(repairWorkflow.getByText('Repair guidance ready', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Retrofit Plan' }).click()
+    const retrofitWorkflow = page.getByLabel('Home resilience retrofit workflow')
+    await expect(retrofitWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Plan resilience retrofits' }).click()
+    await expect(retrofitWorkflow.getByText('Retrofit plan ready', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Materials' }).click()
+    const materialsWorkflow = page.getByLabel('Building material comparison workflow')
+    await expect(materialsWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Compare materials' }).click()
+    await expect(materialsWorkflow.getByText('Material comparison ready', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Emergency Prep' }).click()
+    const preparednessWorkflow = page.getByLabel('Emergency preparedness workflow')
+    await expect(preparednessWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Build emergency plan' }).click()
+    await expect(preparednessWorkflow.getByText('Emergency plan ready', { exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: 'Grant Funding' }).click()
     const grantWorkflow = page.getByLabel('Grant funding workflow')

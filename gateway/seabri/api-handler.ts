@@ -36,12 +36,16 @@ import { compareProducts, CompareProductsInputSchema } from '../sustainability/p
 import { optimizeSustainableCompute, SustainableComputeInputSchema } from './sustainable-compute.js'
 import {
   CarbonOffsetCheckerInputSchema,
+  BuildingMaterialInputSchema,
   CertificationNavigatorInputSchema,
   CommunityResilienceInputSchema,
   CommunityProjectInputSchema,
+  EmergencyPreparednessInputSchema,
   GrantSearchInputSchema,
   HomeEnergyInputSchema,
+  HomeResilienceRetrofitInputSchema,
   HouseholdCarbonInputSchema,
+  RepairVsReplaceInputSchema,
   SustainablePurchasingInputSchema,
   UtilityBillInputSchema,
   WasteRecyclingInputSchema,
@@ -50,13 +54,17 @@ import {
   buildSustainablePurchasingChecklist,
   buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
+  compareBuildingMaterials,
   estimateHouseholdCarbon,
   findGrantOpportunities,
   interpretUtilityBill,
   navigateCertification,
+  planEmergencyPreparedness,
   planCommunityProject,
   planHomeEnergyActions,
+  planHomeResilienceRetrofits,
   planWaterConservation,
+  adviseRepairVsReplace,
 } from './practical-sustainability.js'
 import { deleteProfile, getProfile, upsertProfile } from './user-profile.js'
 import { recordTelemetryEvent } from '../telemetry/store.js'
@@ -535,6 +543,46 @@ export async function handleSeabriApiRequest(
         return true
       }
       json(res, 200, await buildSustainablePurchasingChecklist(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/repair-vs-replace' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, RepairVsReplaceInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await adviseRepairVsReplace(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/home-resilience-retrofit-plan' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, HomeResilienceRetrofitInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await planHomeResilienceRetrofits(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/building-material-comparison' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, BuildingMaterialInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await compareBuildingMaterials(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/emergency-preparedness-plan' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, EmergencyPreparednessInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await planEmergencyPreparedness(parsed.value))
       return true
     }
 

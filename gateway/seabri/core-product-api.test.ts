@@ -136,6 +136,57 @@ describe('core product APIs', () => {
     expect(purchasing.status).toBe(200)
     expect(await purchasing.json()).toHaveProperty('buyingChecklist')
 
+    const repair = await api('/api/seabri/living-companion/repair-vs-replace', {
+      productType: 'washing machine',
+      ageYears: 9,
+      estimatedRepairCostUsd: 180,
+      replacementBudgetUsd: 900,
+      energyEfficiency: 'average',
+      condition: 'repairable',
+      preferredLanguage: 'Spanish',
+    })
+    expect(repair.status).toBe(200)
+    const repairBody = await repair.json() as { sustainabilityTradeoff: string; labels: { confidence: string } }
+    expect(repairBody.sustainabilityTradeoff).toContain('avoids waste')
+    expect(repairBody.labels.confidence).toBe('Confianza')
+
+    const retrofit = await api('/api/seabri/living-companion/home-resilience-retrofit-plan', {
+      homeType: 'single_family',
+      location: '33101',
+      hazards: ['flood', 'storm', 'power_outage'],
+      budgetLevel: 'medium',
+      painPoints: ['basement water', 'power outages'],
+    })
+    expect(retrofit.status).toBe(200)
+    const retrofitBody = await retrofit.json() as { localRiskStatus: string; prioritizedResilienceUpgrades: string[] }
+    expect(retrofitBody.localRiskStatus).toBe('not_verified')
+    expect(retrofitBody.prioritizedResilienceUpgrades.length).toBeGreaterThan(0)
+
+    const materials = await api('/api/seabri/living-companion/building-material-comparison', {
+      materialCategory: 'flooring',
+      durabilityNeed: 'high',
+      moistureConcern: true,
+      budgetLevel: 'medium',
+      maintenanceTolerance: 'low',
+    })
+    expect(materials.status).toBe(200)
+    const materialsBody = await materials.json() as { materialOptions: unknown[]; embodiedCarbonGuidance: string }
+    expect(materialsBody.materialOptions.length).toBeGreaterThan(0)
+    expect(materialsBody.embodiedCarbonGuidance).toContain('screening guidance')
+
+    const preparedness = await api('/api/seabri/living-companion/emergency-preparedness-plan', {
+      householdSize: 4,
+      location: 'Miami, FL',
+      hazards: ['storm', 'flood', 'heat'],
+      hasPets: true,
+      hasChildren: true,
+      evacuationConstraints: ['one car'],
+    })
+    expect(preparedness.status).toBe(200)
+    const preparednessBody = await preparedness.json() as { localGuidanceStatus: string; emergencyChecklist: string[] }
+    expect(preparednessBody.localGuidanceStatus).toBe('not_verified')
+    expect(preparednessBody.emergencyChecklist).toContain('Sign up for verified local emergency alerts and keep a battery-powered way to receive updates.')
+
     const resilience = await api('/api/seabri/living-companion/community-resilience-checklist', {
       communityType: 'neighborhood',
       hazards: ['flood', 'heat'],

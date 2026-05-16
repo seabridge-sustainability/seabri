@@ -5,13 +5,17 @@ import {
   buildSustainablePurchasingChecklist,
   buildWasteRecyclingGuide,
   checkCarbonOffsetQuality,
+  compareBuildingMaterials,
   estimateHouseholdCarbon,
   findGrantOpportunities,
   interpretUtilityBill,
   navigateCertification,
+  planEmergencyPreparedness,
   planCommunityProject,
   planHomeEnergyActions,
+  planHomeResilienceRetrofits,
   planWaterConservation,
+  adviseRepairVsReplace,
 } from './practical-sustainability.js'
 
 describe('practical sustainability workflows', () => {
@@ -109,6 +113,86 @@ describe('practical sustainability workflows', () => {
     expect(result.buyingChecklist).toContain('Can common parts be repaired or replaced?')
     expect(result.redFlags).toContain('certification logos without certificate IDs')
     expect(JSON.stringify(result)).not.toMatch(/certified|approved/i)
+  })
+
+  it('advises repair versus replace with financial, sustainability, and waste tradeoffs', async () => {
+    const store = new InMemoryTelemetryStore()
+    setTelemetryStoreForTesting(store)
+    const result = await adviseRepairVsReplace({
+      productType: 'washing machine',
+      ageYears: 9,
+      estimatedRepairCostUsd: 180,
+      replacementBudgetUsd: 900,
+      energyEfficiency: 'average',
+      condition: 'repairable',
+      preferredLanguage: 'Spanish',
+    })
+
+    expect(result.summary).toContain('Repair vs replace')
+    expect(result.repairRecommendation).toContain('repair')
+    expect(result.replacementRecommendation).toContain('replacement')
+    expect(result.sustainabilityTradeoff).toContain('avoids waste')
+    expect(result.financialTradeoff).toContain('repair cost')
+    expect(result.wasteImpact).toContain('Keep the old item')
+    expect(result.labels.confidence).toBe('Confianza')
+    expect(JSON.stringify(result)).not.toMatch(/\b\d+\.\d{2,}\s*(kg|tCO2e)\b/i)
+    expect(store.events.some((event) => event.data.workflow === 'repair_vs_replace_assistant')).toBe(true)
+    setTelemetryStoreForTesting(null)
+  })
+
+  it('plans home resilience retrofits without inventing local hazard or insurance details', async () => {
+    const result = await planHomeResilienceRetrofits({
+      homeType: 'single_family',
+      location: '33101',
+      hazards: ['flood', 'storm', 'power_outage'],
+      budgetLevel: 'medium',
+      painPoints: ['basement water', 'power outages'],
+    })
+
+    expect(result.summary).toContain('Home resilience retrofit plan')
+    expect(result.prioritizedResilienceUpgrades).toContain('Inspect drainage paths, gutters, downspouts, and grading before buying equipment.')
+    expect(result.lowCostActions).toContain('Move important documents and valuables above likely water lines.')
+    expect(result.majorUpgrades).toContain('Professional drainage, sump pump, backflow preventer, or floodproofing evaluation where flood risk is verified.')
+    expect(result.insuranceImplications).toContain('Ask the insurer')
+    expect(result.localRiskStatus).toBe('not_verified')
+    expect(JSON.stringify(result)).not.toMatch(/guaranteed|premium reduction|FEMA says/i)
+  })
+
+  it('compares sustainable building materials with durability and indoor-air caveats', async () => {
+    const result = await compareBuildingMaterials({
+      materialCategory: 'flooring',
+      durabilityNeed: 'high',
+      moistureConcern: true,
+      fireConcern: false,
+      budgetLevel: 'medium',
+      maintenanceTolerance: 'low',
+    })
+
+    expect(result.summary).toContain('Building material comparison')
+    expect(result.materialOptions).toHaveLength(4)
+    expect(result.embodiedCarbonGuidance).toContain('screening guidance')
+    expect(result.indoorAirQualityConcerns).toContain('low-VOC')
+    expect(result.bestFitRecommendation).toContain('moisture')
+    expect(JSON.stringify(result)).not.toMatch(/LEED certified|verified EPD|exact embodied carbon/i)
+  })
+
+  it('plans emergency preparedness with household-specific supplies and no fake local orders', async () => {
+    const result = await planEmergencyPreparedness({
+      householdSize: 4,
+      location: 'Miami, FL',
+      hazards: ['storm', 'flood', 'heat'],
+      hasPets: true,
+      hasChildren: true,
+      hasOlderAdults: false,
+      evacuationConstraints: ['one car', 'school pickup'],
+    })
+
+    expect(result.summary).toContain('Emergency preparedness plan')
+    expect(result.emergencyChecklist).toContain('Sign up for verified local emergency alerts and keep a battery-powered way to receive updates.')
+    expect(result.supplyList).toContain('Pet food, leash/carrier, medication, and vaccination records if pets are present.')
+    expect(result.communicationPlan).toContain('Choose one out-of-area contact and one neighborhood check-in contact.')
+    expect(result.localGuidanceStatus).toBe('not_verified')
+    expect(JSON.stringify(result)).not.toMatch(/mandatory evacuation|official shelter at/i)
   })
 
   it('builds community resilience checklist without fake local partners', async () => {

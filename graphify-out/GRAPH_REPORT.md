@@ -1,12 +1,12 @@
 # Graph Report - C:\Users\adelm\SeaBridgeAI\openseabri  (2026-05-16)
 
 ## Corpus Check
-- 336 files · ~345,279 words
+- 336 files · ~355,191 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1488 nodes · 3024 edges · 86 communities detected
-- Extraction: 58% EXTRACTED · 42% INFERRED · 0% AMBIGUOUS · INFERRED: 1264 edges (avg confidence: 0.66)
+- 1496 nodes · 3054 edges · 84 communities detected
+- Extraction: 58% EXTRACTED · 42% INFERRED · 0% AMBIGUOUS · INFERRED: 1274 edges (avg confidence: 0.67)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -94,20 +94,18 @@
 - [[_COMMUNITY_Community 81|Community 81]]
 - [[_COMMUNITY_Community 82|Community 82]]
 - [[_COMMUNITY_Community 83|Community 83]]
-- [[_COMMUNITY_Community 84|Community 84]]
-- [[_COMMUNITY_Community 85|Community 85]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `log()` - 67 edges
-2. `handleSeabriApiRequest()` - 64 edges
+1. `handleSeabriApiRequest()` - 68 edges
+2. `log()` - 67 edges
 3. `json()` - 44 edges
-4. `handleInbound()` - 24 edges
-5. `handleToolCall()` - 22 edges
+4. `handleToolCall()` - 26 edges
+5. `handleInbound()` - 24 edges
 6. `startGateway()` - 21 edges
 7. `handleInbound()` - 21 edges
-8. `ModelRegistry` - 18 edges
-9. `pushActivity()` - 17 edges
-10. `runResearchCycle()` - 16 edges
+8. `pushActivity()` - 21 edges
+9. `ModelRegistry` - 18 edges
+10. `labels()` - 16 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `scanWebsite()` --calls--> `handleSeabriApiRequest()`  [INFERRED]
@@ -118,34 +116,34 @@
   C:\Users\adelm\SeaBridgeAI\openseabri\cli\seabri.ts → C:\Users\adelm\SeaBridgeAI\openseabri\research\overnight.ts
 - `startGateway()` --calls--> `startSessionCleanup()`  [INFERRED]
   C:\Users\adelm\SeaBridgeAI\openseabri\gateway\index.ts → C:\Users\adelm\SeaBridgeAI\openseabri\gateway\claim\session.ts
-- `startGateway()` --calls--> `createApprovalTokenFactory()`  [INFERRED]
-  C:\Users\adelm\SeaBridgeAI\openseabri\gateway\index.ts → gateway\cron\approval.ts
+- `startGateway()` --calls--> `startWhatsappChannel()`  [INFERRED]
+  C:\Users\adelm\SeaBridgeAI\openseabri\gateway\index.ts → C:\Users\adelm\SeaBridgeAI\openseabri\gateway\channels\whatsapp.ts
 
 ## Communities
 
 ### Community 0 - "Community 0"
 Cohesion: 0.03
-Nodes (82): handleSeabriApiRequest(), parseJsonWithSchema(), queryParams(), readBody(), list(), estimateCarbonGrams(), buildAgentScorecard(), identifyUnderperformers() (+74 more)
+Nodes (76): getExecutor(), detectActionKind(), extractActionCard(), generateConfirmCode(), isApproval(), isConfirmCode(), isDenial(), logConsent() (+68 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.04
-Nodes (56): initializePersistenceAdapterForStartup(), persistenceConfigIssues(), resolvePersistenceAdapter(), value(), buildDocumentHeader(), classifyDocument(), extractAudioFromVideo(), extractInsuranceFields() (+48 more)
+Nodes (43): checkBudgetAlert(), checkDailyBudget(), checkSessionBudget(), getDailyBudgetLimit(), getSessionBudgetLimit(), carbonEquivalent(), generateCarbonReport(), generateRecommendations() (+35 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.05
 Nodes (79): fail(), printResult(), ConnectionBadge(), statusColor(), fail(), checkLaunchdStatus(), checkSystemdStatus(), getDaemonStatus() (+71 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.04
-Nodes (46): getAgentName(), getSystemPrompt(), checkSeaBridgeConnection(), printWelcome(), startCliChannel(), compressHistory(), isSupportedLocale(), appendMemory() (+38 more)
+Cohesion: 0.05
+Nodes (61): handleSeabriApiRequest(), list(), buildAgentScorecard(), identifyUnderperformers(), normalizeCost(), normalizeLatency(), rankAgents(), createResourceActionCard() (+53 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.05
-Nodes (56): getExecutor(), detectActionKind(), extractActionCard(), generateConfirmCode(), isApproval(), isConfirmCode(), isDenial(), logConsent() (+48 more)
+Cohesion: 0.04
+Nodes (51): checkAndImprove(), improveSilently(), listSkillsFormatted(), showSkill(), buildRagSkillsContext(), buildSkillsContext(), getSkillBody(), invalidateSkillCache() (+43 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.04
-Nodes (24): graphToWorkflow(), CarbonTracker, computeEquivalents(), estimateRequestCarbon(), CopilotError, WorkflowCopilot, evalAtom(), evaluateCondition() (+16 more)
+Cohesion: 0.03
+Nodes (36): corsOrigin(), handleClaimApiRequest(), isAuthorized(), parseJsonWithSchema(), queryParams(), readBody(), estimateCarbonGrams(), getFeedbackSummary() (+28 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.07
@@ -153,118 +151,118 @@ Nodes (64): json(), forwardGeocodeWithGoogle(), forwardGeocodeWithNominatim(), g
 
 ### Community 7 - "Community 7"
 Cohesion: 0.04
-Nodes (29): classifyByKeywords(), classifyIntent(), classifyWithLLM(), validateConnector(), aggregateNode(), classifyNode(), executeNode(), planNode() (+21 more)
+Nodes (22): graphToWorkflow(), CarbonTracker, computeEquivalents(), estimateRequestCarbon(), CopilotError, WorkflowCopilot, evalAtom(), evaluateCondition() (+14 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.06
-Nodes (36): listSkillsFormatted(), showSkill(), buildRagSkillsContext(), buildSkillsContext(), getSkillBody(), loadSkillContent(), loadSkillMetadata(), mergeMarkdown() (+28 more)
+Cohesion: 0.05
+Nodes (37): AgentRegistry, buildBuiltinRegistry(), getAgentName(), getSystemPrompt(), checkSeaBridgeConnection(), printWelcome(), startCliChannel(), compressHistory() (+29 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.06
-Nodes (36): canonical(), secret(), signRunApproval(), verifyRunApproval(), authorized(), handleAttachmentRequest(), json(), maxBytes() (+28 more)
+Nodes (35): ApprovalSecretMissingError, createApprovalTokenFactory(), main(), addCronJob(), checkSeaBridgeConnection(), generateId(), listCronJobs(), loadStore() (+27 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.07
 Nodes (38): createToken(), hashPassword(), isAuthConfigured(), signIn(), signUp(), verifyPassword(), closeDb(), getDb() (+30 more)
 
 ### Community 11 - "Community 11"
+Cohesion: 0.07
+Nodes (38): initializePersistenceAdapterForStartup(), persistenceConfigIssues(), resolvePersistenceAdapter(), value(), label(), present(), failIfStrict(), isPlaceholder() (+30 more)
+
+### Community 12 - "Community 12"
+Cohesion: 0.06
+Nodes (31): streamAnthropicMessage(), callGateway(), deleteProfile(), loadCatalog(), pushActivity(), runCarbon(), runCertification(), runCommunity() (+23 more)
+
+### Community 13 - "Community 13"
 Cohesion: 0.09
 Nodes (33): augmentAgentLatestContext(), augmentClimateRiskContext(), augmentMaterialityContext(), augmentMcpToolsContext(), augmentNatureRiskContext(), augmentRegulationContext(), augmentSustainabilityContext(), augmentTargetsContext() (+25 more)
 
-### Community 12 - "Community 12"
-Cohesion: 0.07
-Nodes (19): checkBudgetAlert(), checkDailyBudget(), checkSessionBudget(), getDailyBudgetLimit(), getSessionBudgetLimit(), carbonEquivalent(), generateCarbonReport(), generateRecommendations() (+11 more)
+### Community 14 - "Community 14"
+Cohesion: 0.08
+Nodes (22): canonical(), secret(), signRunApproval(), verifyRunApproval(), authorized(), handleAttachmentRequest(), json(), maxBytes() (+14 more)
 
-### Community 13 - "Community 13"
+### Community 15 - "Community 15"
 Cohesion: 0.07
 Nodes (8): defaultAgentRunner(), HermesAdapter, createDefaultRegistry(), UpstreamRegistry, MiroFishAdapter, OpenClawAdapter, SpaceAgentInstructionAdapter, tokens()
 
-### Community 14 - "Community 14"
-Cohesion: 0.1
-Nodes (30): checkAndImprove(), improveSilently(), invalidateSkillCache(), assertSafeSkillId(), exportAllSkills(), exportSkill(), extractVersion(), importSkillFromBundle() (+22 more)
-
-### Community 15 - "Community 15"
-Cohesion: 0.09
-Nodes (27): streamAnthropicMessage(), callGateway(), deleteProfile(), loadCatalog(), pushActivity(), runCarbon(), runCertification(), runCommunity() (+19 more)
-
 ### Community 16 - "Community 16"
-Cohesion: 0.07
-Nodes (7): AgentRegistry, buildBuiltinRegistry(), buildCapabilityRegistry(), buildFallbackText(), CapabilityRegistry, resolveCapabilityGap(), detectGaps()
+Cohesion: 0.08
+Nodes (15): cognitoEndpoint(), decodeJwtPayload(), isTokenExpired(), refreshCognitoTokens(), post(), assert(), close(), listen() (+7 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.08
-Nodes (16): cognitoEndpoint(), decodeJwtPayload(), isTokenExpired(), refreshCognitoTokens(), post(), assert(), close(), listen() (+8 more)
+Cohesion: 0.12
+Nodes (21): validateConnector(), mergeMarkdown(), migrateApprovedSenders(), migrateCrons(), migrateMarkdown(), migrateSearchIndex(), migrateSessions(), migrateUserSkills() (+13 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.13
-Nodes (21): corsOrigin(), handleClaimApiRequest(), isAuthorized(), deriveStatus(), detectCATEvent(), detectCrisisLanguage(), evaluatePolicies(), isPacketComplete() (+13 more)
+Cohesion: 0.15
+Nodes (25): buildActionPreparationResponse(), buildIncidentResponse(), buildInsuranceResponse(), buildLocalHelpResponse(), buildPhotoResponse(), cleanProfileUpdates(), extractPolicyTerms(), findLatestDocument() (+17 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.09
 Nodes (4): FakeWebSocket, McpClient, buildMcpRegistry(), McpRegistry
 
 ### Community 20 - "Community 20"
-Cohesion: 0.15
-Nodes (25): buildActionPreparationResponse(), buildIncidentResponse(), buildInsuranceResponse(), buildLocalHelpResponse(), buildPhotoResponse(), cleanProfileUpdates(), extractPolicyTerms(), findLatestDocument() (+17 more)
+Cohesion: 0.13
+Nodes (14): escapeXml(), getHistory(), handleInitialCall(), handleSpeechInput(), handleVoiceWebhook(), parseForm(), readBody(), sayAndGather() (+6 more)
 
 ### Community 21 - "Community 21"
+Cohesion: 0.11
+Nodes (5): buildCapabilityRegistry(), buildFallbackText(), CapabilityRegistry, resolveCapabilityGap(), detectGaps()
+
+### Community 22 - "Community 22"
 Cohesion: 0.22
 Nodes (17): activeBackend(), extractKeywords(), indexSession(), indexSessionJson(), loadIndex(), rebuildSearchIndex(), saveIndex(), searchSessions() (+9 more)
 
-### Community 22 - "Community 22"
+### Community 23 - "Community 23"
 Cohesion: 0.2
 Nodes (16): classify(), handoffRoot(), kindOf(), latestFeynmanBrief(), listArtifacts(), readArtifact(), autoresearchDir(), buildArgs() (+8 more)
 
-### Community 23 - "Community 23"
+### Community 24 - "Community 24"
 Cohesion: 0.13
 Nodes (2): FixtureMunicipalAdapter, NotAvailableMunicipalAdapter
 
-### Community 24 - "Community 24"
+### Community 25 - "Community 25"
 Cohesion: 0.23
 Nodes (12): extractTopics(), generateReport(), getLastReport(), readProgram(), runOvernightResearch(), saveReport(), backup(), deriveMutationFromReport() (+4 more)
 
-### Community 25 - "Community 25"
-Cohesion: 0.27
-Nodes (9): ApprovalSecretMissingError, createApprovalTokenFactory(), disablePreset(), enablePreset(), listRegisteredPresets(), loadStore(), runPresetNow(), saveStore() (+1 more)
-
 ### Community 26 - "Community 26"
-Cohesion: 0.29
-Nodes (5): buildRecommendations(), computeCarbonScore(), computeEfficiencyScore(), computeRecommendationScore(), scoreDecision()
-
-### Community 27 - "Community 27"
 Cohesion: 0.36
 Nodes (7): aggregateFeedback(), classifyFeedback(), classifySignal(), computeAgentAggregate(), createExplicitFeedback(), createImplicitFeedback(), generateId()
 
-### Community 28 - "Community 28"
+### Community 27 - "Community 27"
 Cohesion: 0.36
 Nodes (5): clamp(), computeOverallScore(), createSustainabilityScore(), formatScoreReport(), scoreToBand()
 
-### Community 29 - "Community 29"
+### Community 28 - "Community 28"
 Cohesion: 0.25
 Nodes (1): SeaBriClientError
 
-### Community 30 - "Community 30"
+### Community 29 - "Community 29"
 Cohesion: 0.29
 Nodes (0): 
 
-### Community 31 - "Community 31"
-Cohesion: 0.33
-Nodes (0): 
-
-### Community 32 - "Community 32"
+### Community 30 - "Community 30"
 Cohesion: 0.4
 Nodes (2): buildPropertyRiskContext(), riskLine()
 
-### Community 33 - "Community 33"
+### Community 31 - "Community 31"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 34 - "Community 34"
+### Community 32 - "Community 32"
 Cohesion: 0.67
 Nodes (2): handleKeyDown(), handleSend()
 
-### Community 35 - "Community 35"
+### Community 33 - "Community 33"
 Cohesion: 0.67
+Nodes (0): 
+
+### Community 34 - "Community 34"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 35 - "Community 35"
+Cohesion: 1.0
 Nodes (0): 
 
 ### Community 36 - "Community 36"
@@ -289,7 +287,7 @@ Nodes (0):
 
 ### Community 41 - "Community 41"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): SpeechRecognition
 
 ### Community 42 - "Community 42"
 Cohesion: 1.0
@@ -297,7 +295,7 @@ Nodes (0):
 
 ### Community 43 - "Community 43"
 Cohesion: 1.0
-Nodes (1): SpeechRecognition
+Nodes (0): 
 
 ### Community 44 - "Community 44"
 Cohesion: 1.0
@@ -459,132 +457,124 @@ Nodes (0):
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 84 - "Community 84"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 85 - "Community 85"
-Cohesion: 1.0
-Nodes (0): 
-
 ## Knowledge Gaps
 - **1 isolated node(s):** `SpeechRecognition`
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 36`** (2 nodes): `localhost-anatomy.tsx`, `Button()`
+- **Thin community `Community 34`** (2 nodes): `localhost-anatomy.tsx`, `Button()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 37`** (2 nodes): `registry.test.ts`, `executor()`
+- **Thin community `Community 35`** (2 nodes): `registry.test.ts`, `executor()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (2 nodes): `formatRelative()`, `SessionsSidebar.tsx`
+- **Thin community `Community 36`** (2 nodes): `formatRelative()`, `SessionsSidebar.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 39`** (2 nodes): `VoiceButton.tsx`, `VoiceButton()`
+- **Thin community `Community 37`** (2 nodes): `VoiceButton.tsx`, `VoiceButton()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (2 nodes): `getAgent()`, `agents.ts`
+- **Thin community `Community 38`** (2 nodes): `getAgent()`, `agents.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 41`** (2 nodes): `uid()`, `id.ts`
+- **Thin community `Community 39`** (2 nodes): `uid()`, `id.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (2 nodes): `claim.test.ts`, `makePacket()`
+- **Thin community `Community 40`** (2 nodes): `claim.test.ts`, `makePacket()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (2 nodes): `openseabri.d.ts`, `SpeechRecognition`
+- **Thin community `Community 41`** (2 nodes): `openseabri.d.ts`, `SpeechRecognition`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (1 nodes): `drizzle.config.ts`
+- **Thin community `Community 42`** (1 nodes): `drizzle.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (1 nodes): `playwright.config.ts`
+- **Thin community `Community 43`** (1 nodes): `playwright.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (1 nodes): `tailwind.config.js`
+- **Thin community `Community 44`** (1 nodes): `tailwind.config.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (1 nodes): `vite.config.js`
+- **Thin community `Community 45`** (1 nodes): `vite.config.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (1 nodes): `vitest.config.ts`
+- **Thin community `Community 46`** (1 nodes): `vitest.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (1 nodes): `vitest.setup.ts`
+- **Thin community `Community 47`** (1 nodes): `vitest.setup.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (1 nodes): `localhost-tailwind.config.js`
+- **Thin community `Community 48`** (1 nodes): `localhost-tailwind.config.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (1 nodes): `localhost-theme.js`
+- **Thin community `Community 49`** (1 nodes): `localhost-theme.js`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 50`** (1 nodes): `index.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 51`** (1 nodes): `approval.test.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 52`** (1 nodes): `index.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 53`** (1 nodes): `approval.test.ts`
+- **Thin community `Community 53`** (1 nodes): `stdio.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 54`** (1 nodes): `index.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 55`** (1 nodes): `stdio.ts`
+- **Thin community `Community 55`** (1 nodes): `index.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 56`** (1 nodes): `index.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (1 nodes): `index.ts`
+- **Thin community `Community 57`** (1 nodes): `hmac.test.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 58`** (1 nodes): `index.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (1 nodes): `hmac.test.ts`
+- **Thin community `Community 59`** (1 nodes): `client.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (1 nodes): `index.ts`
+- **Thin community `Community 60`** (1 nodes): `knowledge-vault.ps1`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (1 nodes): `client.ts`
+- **Thin community `Community 61`** (1 nodes): `release-check.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 62`** (1 nodes): `knowledge-vault.ps1`
+- **Thin community `Community 62`** (1 nodes): `stop-gateway-ports.ps1`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (1 nodes): `release-check.ts`
+- **Thin community `Community 63`** (1 nodes): `validate-production.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 64`** (1 nodes): `stop-gateway-ports.ps1`
+- **Thin community `Community 64`** (1 nodes): `validate-staging.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (1 nodes): `validate-production.ts`
+- **Thin community `Community 65`** (1 nodes): `main.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 66`** (1 nodes): `validate-staging.ts`
+- **Thin community `Community 66`** (1 nodes): `VoicePanel.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 67`** (1 nodes): `main.tsx`
+- **Thin community `Community 67`** (1 nodes): `CanvasPane.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (1 nodes): `VoicePanel.tsx`
+- **Thin community `Community 68`** (1 nodes): `ClaimPacketPanel.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 69`** (1 nodes): `CanvasPane.tsx`
+- **Thin community `Community 69`** (1 nodes): `OperatorPanel.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 70`** (1 nodes): `ClaimPacketPanel.tsx`
+- **Thin community `Community 70`** (1 nodes): `RecommendationList.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 71`** (1 nodes): `OperatorPanel.tsx`
+- **Thin community `Community 71`** (1 nodes): `SeaBriOSPanel.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 72`** (1 nodes): `RecommendationList.tsx`
+- **Thin community `Community 72`** (1 nodes): `StatCard.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 73`** (1 nodes): `SeaBriOSPanel.tsx`
+- **Thin community `Community 73`** (1 nodes): `AgentNode.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (1 nodes): `StatCard.tsx`
+- **Thin community `Community 74`** (1 nodes): `ConditionNode.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 75`** (1 nodes): `AgentNode.tsx`
+- **Thin community `Community 75`** (1 nodes): `LoopNode.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 76`** (1 nodes): `ConditionNode.tsx`
+- **Thin community `Community 76`** (1 nodes): `ParallelNode.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (1 nodes): `LoopNode.tsx`
+- **Thin community `Community 77`** (1 nodes): `ToolNode.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (1 nodes): `ParallelNode.tsx`
+- **Thin community `Community 78`** (1 nodes): `canvas.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (1 nodes): `ToolNode.tsx`
+- **Thin community `Community 79`** (1 nodes): `claim.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 80`** (1 nodes): `canvas.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (1 nodes): `claim.ts`
+- **Thin community `Community 81`** (1 nodes): `canvas.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (1 nodes): `canvas.ts`
+- **Thin community `Community 82`** (1 nodes): `pilot-workspace.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (1 nodes): `canvas.spec.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (1 nodes): `pilot-workspace.spec.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (1 nodes): `node-telegram-bot-api.d.ts`
+- **Thin community `Community 83`** (1 nodes): `node-telegram-bot-api.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `log()` connect `Community 2` to `Community 1`, `Community 3`, `Community 6`, `Community 8`, `Community 10`, `Community 14`, `Community 17`, `Community 24`?**
-  _High betweenness centrality (0.110) - this node is a cross-community bridge._
-- **Why does `handleSeabriApiRequest()` connect `Community 0` to `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 11`, `Community 12`, `Community 15`, `Community 18`, `Community 20`, `Community 26`?**
-  _High betweenness centrality (0.079) - this node is a cross-community bridge._
-- **Why does `json()` connect `Community 6` to `Community 0`, `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 7`, `Community 13`, `Community 14`, `Community 15`, `Community 17`, `Community 18`?**
-  _High betweenness centrality (0.064) - this node is a cross-community bridge._
+- **Why does `log()` connect `Community 2` to `Community 0`, `Community 4`, `Community 6`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 16`, `Community 17`, `Community 25`?**
+  _High betweenness centrality (0.098) - this node is a cross-community bridge._
+- **Why does `json()` connect `Community 6` to `Community 0`, `Community 1`, `Community 2`, `Community 3`, `Community 4`, `Community 5`, `Community 8`, `Community 9`, `Community 12`, `Community 15`, `Community 16`?**
+  _High betweenness centrality (0.074) - this node is a cross-community bridge._
+- **Why does `handleSeabriApiRequest()` connect `Community 3` to `Community 1`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 11`, `Community 12`, `Community 13`, `Community 17`, `Community 18`?**
+  _High betweenness centrality (0.060) - this node is a cross-community bridge._
+- **Are the 62 inferred relationships involving `handleSeabriApiRequest()` (e.g. with `listCapabilityViews()` and `listAgentViews()`) actually correct?**
+  _`handleSeabriApiRequest()` has 62 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 63 inferred relationships involving `log()` (e.g. with `printMigrationReport()` and `cmdChat()`) actually correct?**
   _`log()` has 63 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 58 inferred relationships involving `handleSeabriApiRequest()` (e.g. with `listCapabilityViews()` and `listAgentViews()`) actually correct?**
-  _`handleSeabriApiRequest()` has 58 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 41 inferred relationships involving `json()` (e.g. with `corsOrigin()` and `handleClaimApiRequest()`) actually correct?**
   _`json()` has 41 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 23 inferred relationships involving `handleInbound()` (e.g. with `getState()` and `handleWhatsAppWebhook()`) actually correct?**
-  _`handleInbound()` has 23 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 24 inferred relationships involving `handleToolCall()` (e.g. with `runIncidentWorkflow()` and `searchLocalResources()`) actually correct?**
+  _`handleToolCall()` has 24 INFERRED edges - model-reasoned connections that need verification._
