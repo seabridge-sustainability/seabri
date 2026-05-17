@@ -14,23 +14,5 @@
         "STRAWBERRY_SERVICE_URL": "http://52.191.234.157:8000"
       }
     }
-  },
-  "hooks": {
-    "BeforeTool": [
-      {
-        "matcher": ".*",
-        "sequential": true,
-        "hooks": [
-          {
-            "type": "command",
-            "name": "SeaBridge MCP Sentinel",
-            "command": "python3 \"C:/Users/adelm/SeaBridgeAI/everything-claude-code/scripts/sentinel_preflight_gate.py\"",
-            "timeout": 10000,
-            "description": "Block suspicious tool calls before Gemini CLI executes them."
-          }
-        ]
-      }
-    ]
   }
 }
-

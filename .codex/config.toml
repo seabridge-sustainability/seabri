@@ -9,4 +9,4 @@ args = ["mcp", "--server", "classic"]
 "STRAWBERRY_SERVICE_URL" = "${STRAWBERRY_SERVICE_URL}"
 
 [features]
-codex_hooks = true
+codex_hooks = false
