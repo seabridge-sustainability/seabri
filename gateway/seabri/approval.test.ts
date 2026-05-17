@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { createHmac } from 'crypto'
 import {
   extractActionCard,
   isApproval,
@@ -7,6 +8,7 @@ import {
   requiresDoubleConfirmation,
   generateConfirmCode,
   isConfirmCode,
+  signLogEntry,
 } from './approval.js'
 
 describe('extractActionCard', () => {
@@ -135,5 +137,72 @@ describe('isConfirmCode', () => {
 
   it('rejects empty string', () => {
     expect(isConfirmCode('')).toBe(false)
+  })
+})
+
+describe('signLogEntry', () => {
+  const savedSecret = process.env.OPENSEABRI_CONSENT_LOG_SECRET
+
+  beforeEach(() => {
+    delete process.env.OPENSEABRI_CONSENT_LOG_SECRET
+  })
+
+  afterEach(() => {
+    if (savedSecret !== undefined) {
+      process.env.OPENSEABRI_CONSENT_LOG_SECRET = savedSecret
+    } else {
+      delete process.env.OPENSEABRI_CONSENT_LOG_SECRET
+    }
+  })
+
+  it('produces valid JSON', () => {
+    const line = signLogEntry({ userId: 'u1', approved: true })
+    expect(() => JSON.parse(line)).not.toThrow()
+  })
+
+  it('preserves all original fields', () => {
+    const entry = { userId: 'u1', actionCard: 'test card', approved: false }
+    const parsed = JSON.parse(signLogEntry(entry))
+    expect(parsed.userId).toBe('u1')
+    expect(parsed.actionCard).toBe('test card')
+    expect(parsed.approved).toBe(false)
+  })
+
+  it('appends a sig field to every entry', () => {
+    const line = signLogEntry({ userId: 'u1', approved: true })
+    const parsed = JSON.parse(line)
+    expect('sig' in parsed).toBe(true)
+  })
+
+  it('produces empty sig when OPENSEABRI_CONSENT_LOG_SECRET is unset', () => {
+    const line = signLogEntry({ userId: 'u1', approved: true })
+    const parsed = JSON.parse(line)
+    expect(parsed.sig).toBe('')
+  })
+
+  it('produces a 64-char hex HMAC-SHA256 sig when secret is set', () => {
+    process.env.OPENSEABRI_CONSENT_LOG_SECRET = 'test-secret'
+    const line = signLogEntry({ userId: 'u1', approved: true })
+    const parsed = JSON.parse(line)
+    expect(parsed.sig).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('sig is HMAC-SHA256 of the entry payload without the sig field', () => {
+    const secret = 'verify-me'
+    process.env.OPENSEABRI_CONSENT_LOG_SECRET = secret
+    const entry = { userId: 'u1', approved: true }
+    const line = signLogEntry(entry)
+    const parsed = JSON.parse(line)
+    // Recompute: payload is the entry WITHOUT sig
+    const payload = JSON.stringify(entry)
+    const expected = createHmac('sha256', secret).update(payload).digest('hex')
+    expect(parsed.sig).toBe(expected)
+  })
+
+  it('different entries produce different signatures', () => {
+    process.env.OPENSEABRI_CONSENT_LOG_SECRET = 'test-secret'
+    const sig1 = JSON.parse(signLogEntry({ userId: 'u1', approved: true })).sig
+    const sig2 = JSON.parse(signLogEntry({ userId: 'u2', approved: false })).sig
+    expect(sig1).not.toBe(sig2)
   })
 })

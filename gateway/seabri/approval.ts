@@ -21,7 +21,7 @@ export interface PendingAction {
   awaitingConfirmCode?: boolean
 }
 
-function signLogEntry(entry: Record<string, unknown>): string {
+export function signLogEntry(entry: Record<string, unknown>): string {
   const secret = process.env.OPENSEABRI_CONSENT_LOG_SECRET ?? ''
   const payload = JSON.stringify(entry)
   const sig = secret
