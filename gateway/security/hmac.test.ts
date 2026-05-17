@@ -93,7 +93,7 @@ describe('verifyRunApproval', () => {
   })
 
   it('accepts timestamp within skew window', () => {
-    const recentTs = Date.now() - 2 * 60 * 1000 // 2 minutes ago
+    const recentTs = Date.now() - 1 * 60 * 1000 // 1 minute ago — well within 2-min skew
     const result = signRunApproval({ ...payload, timestamp: recentTs })!
     expect(verifyRunApproval(result.header, payload)).toBe(true)
   })

@@ -17,7 +17,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto'
 
-const SKEW_MS = 5 * 60 * 1000
+const SKEW_MS = 2 * 60 * 1000
 
 function secret(): string {
   return process.env.OPENSEABRI_RUN_APPROVAL_SECRET || ''

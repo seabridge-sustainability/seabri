@@ -1,4 +1,19 @@
-# OpenSeaBri Coding Agent System Guide
+﻿# OpenSeaBri Coding Agent System Guide
+
+<!-- SEABRIDGE_GOAL_PROTOCOL_START -->
+## /goal Default Operating Mode
+
+All SeaBridgeAI coding-agent tasks default to `/goal`.
+
+Before implementation, establish a persistent execution goal, Definition of Done, validation plan, affected systems, dependencies, risks, expected artifacts, and likely edge cases. Continue the execution loop until the DoD is validated or a hard blocker is documented.
+
+Canonical protocol: `C:\Users\adelm\SeaBridgeAI\everything-claude-code\protocols\GOAL_PROTOCOL.md`
+
+Compact form: `C:\Users\adelm\SeaBridgeAI\everything-claude-code\protocols\GOAL_PROTOCOL_SHORT.md`
+
+Do not claim completion from code edits, generated files, or partial tests. Completion requires validated behavior, checked integrations, regression coverage proportional to risk, and documented skipped checks or blockers.
+<!-- SEABRIDGE_GOAL_PROTOCOL_END -->
+
 
 ## SeaBridgeAI Central System Pointer
 

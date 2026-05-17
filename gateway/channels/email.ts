@@ -10,9 +10,12 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'http'
+import { timingSafeEqual } from 'crypto'
 
 export const EMAIL_CHANNEL_ENABLED: boolean =
   process.env.OPENSEABRI_EMAIL_ENABLED === 'true'
+
+const MAX_BODY_BYTES = 1_048_576 // 1 MB — prevents memory-exhaustion DoS
 
 export const emailChannel = {
   isEnabled(): boolean {
@@ -33,8 +36,34 @@ export async function handleEmailWebhook(
   if (!rawUrl.startsWith('/webhooks/email')) return false
   if (req.method !== 'POST') return false
 
+  // Validate webhook secret token if configured (set via OPENSEABRI_EMAIL_WEBHOOK_SECRET;
+  // configure SendGrid to include ?token=<secret> in the webhook URL).
+  const webhookSecret = process.env.OPENSEABRI_EMAIL_WEBHOOK_SECRET
+  if (webhookSecret) {
+    const urlObj = new URL(rawUrl, 'http://localhost')
+    const provided = urlObj.searchParams.get('token') ?? ''
+    const a = Buffer.from(webhookSecret, 'utf-8')
+    const b = Buffer.from(provided, 'utf-8')
+    const valid = a.length === b.length && timingSafeEqual(a, b)
+    if (!valid) {
+      res.writeHead(403, { 'content-type': 'text/plain' })
+      res.end('Forbidden')
+      return true
+    }
+  }
+
   const chunks: Buffer[] = []
-  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBuffer))
+  let totalBytes = 0
+  for await (const chunk of req) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBuffer)
+    totalBytes += buf.length
+    if (totalBytes > MAX_BODY_BYTES) {
+      res.writeHead(413, { 'content-type': 'text/plain' })
+      res.end('Payload Too Large')
+      return true
+    }
+    chunks.push(buf)
+  }
   const raw = Buffer.concat(chunks).toString('utf-8')
 
   let payload: Record<string, unknown>

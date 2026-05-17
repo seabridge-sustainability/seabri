@@ -321,13 +321,21 @@ export async function executeTool(
         if (typeof input.query !== 'string' || input.query.trim() === '') {
           return 'Invalid input: query must be a non-empty string.'
         }
-        return await webSearch(input.query.trim())
+        const q = input.query.trim()
+        if (q.length > 500) {
+          return 'Invalid input: query must be 500 characters or fewer.'
+        }
+        return await webSearch(q)
       }
       case 'geocode_address': {
         if (typeof input.address !== 'string' || input.address.trim() === '') {
           return 'Invalid input: address must be a non-empty string.'
         }
-        return await geocodeAddress(input.address.trim())
+        const addr = input.address.trim()
+        if (addr.length > 300) {
+          return 'Invalid input: address must be 300 characters or fewer.'
+        }
+        return await geocodeAddress(addr)
       }
       case 'lookup_flood_zone': {
         const lat = Number(input.latitude)
