@@ -169,7 +169,7 @@ See `OPENSEABRI_HOMEOWNER_WORKFLOW_HEALTH_REPORT.md` for full workflow matrix.
 | SEC-014: Hardcoded test phone number | LOW | ✅ FIXED (.env.example placeholder) | — |
 | SEC-015: CORS localhost no warning | LOW | ✅ FIXED (startup warn added) | — |
 | SEC-016: No fail-fast for missing secrets | LOW | ✅ FIXED (ANTHROPIC_API_KEY exit check) | — |
-| SEC-010: JSONB fields unencrypted at rest | MEDIUM | OPEN — infra change (pgcrypto), code-only audit scope | Compliance |
+| SEC-010: JSONB fields unencrypted at rest | MEDIUM | ✅ FIXED — `db/encryption.ts` AES-256-GCM, migration `0002_pgcrypto_pii_enc.sql` | — |
 | No .env file present — e2e tests not runnable | LOW | OPEN | E2E validation |
 
 ---
@@ -204,7 +204,11 @@ See `OPENSEABRI_HOMEOWNER_WORKFLOW_HEALTH_REPORT.md` for full workflow matrix.
 │   ✅ ANTHROPIC_API_KEY fail-fast (SEC-016)                  │
 │   ✅ 4 new hazard skills added (heat/drought/hurricane/EQ)  │
 │                                                             │
-│   Remaining: SEC-010 (infra), no .env for e2e              │
+│   Session 3 fixes:                                          │
+│   ✅ SEC-010: AES-256-GCM column encryption (db/encryption) │
+│   ✅ pgcrypto migration 0002_pgcrypto_pii_enc.sql           │
+│                                                             │
+│   Remaining: no .env for e2e (out of code scope)           │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

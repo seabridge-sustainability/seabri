@@ -36,14 +36,13 @@
 | SEC-014 | LOW | `.env.example` | Hardcoded test phone number `2698300869` in example | Replaced with `<your-test-phone-number>` placeholder |
 | SEC-015 | LOW | `gateway/index.ts` | No warning when `OPENSEABRI_CORS_ORIGIN` is set to localhost in non-development environments | Added `log.warn` on startup when CORS origin contains localhost/127.0.0.1 outside development |
 | SEC-016 | LOW | `gateway/index.ts` | No fail-fast for missing `ANTHROPIC_API_KEY` — gateway started without AI backend silently | Added early `process.exit(1)` check for `ANTHROPIC_API_KEY` before other startup steps |
+| SEC-010 | MEDIUM | `db/schema.ts`, `db/encryption.ts` | JSONB fields `workflows.triggerConfig` and `messages.toolInput` may contain PII — unencrypted at rest | AES-256-GCM app-layer encryption via `encryptJsonb`/`decryptJsonb` in `db/encryption.ts`; encrypted columns `tool_input_enc` and `trigger_config_enc` added via migration `0002_pgcrypto_pii_enc.sql`; pgcrypto extension enabled; `OPENSEABRI_DB_ENCRYPTION_KEY` env var required |
 
 ---
 
 ## Open Risks — Action Required Before Production
 
-| ID | Severity | Component | Description | Recommendation |
-|----|----------|-----------|-------------|----------------|
-| SEC-010 | MEDIUM | `db/schema.ts` | JSONB fields `workflows.triggerConfig` and `messages.toolInput` may contain PII but are not encrypted at rest | Add column-level encryption for these fields in PostgreSQL (pgcrypto) — infrastructure change, out of scope for code-only audit |
+*All identified risks have been fixed. No open items remain.*
 
 ---
 

@@ -15,6 +15,13 @@
       "when": 1778524629196,
       "tag": "0001_even_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778608000000,
+      "tag": "0002_pgcrypto_pii_enc",
+      "breakpoints": true
     }
   ]
 }
