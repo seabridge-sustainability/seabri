@@ -16,12 +16,15 @@ import {
   estimateHouseholdCarbon,
   findGrantOpportunities,
   interpretUtilityBill,
+  lookupLocalSustainabilitySources,
   navigateCertification,
   planEmergencyPreparedness,
   planCommunityProject,
   planHomeEnergyActions,
   planHomeResilienceRetrofits,
   planWaterConservation,
+  reviewInsuranceDeclarations,
+  checkProductOrMaterialEvidence,
 } from '../seabri/practical-sustainability.js'
 
 const CLIMATE_AGENTS: AgentId[] = ['climate-risk', 'home-community', 'investment-screening']
@@ -466,6 +469,64 @@ export function registerBuiltinTools(): void {
       },
     },
     async (input) => JSON.stringify(await interpretUtilityBill(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'lookup_local_sustainability_sources',
+      description: 'Lookup configured local sustainability source adapter results for water rules, recycling, hazardous drop-off, rebates, and public works without inventing official local guidance.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          location: { type: 'string', description: 'ZIP, city, county, or location.' },
+          needs: { type: 'array', description: 'water_restrictions, recycling_rules, hazardous_dropoff, rebates, and/or public_works.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['location'],
+      },
+    },
+    async (input) => JSON.stringify(await lookupLocalSustainabilitySources(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'check_product_material_evidence',
+      description: 'Check product or material sustainability evidence completeness for repairability, warranty, EPD, certification, VOC, code, and green claims without claiming verification.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          productOrMaterial: { type: 'string', description: 'Product or material name.' },
+          claimType: { type: 'string', description: 'repairability, warranty, service_parts, material_epd, certification, low_voc, code_acceptance, green_claim, or unknown.' },
+          claimedEvidence: { type: 'array', description: 'User-supplied evidence snippets.' },
+          sourceUrls: { type: 'array', description: 'Source URLs supplied by the user.' },
+          certificateIds: { type: 'array', description: 'Certificate, EPD, warranty, or report IDs supplied by the user.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: ['productOrMaterial'],
+      },
+    },
+    async (input) => JSON.stringify(await checkProductOrMaterialEvidence(input)),
+    ['sustainability-companion', 'home-community', 'general'],
+  )
+
+  registerTool(
+    {
+      name: 'review_insurance_declarations',
+      description: 'Screen homeowner insurance declaration text for sustainability and resilience planning signals without legal advice, coverage promises, or live insurer calls.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          documentText: { type: 'string', description: 'User-provided declarations or policy text.' },
+          documentType: { type: 'string', description: 'declarations, policy, claim, or unknown.' },
+          concern: { type: 'string', description: 'Concern such as flood, storm, wildfire, or temporary housing.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+        },
+        required: [],
+      },
+    },
+    async (input) => JSON.stringify(await reviewInsuranceDeclarations(input)),
     ['sustainability-companion', 'home-community', 'general'],
   )
 }

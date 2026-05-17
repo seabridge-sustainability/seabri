@@ -45,6 +45,9 @@ import {
   HomeEnergyInputSchema,
   HomeResilienceRetrofitInputSchema,
   HouseholdCarbonInputSchema,
+  InsuranceDeclarationsInputSchema,
+  LocalSustainabilitySourceInputSchema,
+  ProductMaterialEvidenceInputSchema,
   RepairVsReplaceInputSchema,
   SustainablePurchasingInputSchema,
   UtilityBillInputSchema,
@@ -58,12 +61,15 @@ import {
   estimateHouseholdCarbon,
   findGrantOpportunities,
   interpretUtilityBill,
+  lookupLocalSustainabilitySources,
   navigateCertification,
   planEmergencyPreparedness,
   planCommunityProject,
   planHomeEnergyActions,
   planHomeResilienceRetrofits,
   planWaterConservation,
+  reviewInsuranceDeclarations,
+  checkProductOrMaterialEvidence,
   adviseRepairVsReplace,
 } from './practical-sustainability.js'
 import { deleteProfile, getProfile, upsertProfile } from './user-profile.js'
@@ -633,6 +639,36 @@ export async function handleSeabriApiRequest(
         return true
       }
       json(res, 200, await interpretUtilityBill(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/local-sustainability-sources' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, LocalSustainabilitySourceInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await lookupLocalSustainabilitySources(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/product-material-evidence-check' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, ProductMaterialEvidenceInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await checkProductOrMaterialEvidence(parsed.value))
+      return true
+    }
+
+    if (url === '/api/seabri/living-companion/insurance-declarations-review' && method === 'POST') {
+      const parsed = await parseJsonWithSchema(req, InsuranceDeclarationsInputSchema)
+      if (!parsed.ok) {
+        json(res, parsed.status, { error: parsed.error })
+        return true
+      }
+      json(res, 200, await reviewInsuranceDeclarations(parsed.value))
       return true
     }
 

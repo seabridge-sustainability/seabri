@@ -1132,7 +1132,7 @@ function WorkflowView({ onNav }: { onNav: (v: AppView) => void }) {
 
 const PILOT_STATE_KEY = 'openseabri.pilot.state.v1'
 
-type PilotTab = 'living' | 'comparison' | 'carbon' | 'energy' | 'community' | 'grant' | 'certification' | 'offset' | 'purchasing' | 'repair' | 'retrofit' | 'materials' | 'preparedness' | 'water' | 'waste' | 'utility' | 'resilience' | 'compute' | 'catalog'
+type PilotTab = 'living' | 'comparison' | 'carbon' | 'energy' | 'community' | 'grant' | 'certification' | 'offset' | 'purchasing' | 'repair' | 'retrofit' | 'materials' | 'preparedness' | 'water' | 'waste' | 'utility' | 'localSources' | 'evidence' | 'insurance' | 'resilience' | 'compute' | 'catalog'
 
 const panelStyle: CSSProperties = {
   border: '1px solid var(--border-muted)',
@@ -1211,6 +1211,11 @@ function ResultBox({ title, value }: { title: string; value?: string }) {
     ...list('searchStrategies'),
     ...list('leakCheckSteps'),
     ...list('reuseRepairRecycleDisposeGuidance'),
+    ...list('sourceActions'),
+    ...list('evidenceChecklist'),
+    ...list('questionsForSeller'),
+    ...list('mitigationDocumentChecklist'),
+    ...list('questionsForAgentOrInsurer'),
     ...list('nextSteps'),
   ].slice(0, 5)
   return (
@@ -1318,6 +1323,9 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
   const [waterForm, setWaterForm] = useState({ householdType: 'single_family', monthlyWaterUseGallons: '9000', outdoorArea: 'small', painPoints: 'high bill, irrigation' })
   const [wasteForm, setWasteForm] = useState({ itemOrMaterial: 'old laptop battery', condition: 'broken', quantity: '2 items' })
   const [utilityForm, setUtilityForm] = useState({ utilityType: 'electricity', billingDays: '31', totalCostUsd: '185', totalUsage: '980', usageUnit: 'kWh' })
+  const [localSourcesForm, setLocalSourcesForm] = useState({ needs: 'water_restrictions, recycling_rules, rebates, public_works' })
+  const [evidenceForm, setEvidenceForm] = useState({ productOrMaterial: 'low-VOC flooring', claimType: 'material_epd', claimedEvidence: 'EPD logo shown, marketing page says sustainable', sourceUrls: '', certificateIds: '' })
+  const [insuranceForm, setInsuranceForm] = useState({ concern: 'storm and flood preparation', documentText: 'Carrier: Example Mutual\nPolicy Number: HO-12345\nPolicy Period: 05/01/2026 to 05/01/2027\nDwelling Coverage A $350,000\nWind/Hail Deductible 2%\nFlood Exclusion applies' })
   const [resilienceForm, setResilienceForm] = useState({ communityType: 'neighborhood', hazards: 'flood, heat', volunteers: '8', vulnerableGroups: 'older adults, renters' })
   const base = GATEWAY_URL.replace(/\/+$/, '')
   const profile = state.profile
@@ -1689,6 +1697,54 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
     }
   }
 
+  const runLocalSources = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/local-sustainability-sources', {
+        location: profile.zip || profile.city || 'unknown location',
+        needs: localSourcesForm.needs.split(',').map((need) => need.trim()).filter(Boolean),
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'localSources', title: 'Local source lookup checked', detail: 'Municipal adapter status, local-rule caveats, and verification next steps generated.' }, { lastLocalSources: text })
+      setStatus('Local source lookup completed without inventing official local rules.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Local source lookup unavailable.')
+    }
+  }
+
+  const runEvidence = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/product-material-evidence-check', {
+        productOrMaterial: evidenceForm.productOrMaterial,
+        claimType: evidenceForm.claimType,
+        claimedEvidence: evidenceForm.claimedEvidence.split(',').map((item) => item.trim()).filter(Boolean),
+        sourceUrls: evidenceForm.sourceUrls.split(',').map((item) => item.trim()).filter(Boolean),
+        certificateIds: evidenceForm.certificateIds.split(',').map((item) => item.trim()).filter(Boolean),
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'evidence', title: 'Product evidence screened', detail: 'Evidence checklist, red flags, seller questions, and no-verification status generated.' }, { lastEvidence: text })
+      setStatus('Product and material evidence check completed without claiming certification or verification.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Product evidence checker unavailable.')
+    }
+  }
+
+  const runInsurance = async () => {
+    try {
+      const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/insurance-declarations-review', {
+        documentText: insuranceForm.documentText,
+        concern: insuranceForm.concern,
+        preferredLanguage,
+      })
+      const text = JSON.stringify(result, null, 2)
+      pushActivity({ workflow: 'insurance', title: 'Insurance declarations screened', detail: 'Policy signals, document checklist, and insurer questions generated without legal advice.' }, { lastInsurance: text })
+      setStatus('Insurance declarations review completed as screening only, with no coverage promise.')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Insurance declarations review unavailable.')
+    }
+  }
+
   const runResilience = async () => {
     try {
       const result = await callGateway<Record<string, unknown>>('/api/seabri/living-companion/community-resilience-checklist', {
@@ -1804,13 +1860,13 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
           <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'grid', gap: 10 }}>
               {[
-                ['Living Companion', [['living', 'Incident Help']]],
+                ['Living Companion', [['living', 'Incident Help'], ['insurance', 'Insurance Review']]],
                 ['Personal Sustainability', [['carbon', 'Carbon Footprint'], ['certification', 'Certification']]],
                 ['Homeowner Resilience', [['energy', 'Home Energy'], ['retrofit', 'Retrofit Plan'], ['preparedness', 'Emergency Prep']]],
                 ['Community & NGO Tools', [['community', 'Project Planner'], ['grant', 'Grant Funding'], ['resilience', 'Resilience']]],
-                ['Product & Purchasing', [['comparison', 'Product Comparison'], ['purchasing', 'Purchasing'], ['repair', 'Repair or Replace'], ['offset', 'Offset Checker']]],
+                ['Product & Purchasing', [['comparison', 'Product Comparison'], ['purchasing', 'Purchasing'], ['repair', 'Repair or Replace'], ['evidence', 'Evidence Check'], ['offset', 'Offset Checker']]],
                 ['Building & Renovation', [['materials', 'Materials']]],
-                ['Carbon / Energy / Water / Waste', [['water', 'Water'], ['waste', 'Waste & Recycling'], ['utility', 'Utility Bill']]],
+                ['Carbon / Energy / Water / Waste', [['water', 'Water'], ['waste', 'Waste & Recycling'], ['utility', 'Utility Bill'], ['localSources', 'Local Sources']]],
                 ['Sustainable Compute / Agent Harness', [['compute', 'Sustainable Compute']]],
                 ['Skills & Tools Catalog', [['catalog', 'Skills & Tools']]],
               ].map(([section, rows]) => (
@@ -2326,6 +2382,76 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
                 </div>
                 <WorkflowButton onClick={runUtility}>Interpret bill</WorkflowButton>
                 <ResultBox title="Last utility bill interpretation" value={state.lastUtility} />
+              </section>
+            )}
+
+            {tab === 'localSources' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Local sustainability source workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Local sustainability source lookup</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Check the configured municipal adapter for water rules, recycling rules, rebates, hazardous drop-off, and public works status.
+                  </p>
+                </div>
+                {!profile.zip && !profile.city && (
+                  <div style={{ border: '1px solid var(--border-muted)', borderRadius: 8, padding: 10, color: 'var(--text-muted)', fontSize: 13 }}>
+                    Add a city or ZIP in the profile to improve local lookup context.
+                  </div>
+                )}
+                <Field label="Lookup needs" value={localSourcesForm.needs} onChange={(needs) => setLocalSourcesForm((f) => ({ ...f, needs }))} />
+                <WorkflowButton onClick={runLocalSources}>Check local sources</WorkflowButton>
+                <ResultBox title="Last local source lookup" value={state.lastLocalSources} />
+              </section>
+            )}
+
+            {tab === 'evidence' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Product material evidence workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Product and material evidence checker</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Screen repairability, warranty, EPD, certification, low-VOC, code, and green-claim evidence without claiming verification.
+                  </p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <Field label="Product or material" value={evidenceForm.productOrMaterial} onChange={(productOrMaterial) => setEvidenceForm((f) => ({ ...f, productOrMaterial }))} />
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                    Claim type
+                    <select value={evidenceForm.claimType} onChange={(e) => setEvidenceForm((f) => ({ ...f, claimType: e.target.value }))} style={inputStyle}>
+                      <option value="repairability">repairability</option>
+                      <option value="warranty">warranty</option>
+                      <option value="service_parts">service parts</option>
+                      <option value="material_epd">material EPD</option>
+                      <option value="certification">certification</option>
+                      <option value="low_voc">low VOC</option>
+                      <option value="code_acceptance">code acceptance</option>
+                      <option value="green_claim">green claim</option>
+                      <option value="unknown">unknown</option>
+                    </select>
+                  </label>
+                </div>
+                <Field label="Evidence snippets" value={evidenceForm.claimedEvidence} onChange={(claimedEvidence) => setEvidenceForm((f) => ({ ...f, claimedEvidence }))} />
+                <Field label="Source URLs" value={evidenceForm.sourceUrls} onChange={(sourceUrls) => setEvidenceForm((f) => ({ ...f, sourceUrls }))} />
+                <Field label="Certificate or report IDs" value={evidenceForm.certificateIds} onChange={(certificateIds) => setEvidenceForm((f) => ({ ...f, certificateIds }))} />
+                <WorkflowButton onClick={runEvidence}>Check evidence</WorkflowButton>
+                <ResultBox title="Last product evidence check" value={state.lastEvidence} />
+              </section>
+            )}
+
+            {tab === 'insurance' && (
+              <section style={{ ...panelStyle, display: 'grid', gap: 14 }} aria-label="Insurance declarations workflow">
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--sb-navy)', fontSize: 18 }}>Insurance declarations reviewer</h3>
+                  <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Extract visible coverage, deductible, exclusion, and mitigation-document signals from user-provided text.
+                  </p>
+                </div>
+                <Field label="Concern" value={insuranceForm.concern} onChange={(concern) => setInsuranceForm((f) => ({ ...f, concern }))} />
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 5, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700 }}>
+                  Declarations or policy text
+                  <textarea value={insuranceForm.documentText} onChange={(e) => setInsuranceForm((f) => ({ ...f, documentText: e.target.value }))} style={{ ...inputStyle, minHeight: 140, resize: 'vertical' }} />
+                </label>
+                <WorkflowButton onClick={runInsurance}>Review declarations</WorkflowButton>
+                <ResultBox title="Last insurance declaration review" value={state.lastInsurance} />
               </section>
             )}
 

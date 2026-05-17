@@ -6,6 +6,7 @@ import { routeMessage, classifyIntent } from './agents/router.js'
 import { startTelegramChannel } from './channels/telegram.js'
 import { startWhatsappChannel, handleWhatsAppWebhook } from './channels/whatsapp.js'
 import { startSmsChannel, handleSmsWebhook, smsChannel } from './channels/sms.js'
+import { startEmailChannel, handleEmailWebhook, emailChannel } from './channels/email.js'
 import { handleVoiceWebhook, voiceChannel } from './channels/voice.js'
 import { channelGateSummary, isChannelExplicitlyEnabled } from './channels/enablement.js'
 import { getOrCreateSession, updateSession, resetSession, type Session } from './sessions/index.js'
@@ -63,7 +64,7 @@ async function checkSeaBridgeConnection(): Promise<boolean> {
   return false
 }
 
-function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whatsappActive: boolean, smsActive: boolean, voiceActive: boolean): void {
+function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whatsappActive: boolean, smsActive: boolean, voiceActive: boolean, emailActive: boolean): void {
   const seabridgeStatus = seaBridgeConnected
     ? '\x1b[32mConnected\x1b[0m'
     : '\x1b[90mStandalone\x1b[0m'
@@ -79,6 +80,11 @@ function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whats
   const voiceStatus = voiceActive
     ? '\x1b[32mActive (/webhooks/voice)\x1b[0m'
     : '\x1b[90mNot configured\x1b[0m'
+  const emailStatus = emailActive
+    ? '\x1b[32mActive (/webhooks/email)\x1b[0m'
+    : '\x1b[90mNot configured\x1b[0m'
+
+  void seabridgeStatus; void telegramStatus; void whatsappStatus; void smsStatus; void voiceStatus; void emailStatus
 
   log.info('gateway started', {
     version: VERSION,
@@ -88,6 +94,7 @@ function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whats
     whatsapp: whatsappActive,
     sms: smsActive,
     voice: voiceActive,
+    email: emailActive,
   })
 }
 
@@ -110,6 +117,11 @@ async function startGateway(): Promise<void> {
       productionSafe: persistence.productionSafe,
       configured: persistence.configured,
     })
+    if (!persistence.productionSafe) {
+      log.warn('persistence adapter not production-safe — workspace state will not survive restarts', {
+        hint: 'Set SEABRI_DATABASE_URL and OPENSEABRI_PERSISTENCE_ADAPTER=database for production.',
+      })
+    }
   } catch {
     log.fatal('startup validation failed', {
       code: 'persistence_initialization_failed',
@@ -236,6 +248,20 @@ async function startGateway(): Promise<void> {
     log.info('twilio voice credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=voice to activate voice webhooks')
   }
 
+  // Optionally start Email (SendGrid Inbound Parse)
+  let emailActive = false
+  if (isChannelExplicitlyEnabled('email')) {
+    try {
+      await startEmailChannel()
+      emailActive = emailChannel.isEnabled()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      log.warn('email start warning', { error: message })
+    }
+  } else if (emailChannel.isEnabled()) {
+    log.info('email channel configured but not enabled; set OPENSEABRI_CHANNELS_ENABLED=email to activate email webhooks')
+  }
+
   // TwiML endpoint — serves spoken text for outbound Twilio Voice calls.
   // GET /twiml?message=<encoded> → returns TwiML <Response><Say> document.
   function handleTwimlRequest(req: HttpIncomingMessage, res: ServerResponse): boolean {
@@ -319,6 +345,7 @@ async function startGateway(): Promise<void> {
       if (await handleAttachmentRequest(req, res)) return
       if (whatsappActive && await handleWhatsAppWebhook(req, res)) return
       if (smsActive && await handleSmsWebhook(req, res)) return
+      if (emailActive && await handleEmailWebhook(req, res)) return
       if (voiceActive && await handleVoiceWebhook(req, res)) return
       if (handleTwimlRequest(req, res)) return
       res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
@@ -354,7 +381,7 @@ async function startGateway(): Promise<void> {
   const GATEWAY_HOST = process.env.GATEWAY_HOST || '127.0.0.1'
   await new Promise<void>((resolve) => httpServer.listen(GATEWAY_PORT, GATEWAY_HOST, resolve))
 
-  printBanner(seaBridgeConnected, telegramActive, whatsappActive, smsActive, voiceActive)
+  printBanner(seaBridgeConnected, telegramActive, whatsappActive, smsActive, voiceActive, emailActive)
 
   const wsToken = process.env.SEABRI_WS_TOKEN
   if (!wsToken) {

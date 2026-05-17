@@ -9,8 +9,51 @@
  * gates the inbound path until the pilot is approved.
  */
 
+import type { IncomingMessage, ServerResponse } from 'http'
+
 export const EMAIL_CHANNEL_ENABLED: boolean =
   process.env.OPENSEABRI_EMAIL_ENABLED === 'true'
+
+export const emailChannel = {
+  isEnabled(): boolean {
+    return EMAIL_CHANNEL_ENABLED
+  },
+}
+
+export async function startEmailChannel(): Promise<void> {
+  // Email inbound arrives via SendGrid Inbound Parse webhook — no persistent
+  // connection to open. The HTTP server mounts /webhooks/email.
+}
+
+export async function handleEmailWebhook(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<boolean> {
+  const rawUrl = req.url || '/'
+  if (!rawUrl.startsWith('/webhooks/email')) return false
+  if (req.method !== 'POST') return false
+
+  const chunks: Buffer[] = []
+  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as ArrayBuffer))
+  const raw = Buffer.concat(chunks).toString('utf-8')
+
+  let payload: Record<string, unknown>
+  try {
+    payload = Object.fromEntries(new URLSearchParams(raw).entries())
+  } catch {
+    res.writeHead(400, { 'content-type': 'text/plain' })
+    res.end('Bad Request')
+    return true
+  }
+
+  const message = parseEmailInbound(payload)
+  const liveApproved = process.env.OPENSEABRI_LIVE_PROVIDER_APPROVED === 'true'
+  const result = routeEmailMessage(message, { liveApproved })
+
+  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' })
+  res.end(JSON.stringify({ status: result.status, note: result.note }))
+  return true
+}
 
 export interface EmailInboundMessage {
   from: string

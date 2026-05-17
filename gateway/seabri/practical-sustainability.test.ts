@@ -14,7 +14,10 @@ import {
   planCommunityProject,
   planHomeEnergyActions,
   planHomeResilienceRetrofits,
+  lookupLocalSustainabilitySources,
   planWaterConservation,
+  reviewInsuranceDeclarations,
+  checkProductOrMaterialEvidence,
   adviseRepairVsReplace,
 } from './practical-sustainability.js'
 
@@ -260,6 +263,69 @@ describe('practical sustainability workflows', () => {
     expect(result.noFakeSavingsClaim).toContain('not a savings guarantee')
     expect(result.nextSteps).toContain('Compare at least 12 months of bills before judging a trend.')
     expect(result.assumptions).toContain('This tool interprets user-provided bill fields only.')
+  })
+
+  it('surfaces municipal lookup adapter status without inventing local rules', async () => {
+    const result = await lookupLocalSustainabilitySources({
+      location: '33101',
+      needs: ['water_restrictions', 'recycling_rules', 'rebates', 'public_works'],
+      preferredLanguage: 'Spanish',
+    })
+
+    expect(result.summary).toContain('Local sustainability source lookup')
+    expect(result.lookupStatus).toBe('not_verified')
+    expect(result.waterRestrictions).toHaveProperty('status', 'not_verified')
+    expect(result.recyclingRules).toHaveProperty('status', 'not_verified')
+    expect(result.rebates).toHaveProperty('status', 'not_verified')
+    expect(result.publicWorksContacts).toHaveProperty('status', 'not_verified')
+    expect(result.nextSteps).toContain('Verify any restriction, rebate, pickup rule, or public works contact directly with the official local source before acting.')
+    expect(result.labels.confidence).toBe('Confianza')
+    expect(JSON.stringify(result)).not.toMatch(/officially verified|accepted by Miami|guaranteed rebate/i)
+  })
+
+  it('checks product and material evidence without claiming verification', async () => {
+    const result = await checkProductOrMaterialEvidence({
+      productOrMaterial: 'low-VOC flooring',
+      claimType: 'material_epd',
+      claimedEvidence: ['marketing page says sustainable', 'EPD logo shown'],
+      sourceUrls: ['https://example.invalid/product'],
+      certificateIds: ['EPD-123'],
+    })
+
+    expect(result.summary).toContain('Evidence check')
+    expect(result.verificationStatus).toBe('user_evidence_supplied')
+    expect(result.evidenceChecklist).toContain('Ask for the original EPD, certificate, warranty, repair manual, parts list, or test report from the issuing source.')
+    expect(result.redFlags).toContain('logos, badges, or sustainability claims without issuer name, certificate ID, date, scope, and product model')
+    expect(result.questionsForSeller).toContain('Which exact product model does the evidence cover?')
+    expect(result.assumptions).toContain('No URL, marketplace, certificate, EPD, code, warranty, or repairability database is queried.')
+    expect(JSON.stringify(result)).not.toMatch(/verified EPD|certified|approved|code compliant/i)
+  })
+
+  it('screens insurance declarations without legal advice or coverage promises', async () => {
+    const result = await reviewInsuranceDeclarations({
+      documentText: [
+        'Carrier: Example Mutual',
+        'Policy Number: HO-12345',
+        'Policy Period: 05/01/2026 to 05/01/2027',
+        'Dwelling Coverage A $350,000',
+        'Wind/Hail Deductible 2%',
+        'Flood Exclusion applies',
+      ].join('\n'),
+      concern: 'storm and flood preparation',
+    })
+
+    expect(result.summary).toContain('Insurance declaration screening')
+    expect(result.reviewStatus).toBe('screening_only')
+    expect(result.extractedFields).toMatchObject({
+      carrier: 'Example Mutual',
+      policyNumber: 'HO-12345',
+      policyPeriod: '05/01/2026 to 05/01/2027',
+    })
+    expect(result.coverageSignals).toContain('Dwelling Coverage A $350,000')
+    expect(result.deductibleSignals).toContain('Wind/Hail Deductible 2%')
+    expect(result.exclusionSignals).toContain('Flood Exclusion applies')
+    expect(result.notLegalAdvice).toContain('not legal, insurance, or claims advice')
+    expect(JSON.stringify(result)).not.toMatch(/coverage is guaranteed|claim will be paid|legal advice/i)
   })
 
   it('findGrantOpportunities returns strategies without inventing specific grants', async () => {

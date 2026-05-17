@@ -41,12 +41,15 @@ import {
   estimateHouseholdCarbon,
   findGrantOpportunities,
   interpretUtilityBill,
+  lookupLocalSustainabilitySources,
   navigateCertification,
   planEmergencyPreparedness,
   planCommunityProject,
   planHomeEnergyActions,
   planHomeResilienceRetrofits,
   planWaterConservation,
+  reviewInsuranceDeclarations,
+  checkProductOrMaterialEvidence,
 } from '../seabri/practical-sustainability.js'
 import { fileURLToPath } from 'url'
 
@@ -433,6 +436,55 @@ function toolsForAgents(): JsonValue {
       },
     },
     {
+      name: 'lookup_local_sustainability_sources',
+      description: 'Lookup configured local sustainability source adapter results for water rules, recycling, hazardous drop-off, rebates, and public works without inventing official local guidance.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          location: { type: 'string', description: 'ZIP, city, county, or location.' },
+          needs: { type: 'array', description: 'water_restrictions, recycling_rules, hazardous_dropoff, rebates, and/or public_works.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt', 'location'],
+      },
+    },
+    {
+      name: 'check_product_material_evidence',
+      description: 'Check product or material sustainability evidence completeness for repairability, warranty, EPD, certification, VOC, code, and green claims without claiming verification.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          productOrMaterial: { type: 'string', description: 'Product or material name.' },
+          claimType: { type: 'string', description: 'repairability, warranty, service_parts, material_epd, certification, low_voc, code_acceptance, green_claim, or unknown.' },
+          claimedEvidence: { type: 'array', description: 'User-supplied evidence snippets.' },
+          sourceUrls: { type: 'array', description: 'Source URLs supplied by the user.' },
+          certificateIds: { type: 'array', description: 'Certificate, EPD, warranty, or report IDs supplied by the user.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt', 'productOrMaterial'],
+      },
+    },
+    {
+      name: 'review_insurance_declarations',
+      description: 'Screen homeowner insurance declaration text for sustainability and resilience planning signals without legal advice, coverage promises, or live insurer calls.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'Optional natural language request.' },
+          documentText: { type: 'string', description: 'User-provided declarations or policy text.' },
+          documentType: { type: 'string', description: 'declarations, policy, claim, or unknown.' },
+          concern: { type: 'string', description: 'Concern such as flood, storm, wildfire, or temporary housing.' },
+          preferredLanguage: { type: 'string', description: 'Preferred language.' },
+          sessionId: { type: 'string', description: 'Optional session id.' },
+        },
+        required: ['prompt'],
+      },
+    },
+    {
       name: 'find_grant_opportunities',
       description: 'Provide grant-search strategies, funding type guidance, and eligibility questions for sustainability and resilience projects. Does not invent specific grant listings.',
       inputSchema: {
@@ -639,6 +691,21 @@ async function handleToolCall(params: Record<string, unknown>): Promise<JsonValu
   if (name === 'interpret_utility_bill') {
     const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
     const result = await interpretUtilityBill(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'lookup_local_sustainability_sources') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await lookupLocalSustainabilitySources(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'check_product_material_evidence') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await checkProductOrMaterialEvidence(toolInput)
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+  }
+  if (name === 'review_insurance_declarations') {
+    const { prompt: _prompt, sessionId: _sessionId, ...toolInput } = args
+    const result = await reviewInsuranceDeclarations(toolInput)
     return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
   }
   if (name === 'find_grant_opportunities') {

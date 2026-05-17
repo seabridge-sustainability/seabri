@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { recordTelemetryEvent } from '../telemetry/store.js'
+import { getMunicipalAdapter } from './municipal-lookup.js'
 
 const LanguageSchema = z.string().trim().max(40).optional()
 
@@ -204,6 +205,29 @@ export const EmergencyPreparednessInputSchema = z.object({
   preferredLanguage: LanguageSchema,
 }).strict()
 
+export const LocalSustainabilitySourceInputSchema = z.object({
+  location: z.string().trim().min(2).max(160),
+  needs: z.array(z.enum(['water_restrictions', 'recycling_rules', 'hazardous_dropoff', 'rebates', 'public_works'])).min(1).max(5)
+    .default(['water_restrictions', 'recycling_rules', 'hazardous_dropoff', 'rebates', 'public_works']),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const ProductMaterialEvidenceInputSchema = z.object({
+  productOrMaterial: z.string().trim().min(2).max(160),
+  claimType: z.enum(['repairability', 'warranty', 'service_parts', 'material_epd', 'certification', 'low_voc', 'code_acceptance', 'green_claim', 'unknown']).default('unknown'),
+  claimedEvidence: z.array(z.string().trim().max(240)).max(12).optional(),
+  sourceUrls: z.array(z.string().trim().max(500)).max(10).optional(),
+  certificateIds: z.array(z.string().trim().max(120)).max(10).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
+export const InsuranceDeclarationsInputSchema = z.object({
+  documentText: z.string().trim().max(100_000).optional(),
+  documentType: z.enum(['declarations', 'policy', 'claim', 'unknown']).default('unknown'),
+  concern: z.string().trim().max(240).optional(),
+  preferredLanguage: LanguageSchema,
+}).strict()
+
 export type HouseholdCarbonInput = z.infer<typeof HouseholdCarbonInputSchema>
 export type HomeEnergyInput = z.infer<typeof HomeEnergyInputSchema>
 export type CommunityProjectInput = z.infer<typeof CommunityProjectInputSchema>
@@ -219,6 +243,9 @@ export type RepairVsReplaceInput = z.infer<typeof RepairVsReplaceInputSchema>
 export type HomeResilienceRetrofitInput = z.infer<typeof HomeResilienceRetrofitInputSchema>
 export type BuildingMaterialInput = z.infer<typeof BuildingMaterialInputSchema>
 export type EmergencyPreparednessInput = z.infer<typeof EmergencyPreparednessInputSchema>
+export type LocalSustainabilitySourceInput = z.infer<typeof LocalSustainabilitySourceInputSchema>
+export type ProductMaterialEvidenceInput = z.infer<typeof ProductMaterialEvidenceInputSchema>
+export type InsuranceDeclarationsInput = z.infer<typeof InsuranceDeclarationsInputSchema>
 
 export interface PracticalSustainabilityResult {
   labels: Record<string, string>
@@ -880,6 +907,170 @@ export async function interpretUtilityBill(input: unknown): Promise<PracticalSus
     unknowns,
   }
   await telemetry('utility_bill_interpreter', result.confidence)
+  return result
+}
+
+export async function lookupLocalSustainabilitySources(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = LocalSustainabilitySourceInputSchema.parse(input)
+  const adapter = getMunicipalAdapter()
+  const needs = new Set(parsed.needs)
+  const waterRestrictions = needs.has('water_restrictions') ? await adapter.getWaterRestrictions(parsed.location) : undefined
+  const recyclingRules = needs.has('recycling_rules') ? await adapter.getRecyclingRules(parsed.location) : undefined
+  const hazardousDropoff = needs.has('hazardous_dropoff') ? await adapter.getHazardousDropoffSites(parsed.location) : undefined
+  const rebates = needs.has('rebates') ? await adapter.getRebates(parsed.location) : undefined
+  const publicWorksContacts = needs.has('public_works') ? await adapter.getPublicWorksContacts(parsed.location) : undefined
+  const requestedResults = [waterRestrictions, recyclingRules, hazardousDropoff, rebates, publicWorksContacts].filter(Boolean)
+  const hasOk = requestedResults.some((result) => result?.status === 'ok')
+  const hasFixture = requestedResults.some((result) => result?.status === 'fixture')
+  const lookupStatus = hasOk ? 'partially_verified' : hasFixture ? 'fixture_only' : 'not_verified'
+  const unknowns = [
+    lookupStatus === 'not_verified' ? 'configured official municipal data source' : '',
+    hasFixture ? 'fixture adapter is example-only and not safe for real decisions' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Local sustainability source lookup for ${parsed.location}. Results are gated by the configured municipal adapter and do not create fake local rules.`,
+    adapterId: adapter.adapterId,
+    lookupStatus,
+    waterRestrictions,
+    recyclingRules,
+    hazardousDropoff,
+    rebates,
+    publicWorksContacts,
+    sourceActions: [
+      'Use official city, county, utility, water authority, or public works pages as the source of truth.',
+      'Save source links, dates checked, program names, contact numbers, and eligibility notes before acting.',
+      'Do not treat fixture/example data as real local guidance.',
+    ],
+    nextSteps: [
+      'Verify any restriction, rebate, pickup rule, or public works contact directly with the official local source before acting.',
+      'For urgent safety issues, call local emergency services or the utility emergency line instead of relying on this lookup.',
+      'Add a live municipal adapter only after source, licensing, rate-limit, and test-mode rules are approved.',
+    ],
+    confidence: hasOk ? 'medium' : 'low',
+    assumptions: ['No live municipal provider is called by the default adapter.', 'Fixture data, when enabled for tests, is labeled example-only and not verified.'],
+    unknowns,
+  }
+  await telemetry('local_sustainability_source_lookup', result.confidence)
+  return result
+}
+
+export async function checkProductOrMaterialEvidence(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = ProductMaterialEvidenceInputSchema.parse(input)
+  const evidenceCount = (parsed.claimedEvidence?.length ?? 0) + (parsed.sourceUrls?.length ?? 0) + (parsed.certificateIds?.length ?? 0)
+  const verificationStatus = evidenceCount > 0 ? 'user_evidence_supplied' : 'not_verified'
+  const needsTechnicalDoc = parsed.claimType === 'material_epd' || parsed.claimType === 'low_voc' || parsed.claimType === 'code_acceptance'
+  const needsServiceDoc = parsed.claimType === 'repairability' || parsed.claimType === 'warranty' || parsed.claimType === 'service_parts'
+  const unknowns = [
+    !parsed.sourceUrls?.length ? 'source URL from issuer/manufacturer/retailer' : '',
+    !parsed.certificateIds?.length && parsed.claimType !== 'green_claim' ? 'certificate, model, warranty, EPD, or report ID' : '',
+    !parsed.claimedEvidence?.length ? 'user-provided evidence text' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Evidence check for ${parsed.productOrMaterial}. This screens documentation quality but does not verify databases or certify claims.`,
+    claimType: parsed.claimType,
+    verificationStatus,
+    evidenceChecklist: [
+      'Ask for the original EPD, certificate, warranty, repair manual, parts list, or test report from the issuing source.',
+      'Match the exact product model, material, batch, date, geography, and scope to the purchase decision.',
+      'Check expiration dates, issuer accreditation, installation assumptions, and exclusions.',
+      needsTechnicalDoc ? 'For materials, request EPD scope, VOC/emissions documentation, fire/moisture suitability, and local code review by a qualified professional.' : 'For products, request warranty duration, parts availability, repair instructions, and end-of-life handling.',
+      needsServiceDoc ? 'Confirm whether common failure parts can be purchased separately and repaired without voiding warranty.' : 'Confirm the claim still matters for the actual use case, not only marketing copy.',
+    ],
+    redFlags: [
+      'logos, badges, or sustainability claims without issuer name, certificate ID, date, scope, and product model',
+      'claims such as green, eco, sustainable, natural, non-toxic, or carbon neutral without method and boundary',
+      'EPD, recycled-content, or low-VOC claims that do not match the exact product or finish being purchased',
+      'repairability claims without parts, service manuals, warranty terms, or repair-network details',
+    ],
+    questionsForSeller: [
+      'Which exact product model does the evidence cover?',
+      'Who issued the certificate, EPD, warranty, or test report, and when does it expire?',
+      'What assumptions, exclusions, installation conditions, or maintenance requirements apply?',
+      'What happens if the item breaks, gets wet, fails inspection, or reaches end of life?',
+    ],
+    nextSteps: [
+      'Save source documents before purchase and record the date checked.',
+      'Prefer durable, repairable, right-sized options over vague environmental claims.',
+      'Escalate code, fire, structural, electrical, moisture, and indoor-air questions to qualified local professionals.',
+    ],
+    confidence: unknowns.length <= 1 ? 'medium' : 'low',
+    assumptions: ['No URL, marketplace, certificate, EPD, code, warranty, or repairability database is queried.', 'This tool evaluates evidence completeness, not truth of the claim.'],
+    unknowns,
+  }
+  await telemetry('product_material_evidence_checker', result.confidence)
+  return result
+}
+
+function firstMatch(text: string, pattern: RegExp): string | undefined {
+  const match = text.match(pattern)
+  return match?.[1]?.trim()
+}
+
+function matchingLines(text: string, pattern: RegExp, max = 8): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => pattern.test(line))
+    .slice(0, max)
+}
+
+export async function reviewInsuranceDeclarations(input: unknown): Promise<PracticalSustainabilityResult> {
+  const parsed = InsuranceDeclarationsInputSchema.parse(input)
+  const text = parsed.documentText ?? ''
+  const extractedFields = {
+    carrier: firstMatch(text, /(?:carrier|insurer|company)\s*[:#-]?\s*([^\n]+)/i) ?? 'unknown',
+    policyNumber: firstMatch(text, /policy\s*(?:no\.?|number|#)\s*[:#-]?\s*([A-Z0-9-]+)/i) ?? 'unknown',
+    policyPeriod: firstMatch(text, /(?:policy period|effective dates?)\s*[:#-]?\s*([^\n]+)/i) ?? 'unknown',
+    propertyAddress: firstMatch(text, /(?:property address|insured location|premises)\s*[:#-]?\s*([^\n]+)/i) ?? 'unknown',
+  }
+  const coverageSignals = matchingLines(text, /\b(dwelling|coverage\s*[A-Z]?|personal property|loss of use|liability|medical payments|wind|hail|hurricane|flood|water backup)\b/i)
+  const deductibleSignals = matchingLines(text, /\b(deductible|wind\/hail|hurricane deductible|all other peril)\b/i)
+  const exclusionSignals = matchingLines(text, /\b(exclusion|excluded|endorsement|limitation|flood|earth movement|mold|ordinance|law)\b/i)
+  const unknowns = [
+    !text ? 'document text' : '',
+    extractedFields.carrier === 'unknown' ? 'carrier' : '',
+    extractedFields.policyNumber === 'unknown' ? 'policy number' : '',
+    extractedFields.policyPeriod === 'unknown' ? 'policy period' : '',
+    coverageSignals.length === 0 ? 'coverage lines' : '',
+    deductibleSignals.length === 0 ? 'deductible lines' : '',
+  ].filter(Boolean)
+
+  const result: PracticalSustainabilityResult = {
+    labels: labels(parsed.preferredLanguage),
+    summary: `Insurance declaration screening${parsed.concern ? ` for ${parsed.concern}` : ''}. This extracts visible signals and prepares follow-up questions only.`,
+    reviewStatus: 'screening_only',
+    extractedFields,
+    coverageSignals,
+    deductibleSignals,
+    exclusionSignals,
+    mitigationDocumentChecklist: [
+      'Declarations page and full policy form.',
+      'Photos of roof, windows, drainage, mechanicals, valuables, and prior mitigation work.',
+      'Receipts, permits, inspection reports, warranties, and contractor invoices.',
+      'Before/after photos for resilience upgrades and incident damage.',
+      'Written insurer or agent answers about deductibles, exclusions, endorsements, and mitigation discounts.',
+    ],
+    questionsForAgentOrInsurer: [
+      'Which hazards are covered, excluded, limited, or subject to special deductibles?',
+      'Does water backup, flood, wind/hail, ordinance or law, temporary housing, or debris removal require endorsements?',
+      'What documentation is required before and after a claim?',
+      'Are mitigation upgrades eligible for discounts or underwriting review, and what proof is required?',
+    ],
+    notLegalAdvice: 'This is not legal, insurance, or claims advice. Coverage depends on the full policy, endorsements, facts, state law, and insurer determination.',
+    nextSteps: [
+      'Ask the agent or insurer to confirm any unknown or ambiguous coverage in writing.',
+      'Do not rely on a declarations page alone; review endorsements and exclusions.',
+      'Use qualified professionals for legal, insurance, structural, electrical, mold, or safety decisions.',
+    ],
+    confidence: unknowns.length <= 2 ? 'medium' : 'low',
+    assumptions: ['Only user-provided text is screened.', 'No insurer, claims, legal, policy, or catastrophe database is queried.', 'Extracted lines may be incomplete if the document text was partial or OCR quality was poor.'],
+    unknowns,
+  }
+  await telemetry('insurance_declarations_reviewer', result.confidence)
   return result
 }
 

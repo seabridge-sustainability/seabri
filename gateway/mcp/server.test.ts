@@ -268,6 +268,21 @@ describe('dispatch', () => {
         args: { prompt: 'Read my bill', utilityType: 'electricity', billingDays: 31, totalCostUsd: 185, totalUsage: 980, usageUnit: 'kWh' },
         expected: 'noFakeSavingsClaim',
       },
+      {
+        name: 'lookup_local_sustainability_sources',
+        args: { prompt: 'Check local sources', location: '33101', needs: ['water_restrictions', 'recycling_rules', 'rebates'] },
+        expected: 'lookupStatus',
+      },
+      {
+        name: 'check_product_material_evidence',
+        args: { prompt: 'Check this product evidence', productOrMaterial: 'low-VOC flooring', claimType: 'material_epd', claimedEvidence: ['EPD logo shown'] },
+        expected: 'verificationStatus',
+      },
+      {
+        name: 'review_insurance_declarations',
+        args: { prompt: 'Review policy signals', documentText: 'Carrier: Example Mutual\nPolicy Number: HO-12345\nDwelling Coverage A $350,000\nWind/Hail Deductible 2%', concern: 'storm' },
+        expected: 'screening_only',
+      },
     ]
 
     for (const item of cases) {

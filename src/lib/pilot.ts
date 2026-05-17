@@ -19,6 +19,9 @@ export type PilotWorkflow =
   | 'water'
   | 'waste'
   | 'utility'
+  | 'localSources'
+  | 'evidence'
+  | 'insurance'
   | 'resilience'
   | 'catalog'
 
@@ -63,6 +66,9 @@ export interface PilotState {
   lastWater?: string
   lastWaste?: string
   lastUtility?: string
+  lastLocalSources?: string
+  lastEvidence?: string
+  lastInsurance?: string
   lastResilience?: string
   lastCatalog?: string
 }

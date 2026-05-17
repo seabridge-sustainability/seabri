@@ -74,6 +74,33 @@ test.describe('OpenSeaBri Pilot Workspace', () => {
                   assumptions: ['Rate schedule was not verified.'],
                   unknowns: ['Taxes and rider details.'],
                 }
+          : url.includes('local-sustainability-sources')
+              ? {
+                  summary: 'Local sources checked',
+                  confidence: 'low',
+                  lookupStatus: 'not_verified',
+                  sourceActions: ['Verify official city and utility pages before acting.'],
+                  assumptions: ['No live municipal provider was queried.'],
+                  unknowns: ['Configured official source adapter.'],
+                }
+          : url.includes('product-material-evidence-check')
+              ? {
+                  summary: 'Evidence check ready',
+                  confidence: 'low',
+                  verificationStatus: 'user_evidence_supplied',
+                  evidenceChecklist: ['Ask for original EPD, certificate, warranty, or test report.'],
+                  assumptions: ['No certificate database was queried.'],
+                  unknowns: ['Issuer source and product model.'],
+                }
+          : url.includes('insurance-declarations-review')
+              ? {
+                  summary: 'Insurance review ready',
+                  confidence: 'medium',
+                  reviewStatus: 'screening_only',
+                  mitigationDocumentChecklist: ['Save declarations, photos, receipts, and insurer answers.'],
+                  assumptions: ['Only user-provided text was screened.'],
+                  unknowns: ['Full policy endorsements.'],
+                }
               : { ok: true }
       await route.fulfill({
         status: 200,
@@ -178,6 +205,24 @@ test.describe('OpenSeaBri Pilot Workspace', () => {
     await expect(utilityWorkflow).toBeVisible()
     await page.getByRole('button', { name: 'Interpret bill' }).click()
     await expect(utilityWorkflow.getByText('Utility bill interpreted', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Local Sources' }).click()
+    const localSourcesWorkflow = page.getByLabel('Local sustainability source workflow')
+    await expect(localSourcesWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Check local sources' }).click()
+    await expect(localSourcesWorkflow.getByText('Local sources checked', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Evidence Check' }).click()
+    const evidenceWorkflow = page.getByLabel('Product material evidence workflow')
+    await expect(evidenceWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Check evidence' }).click()
+    await expect(evidenceWorkflow.getByText('Evidence check ready', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Insurance Review' }).click()
+    const insuranceWorkflow = page.getByLabel('Insurance declarations workflow')
+    await expect(insuranceWorkflow).toBeVisible()
+    await page.getByRole('button', { name: 'Review declarations' }).click()
+    await expect(insuranceWorkflow.getByText('Insurance review ready', { exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: 'Resilience' }).click()
     await expect(page.getByLabel('Community resilience workflow')).toBeVisible()

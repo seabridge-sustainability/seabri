@@ -191,6 +191,45 @@ async function main() {
     assert(Array.isArray(preparedness.emergencyChecklist), 'emergency preparedness checklist missing')
     console.log('[smoke:pilot] emergency preparedness planner: PASS')
 
+    const localSources = await post('/api/seabri/living-companion/local-sustainability-sources', {
+      location: '33101',
+      needs: ['water_restrictions', 'recycling_rules', 'rebates', 'public_works'],
+    })
+    assert(localSources.lookupStatus === 'not_verified', 'local source lookup should remain not_verified without live adapter')
+    assert(Array.isArray(localSources.nextSteps), 'local source next steps missing')
+    console.log('[smoke:pilot] local sustainability source lookup: PASS')
+
+    const evidence = await post('/api/seabri/living-companion/product-material-evidence-check', {
+      productOrMaterial: 'low-VOC flooring',
+      claimType: 'material_epd',
+      claimedEvidence: ['EPD logo shown'],
+    })
+    assert(evidence.verificationStatus === 'user_evidence_supplied', 'evidence checker status missing')
+    assert(!JSON.stringify(evidence).match(/verified EPD|certified|approved|code compliant/i), 'evidence checker made fake verification claim')
+    console.log('[smoke:pilot] product material evidence checker: PASS')
+
+    const insurance = await post('/api/seabri/living-companion/insurance-declarations-review', {
+      documentText: 'Carrier: Example Mutual\nPolicy Number: HO-12345\nDwelling Coverage A $350,000\nWind/Hail Deductible 2%',
+      concern: 'storm',
+    })
+    assert(insurance.reviewStatus === 'screening_only', 'insurance review should be screening only')
+    assert(String(insurance.notLegalAdvice).includes('not legal, insurance, or claims advice'), 'insurance no-advice guard missing')
+    console.log('[smoke:pilot] insurance declarations reviewer: PASS')
+
+    const grant = await post('/api/seabri/living-companion/grant-opportunities', {
+      organizationType: 'nonprofit',
+      projectDescription: 'Install solar panels on community center roof to reduce energy costs',
+      location: 'Miami, FL',
+      budgetUsd: 50000,
+      preferredLanguage: 'English',
+    })
+    assert(grant.confidence === 'low', 'grant confidence must be low — no live data queried')
+    assert(grant.dataStatus === 'not_verified', 'grant data status must be not_verified')
+    assert(grant.noSpecificGrantsDisclaimer, 'grant disclaimer missing')
+    assert(Array.isArray(grant.searchStrategies) && grant.searchStrategies.length > 0, 'grant search strategies missing')
+    assert(!JSON.stringify(grant).match(/\bawarded\b|\bapproved\b|\bguaranteed\b/i), 'grant result must not imply live award data')
+    console.log('[smoke:pilot] grant funding assistant: PASS')
+
     const compute = await post('/api/seabri/harness/optimize-sustainable-compute', {
       workflow_name: 'pilot incident triage',
       task_type: 'classification',
@@ -222,6 +261,10 @@ async function main() {
       'plan_home_resilience_retrofits',
       'compare_building_materials',
       'plan_emergency_preparedness',
+      'lookup_local_sustainability_sources',
+      'check_product_material_evidence',
+      'review_insurance_declarations',
+      'find_grant_opportunities',
     ]) {
       assert(snapshotText.includes(toolName), `registry snapshot missing ${toolName}`)
     }

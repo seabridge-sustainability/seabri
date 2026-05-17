@@ -244,6 +244,38 @@ describe('core product APIs', () => {
     const utilityBody = await utility.json() as { noFakeSavingsClaim: string; billBreakdown: Record<string, unknown> }
     expect(utilityBody.noFakeSavingsClaim).toContain('not a savings guarantee')
     expect(utilityBody.billBreakdown).toHaveProperty('estimatedUnitCost')
+
+    const localSources = await api('/api/seabri/living-companion/local-sustainability-sources', {
+      location: '33101',
+      needs: ['water_restrictions', 'recycling_rules', 'rebates', 'public_works'],
+      preferredLanguage: 'Spanish',
+    })
+    expect(localSources.status).toBe(200)
+    const localSourcesBody = await localSources.json() as { lookupStatus: string; labels: { confidence: string }; nextSteps: string[] }
+    expect(localSourcesBody.lookupStatus).toBe('not_verified')
+    expect(localSourcesBody.labels.confidence).toBe('Confianza')
+    expect(localSourcesBody.nextSteps).toContain('Verify any restriction, rebate, pickup rule, or public works contact directly with the official local source before acting.')
+
+    const evidence = await api('/api/seabri/living-companion/product-material-evidence-check', {
+      productOrMaterial: 'low-VOC flooring',
+      claimType: 'material_epd',
+      claimedEvidence: ['marketing page says sustainable'],
+      sourceUrls: ['https://example.invalid/product'],
+    })
+    expect(evidence.status).toBe(200)
+    const evidenceBody = await evidence.json() as { verificationStatus: string; redFlags: string[] }
+    expect(evidenceBody.verificationStatus).toBe('user_evidence_supplied')
+    expect(evidenceBody.redFlags).toContain('logos, badges, or sustainability claims without issuer name, certificate ID, date, scope, and product model')
+
+    const insurance = await api('/api/seabri/living-companion/insurance-declarations-review', {
+      documentText: 'Carrier: Example Mutual\nPolicy Number: HO-12345\nDwelling Coverage A $350,000\nWind/Hail Deductible 2%\nFlood Exclusion applies',
+      concern: 'storm and flood preparation',
+    })
+    expect(insurance.status).toBe(200)
+    const insuranceBody = await insurance.json() as { reviewStatus: string; notLegalAdvice: string; coverageSignals: string[] }
+    expect(insuranceBody.reviewStatus).toBe('screening_only')
+    expect(insuranceBody.notLegalAdvice).toContain('not legal, insurance, or claims advice')
+    expect(insuranceBody.coverageSignals).toContain('Dwelling Coverage A $350,000')
   })
 
   it('returns client-safe local resource fallback over HTTP', async () => {

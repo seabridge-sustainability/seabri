@@ -10,12 +10,15 @@ No live provider calls, outbound messages, paid model calls, verified grant look
 
 OpenSeaBri already had a strong sustainability companion foundation: household carbon screening, home energy planning, product comparison, purchasing red flags, offset quality screening, water, waste, utility bill interpretation, local resource fallback, incident workflows, and community planning.
 
-This pass expanded the practical homeowner ecosystem with four additional production-wired workflows:
+This pass expanded the practical homeowner ecosystem with seven additional production-wired workflows:
 
 - Repair vs Replace Assistant.
 - Home Resilience Retrofit Planner.
 - Sustainable Building Material Comparator.
 - Emergency Preparedness Planner.
+- Local Sustainability Source Finder.
+- Product Material Evidence Checker.
+- Insurance Declarations Reviewer.
 
 Each new workflow is deterministic, exposes assumptions and unknowns, avoids fake precision, and is available through API, MCP, tool registry, skill catalog, Pilot Workspace UI, recent activity, and tests.
 
@@ -23,12 +26,12 @@ Each new workflow is deterministic, exposes assumptions and unknowns, avoids fak
 
 | Area | What exists | Useful today | Too shallow / unrealistic | Missing next |
 |---|---|---|---|---|
-| Product comparison | Product comparison plus purchasing checklist, repair/replace assistant, offset checker | Good for day-to-day buying, greenwashing checks, repair decisions | No verified marketplace, warranty, repairability, or label database | Optional verified product/serviceability lookup |
+| Product comparison | Product comparison plus purchasing checklist, repair/replace assistant, evidence checker, offset checker | Good for day-to-day buying, greenwashing checks, repair decisions | No verified marketplace, warranty, repairability, or label database | Optional verified product/serviceability lookup |
 | Household carbon footprint | Broad screening range with top categories and monthly tracking prompt | Good for awareness and habit tracking | US-average factors only; not a formal inventory | Utility-bill import and regional factors when verified |
 | Home energy planning | No-cost, low-cost, upgrade plan and seasonal utility actions | Useful monthly/seasonal workflow | No tariff/rebate lookup | Verified utility/rebate connector |
 | Flooding/storm response | Living Companion incident workflow, local-resource fallback, approval-gated action cards | Strong for immediate action and safety | Live providers are gated; local contacts are fallback unless configured | Verified municipal/provider search |
-| Insurance guidance | Incident/policy support, document parser tests, coverage caveats | Useful for organizing documents and claim prep | Not legal advice; OCR/provider path gated | Better insurance declaration extraction |
-| Local resource search | Fallback-safe local resources and municipal adapter interface | Safe because it does not invent contacts | Not a live directory without provider config | Verified local resource provider |
+| Insurance guidance | Incident/policy support, document parser tests, coverage caveats, insurance declarations reviewer | Useful for organizing documents and claim prep | Not legal advice; OCR/provider path gated | Full claim packet builder and verified insurer-specific discount lookup |
+| Local resource search | Fallback-safe local resources, municipal adapter interface, local source lookup workflow | Safe because it does not invent contacts or local rules | Not a live directory without provider config | Verified local resource provider |
 | Community project planning | Project planner, community resilience checklist, grant search guidance | Useful for schools/NGOs/neighborhoods | Grant feed is search guidance, not live opportunities | Verified grant-source connector |
 | Sustainability certifications | Certification navigator and purchasing red flags | Useful for avoiding false claims | Does not verify certificate IDs or eligibility | Certificate/label verification where sources allow |
 | Carbon offsets | Offset quality checker with greenwashing flags | Useful for screening claims | Does not certify registry/project status | Optional registry lookup |
@@ -43,6 +46,7 @@ Production-ready:
 - Product comparison.
 - Sustainable purchasing checklist.
 - Repair vs Replace Assistant.
+- Product Material Evidence Checker.
 - Carbon offset quality checker.
 
 Partial:
@@ -64,11 +68,12 @@ Production-ready:
 - Emergency Preparedness Planner.
 - Home Resilience Retrofit Planner.
 - Home energy action planner.
+- Insurance Declarations Reviewer.
 
 Partial:
 
 - Local resources, contractor guidance, and public works guidance through safe fallback.
-- Insurance document support through fixture-tested parsing and gated provider paths.
+- Insurance document support through fixture-tested parsing, declaration text screening, and gated provider paths.
 
 Missing:
 
@@ -90,7 +95,7 @@ Partial:
 Missing:
 
 - Product-specific EPD comparison.
-- Verified low-VOC/certification lookup.
+- Verified low-VOC/certification lookup. Evidence screening is now available, but does not verify live databases.
 - Code-specific material acceptance.
 - Contractor quote comparison.
 
@@ -103,6 +108,7 @@ Production-ready:
 - Waste and Recycling Local Guide.
 - Utility Bill Interpreter.
 - Household carbon footprint estimator.
+- Local Sustainability Source Finder.
 
 Partial:
 
@@ -112,7 +118,7 @@ Missing:
 
 - Verified utility tariff and rebate lookup.
 - Verified city/county recycling acceptance.
-- Water restriction and rebate lookup.
+- Live water restriction and rebate lookup. The adapter surface is now callable, but default production status remains `not_verified`.
 
 ### E. Climate And Disaster Response
 
@@ -150,7 +156,7 @@ Missing:
 
 - Verified rebate/tax incentive lookup.
 - Insurer-specific mitigation discounts.
-- ROI calculation using local tariffs, quotes, and incentives.
+- ROI calculation using local tariffs, quotes, incentives, and verified mitigation discount evidence.
 
 ### G. Community And Neighborhood Sustainability
 
@@ -179,6 +185,9 @@ Missing:
 | Home Resilience Retrofit Planner | `POST /api/seabri/living-companion/home-resilience-retrofit-plan` | `plan_home_resilience_retrofits` | `skills/home-resilience-retrofit-planner/SKILL.md` | Homeowner Resilience -> Retrofit Plan | Working |
 | Sustainable Building Material Comparator | `POST /api/seabri/living-companion/building-material-comparison` | `compare_building_materials` | `skills/building-material-comparator/SKILL.md` | Building & Renovation -> Materials | Working |
 | Emergency Preparedness Planner | `POST /api/seabri/living-companion/emergency-preparedness-plan` | `plan_emergency_preparedness` | `skills/emergency-preparedness-planner/SKILL.md` | Homeowner Resilience -> Emergency Prep | Working |
+| Local Sustainability Source Finder | `POST /api/seabri/living-companion/local-sustainability-sources` | `lookup_local_sustainability_sources` | `skills/local-sustainability-source-finder/SKILL.md` | Carbon / Energy / Water / Waste -> Local Sources | Working, default `not_verified` adapter |
+| Product Material Evidence Checker | `POST /api/seabri/living-companion/product-material-evidence-check` | `check_product_material_evidence` | `skills/product-material-evidence-checker/SKILL.md` | Product & Purchasing -> Evidence Check | Working |
+| Insurance Declarations Reviewer | `POST /api/seabri/living-companion/insurance-declarations-review` | `review_insurance_declarations` | `skills/insurance-declarations-reviewer/SKILL.md` | Living Companion -> Insurance Review | Working, screening only |
 
 ## Realism Controls
 
@@ -222,7 +231,7 @@ Critical:
 
 High:
 
-- Verified local emergency, utility, water, recycling, and municipal-resource adapters.
+- Live verified local emergency, utility, water, recycling, and municipal-resource adapters. Local adapter surface is callable; default production remains `not_verified`.
 - Live-provider validation for Telegram, WhatsApp, SMS/MMS, voice, email, vision, transcription, and document parsing after explicit approval.
 
 Medium:
@@ -230,7 +239,7 @@ Medium:
 - Verified product repairability/warranty/service-parts connector.
 - Verified material EPD/certification/code lookup.
 - Rebate/tax-incentive lookup with source links.
-- Insurance declaration extraction and mitigation-document packet builder.
+- Full insurance claim packet builder beyond screening and checklist output.
 
 Low:
 

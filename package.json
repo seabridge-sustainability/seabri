@@ -27,6 +27,7 @@
     "check:operational": "tsx scripts/operational-smoke.ts",
     "release:check": "tsx scripts/release-check.ts",
     "secret-scan": "tsx scripts/secret-scan.ts",
+    "approve:provider": "tsx scripts/approve-provider.ts",
     "smoke:staging": "tsx scripts/staging-smoke.ts",
     "smoke:demos": "tsx scripts/demo-smoke.ts",
     "smoke:pilot": "tsx scripts/pilot-smoke.ts",

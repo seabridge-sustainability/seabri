@@ -12,7 +12,7 @@ OpenSeaBri is locally functional as a production package candidate. The full saf
 
 The main code-level gap closed in this audit was the NGO grant/funding assistant exposure: it was already present in implementation, MCP, and registry surfaces, but not API/UI complete. It is now exposed through API, MCP, registry, UI, skill catalog, telemetry, and tests.
 
-Follow-up homeowner ecosystem expansion also closed four practical day-to-day workflow gaps: Repair vs Replace Assistant, Home Resilience Retrofit Planner, Sustainable Building Material Comparator, and Emergency Preparedness Planner. These are now exposed through API, MCP, tool registry, skill resources, Pilot Workspace UI, recent activity, and automated tests.
+Follow-up homeowner ecosystem expansion also closed seven practical day-to-day workflow gaps: Repair vs Replace Assistant, Home Resilience Retrofit Planner, Sustainable Building Material Comparator, Emergency Preparedness Planner, Local Sustainability Source Finder, Product Material Evidence Checker, and Insurance Declarations Reviewer. These are now exposed through API, MCP, tool registry, skill resources, Pilot Workspace UI, recent activity, and automated tests.
 
 ## Conditions Closed
 
@@ -27,8 +27,11 @@ Follow-up homeowner ecosystem expansion also closed four practical day-to-day wo
   - Home Resilience Retrofit Planner added.
   - Sustainable Building Material Comparator added.
   - Emergency Preparedness Planner added.
+  - Local Sustainability Source Finder added and wired to the municipal adapter contract.
+  - Product Material Evidence Checker added for repairability, warranty, EPD, certification, VOC, code, and green-claim evidence screening.
+  - Insurance Declarations Reviewer added for text-based coverage, deductible, exclusion, and mitigation-document screening.
   - `docs/openseabri/HOMEOWNER_AND_INDIVIDUAL_SKILL_REVIEW.md` added.
-  - Pilot Workspace navigation now includes Repair or Replace, Retrofit Plan, Materials, and Emergency Prep.
+  - Pilot Workspace navigation now includes Repair or Replace, Retrofit Plan, Materials, Emergency Prep, Local Sources, Evidence Check, and Insurance Review.
 - Municipal/local lookup foundation is present:
   - Default production adapter returns `not_verified`.
   - Fixture adapter is labeled example-only.
@@ -52,9 +55,9 @@ Follow-up homeowner ecosystem expansion also closed four practical day-to-day wo
 
 | Platform/surface | Status | Evidence |
 |---|---|---|
-| Web app | Working locally | Playwright passed; Pilot Workspace renders required sections and completes Water, Waste, Utility, Grant, Repair/Replace, Retrofit, Materials, and Emergency Prep workflows with mocked safe gateway responses. |
-| API | Working locally | Core product API tests passed; grant, water, waste, utility, carbon, energy, purchasing, repair/replace, retrofit, materials, preparedness, offset, resilience, profile, registry, and provider endpoints covered. |
-| MCP | Working locally | MCP server tests passed; new tools callable and schema requirements aligned with implementation inputs, including homeowner workflow tools. |
+| Web app | Working locally | Playwright passed; Pilot Workspace renders required sections and completes Water, Waste, Utility, Grant, Repair/Replace, Retrofit, Materials, Emergency Prep, Local Sources, Evidence Check, and Insurance Review workflows with mocked safe gateway responses. |
+| API | Working locally | Core product API tests passed; grant, water, waste, utility, local sources, product/material evidence, insurance declarations, carbon, energy, purchasing, repair/replace, retrofit, materials, preparedness, offset, resilience, profile, registry, and provider endpoints covered. |
+| MCP | Working locally | MCP server tests passed; new tools callable and schema requirements aligned with implementation inputs, including homeowner workflow tools and the three closure workflows. |
 | WebSocket/chat | Working locally | Staging and operational smokes passed WebSocket slash path against temporary local gateway. |
 | Telegram | Mocked/gated working | Telegram integration tests cover photo, voice fallback, PDF, approval flow, outbound-call approval path, denial, and expiry. |
 | WhatsApp | Mocked/gated working | Mocked live-channel smoke covers WhatsApp text and media routing plus provider failure hiding. |
@@ -86,7 +89,7 @@ Passed:
 - `npm run typecheck`
 - `npm test -- --run`
   - 113 test files passed.
-  - 1468 tests passed.
+  - 1475 tests passed.
 - `npm run test:node`
   - 39 tests passed.
 - `npx playwright test`
@@ -104,7 +107,7 @@ Passed:
   - 14 test files passed.
   - 173 tests passed.
 - `graphify update .`
-  - 1488 nodes, 3024 edges, 86 communities.
+  - 1506 nodes, 3089 edges, 86 communities.
 
 ## Production Readiness Notes
 
@@ -131,7 +134,9 @@ High:
 
 Medium:
 
-- Verified municipal water/recycling/rebate/public-works lookup still needs a real provider adapter.
+- Live verified municipal water/recycling/rebate/public-works lookup still needs a real provider adapter. The local callable adapter surface now exists and defaults to `not_verified`.
+- Live verified product/material evidence sources for warranty, repairability, EPDs, certifications, VOC, and code acceptance remain future adapters. The new checker screens user-supplied evidence without false verification.
+- Full insurance claim packet automation remains future work. Text-based declaration screening and mitigation-document checklist generation are now implemented.
 - Verified live grant feed remains absent; current assistant is search guidance with `not_verified` data status.
 - Full OCR/PDF extraction remains provider/parser dependent.
 - Email inbound is scaffolded and tested but not mounted as a live webhook.
