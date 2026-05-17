@@ -1,3 +1,30 @@
+﻿<!-- SEABRIDGE_GOAL_PROTOCOL_START -->
+## /goal Default Operating Mode
+
+All SeaBridgeAI coding-agent tasks default to /goal.
+
+Before implementation, establish a persistent execution goal, Definition of Done, validation plan, affected systems, dependencies, risks, expected artifacts, and likely edge cases. Continue the execution loop until the DoD is validated or a hard blocker is documented.
+
+### /goal and Auto-Loop Are the Same Mode
+
+/goal is the user-facing command; auto-loop is the autonomous persistent execution behavior. The agent must not return early after code generation, must not claim completion until validation passes, and must keep working until the Definition of Done is satisfied or a hard blocker is proven. If the task is likely to require more than 15 minutes, state the expected phases and validation steps before starting. If a non-trivial task finishes unusually quickly, include evidence explaining why it was genuinely small or already validated.
+
+Canonical protocol: C:\Users\adelm\SeaBridgeAI\everything-claude-code\protocols\GOAL_PROTOCOL.md
+
+Compact form: C:\Users\adelm\SeaBridgeAI\everything-claude-code\protocols\GOAL_PROTOCOL_SHORT.md
+
+Do not claim completion from code edits, generated files, or partial tests. Completion requires validated behavior, checked integrations, regression coverage proportional to risk, and documented skipped checks or blockers.
+
+### Completion Evidence Required
+
+Every final report must include files changed, commands run, tests run, validation results, errors encountered, fixes applied, unverified items, remaining risks, and whether the Definition of Done is satisfied. If no tests were run, state why tests were not run, what validation was substituted, and what risk remains. The phrase "complete" is prohibited unless accompanied by validation evidence.
+
+### Anti-Stuck Loop Rule
+
+Timeout/stagnation rule: if a command or approach fails twice, do not repeat it blindly. Inspect logs, change strategy, isolate the problem, reduce scope, use a different validation path, and document the blocker if unresolved. If a process hangs or becomes a hung process, stop it safely, check logs, run a smaller command, verify the environment, and continue with an alternate route.
+
+<!-- SEABRIDGE_GOAL_PROTOCOL_END -->
+
 
 ## SeaBridgeAI Central System Pointer
 
@@ -10,6 +37,17 @@ Use the central system above as the source of truth for reusable skills, workflo
 Full callable SeaBridgeAI skill catalog: sea-senior-dev-workflow, sea-brainstorming-and-spec-refinement, sea-task-orchestration, sea-test-driven-development, sea-systematic-debugging, sea-verification-before-completion, sea-code-review-response, sea-git-worktree-isolation, sea-parallel-agent-dispatch, sea-finishing-development-branch, sea-backend-api-verification, sea-frontend-design, sea-ai-data-integrity, sea-sustainability-domain-review, sea-context-hygiene, sea-cross-repo-handoff, sea-skill-creator-protocol, sea-knowledge-vault, sea-gsd-controlled-execution, sea-local-llm-training.
 
 Repo-local guidance remains authoritative only for this repo's specific runtime, product, and safety overrides. Do not copy central skill bodies into this repo.
+
+## Goal Protocol Default
+
+For non-trivial OpenSeaBri work, `/goal` is the default operating contract. Load
+ECC `goal-default` and
+`C:\Users\adelm\SeaBridgeAI\everything-claude-code\docs\GOAL_PROTOCOL_DEFAULT.md`
+to frame the request with Definition of Done, validation plan, risks,
+dependencies, scope, blockers, and artifacts, then continue until validated or
+blocked. OpenSeaBri should apply the protocol to homeowner goals, resilience
+plans, channel workflows, provider fallback reviews, and agent-console work
+without duplicating the canonical protocol body.
 
 ## SeaBridgeAI Agent Baseline
 
@@ -68,11 +106,11 @@ Rules:
 
 Two tools are installed globally for token efficiency:
 
-- **caveman** — compresses agent output ~65–75% (`/caveman` skill, `claude plugin install caveman@caveman`). Reference: `everything-claude-code/references/caveman/`
-- **codeburn** — token usage dashboard (`npx codeburn` or `npm install -g codeburn`). Reference: `everything-claude-code/references/codeburn/`
+- **caveman** â€” compresses agent output ~65â€“75% (`/caveman` skill, `claude plugin install caveman@caveman`). Reference: `everything-claude-code/references/caveman/`
+- **codeburn** â€” token usage dashboard (`npx codeburn` or `npm install -g codeburn`). Reference: `everything-claude-code/references/codeburn/`
 
 
-## designlang — Design Language Extraction
+## designlang â€” Design Language Extraction
 
 designlang crawls any live URL with a headless browser and generates 17+ output files (Tailwind config, CSS vars, shadcn theme, Figma variables, motion tokens, brand voice, component anatomy stubs, and an AI-optimized markdown file).
 
@@ -82,13 +120,13 @@ Skill: `/extract-design <url>` (installed at `~/.claude/skills/extract-design/`)
 CLI: `npx designlang <url>` (no install required) or `designlang <url>` (global install)
 
 Key flags:
-- `--full` — multi-page crawl (auto-discovers nav pages)
-- `--out <dir>` — output directory (default: `./design-extract-output`)
-- `--dark` — also extract dark mode
-- `--screenshots` — capture component screenshots
-- `--emit-agent-rules` — writes `CLAUDE.md.fragment` rule files
+- `--full` â€” multi-page crawl (auto-discovers nav pages)
+- `--out <dir>` â€” output directory (default: `./design-extract-output`)
+- `--dark` â€” also extract dark mode
+- `--screenshots` â€” capture component screenshots
+- `--emit-agent-rules` â€” writes `CLAUDE.md.fragment` rule files
 
-Dev server for extraction: `npm run dev` → http://localhost:5173
+Dev server for extraction: `npm run dev` â†’ http://localhost:5173
 Generated tokens location: `openseabri/design/`
 
 MCP server (continuous sync):
