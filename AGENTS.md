@@ -1,4 +1,4 @@
-﻿# OpenSeaBri Agents
+# OpenSeaBri Agents
 
 <!-- SEABRIDGE_GOAL_PROTOCOL_START -->
 ## /goal Default Operating Mode
@@ -101,7 +101,7 @@ with `check`, `mcp`, or `index-plan` first. Do not initialize a brain, index thi
 repo, sync sources, enable contributor capture, or start jobs without explicit
 approval.
 
-OpenSeaBri is a free sustainability intelligence platform built for real people â€” homeowners, farmers, small business owners, investors, and anyone who wants straight answers about climate risk, nature, and responsible business practices. No consultant-speak, no paywalls for basic information, no acronym soup.
+OpenSeaBri is a free sustainability intelligence platform built for real people — homeowners, farmers, small business owners, investors, and anyone who wants straight answers about climate risk, nature, and responsible business practices. No consultant-speak, no paywalls for basic information, no acronym soup.
 
 This document describes the eight agents available on OpenSeaBri, who they are designed for, and how to reach them.
 
@@ -109,7 +109,7 @@ This document describes the eight agents available on OpenSeaBri, who they are d
 
 ## How This Works
 
-Every agent in OpenSeaBri draws on a library of detailed methodology guides â€” the same guides you can read directly in the `skills/` folder. When you ask a question, the agent pulls from those guides plus up-to-date data sources to give you a specific, grounded answer. If the agent cannot find a reliable source for something, it will tell you rather than guess.
+Every agent in OpenSeaBri draws on a library of detailed methodology guides — the same guides you can read directly in the `skills/` folder. When you ask a question, the agent pulls from those guides plus up-to-date data sources to give you a specific, grounded answer. If the agent cannot find a reliable source for something, it will tell you rather than guess.
 
 You can talk to any agent in plain language. You do not need to know the right terminology. Just describe your situation and what you are trying to figure out.
 
@@ -144,7 +144,7 @@ You can talk to any agent in plain language. You do not need to know the right t
 
 **What it covers**:
 - How to identify which natural systems your business or farm actually depends on (water, soil, pollinators, forests)
-- Water risk screening using WRI Aqueduct â€” finding out if your location faces water scarcity, variability, or depletion
+- Water risk screening using WRI Aqueduct — finding out if your location faces water scarcity, variability, or depletion
 - Deforestation risk in supply chains: which commodities carry the highest risk and how to trace them
 - Soil health basics: what organic matter percentages mean, how compaction affects yields, cover cropping practices
 - Pollinator dependency by crop type and what colony decline means for yields
@@ -165,11 +165,11 @@ You can talk to any agent in plain language. You do not need to know the right t
 
 **What it covers**:
 - Who actually needs to comply with what reporting rules, and on what timeline (EU CSRD waves, SEC rules, UK requirements)
-- The TCFD framework explained in plain terms â€” what Governance, Strategy, Risk Management, and Metrics/Targets mean in practice for a mid-size business
+- The TCFD framework explained in plain terms — what Governance, Strategy, Risk Management, and Metrics/Targets mean in practice for a mid-size business
 - What "double materiality" means and why it matters under EU rules
 - Scope 1, 2, and 3 emissions: what each covers, how to measure them at small business scale, and what is practical versus what is theoretical
 - Scenario analysis without consultants: how to think through two plausible futures for your business
-- ISSB S1 and S2 â€” the new global baseline that is replacing TCFD in most markets
+- ISSB S1 and S2 — the new global baseline that is replacing TCFD in most markets
 - What banks and large buyers are increasingly asking for, and how to prepare
 - Common gaps that show up in first-time disclosures
 - A realistic disclosure timeline based on your company size and location
@@ -177,7 +177,7 @@ You can talk to any agent in plain language. You do not need to know the right t
 **Example questions**:
 - "We are a manufacturing company in Germany with 300 employees and EUR 50M revenue. Do we need to file under CSRD and when?"
 - "Our bank is asking us about climate risk for our loan renewal. What do they want and how do we put it together?"
-- "What is the difference between TCFD and ISSB? We started on TCFD two years ago â€” do we need to start over?"
+- "What is the difference between TCFD and ISSB? We started on TCFD two years ago — do we need to start over?"
 
 ---
 
@@ -192,7 +192,7 @@ You can talk to any agent in plain language. You do not need to know the right t
 - How to read company sustainability disclosures and spot gaps or overstatements
 - Screening tools and data sources for sustainability-related investment analysis
 - Carbon pricing and what a rising carbon price means for business cost structures
-- The basics of green bonds, sustainability-linked bonds, and labeled debt â€” what the labels actually guarantee
+- The basics of green bonds, sustainability-linked bonds, and labeled debt — what the labels actually guarantee
 - Nature-related financial risks: water, deforestation, biodiversity loss, and which sectors are most exposed
 
 **Example questions**:
@@ -208,9 +208,9 @@ You can talk to any agent in plain language. You do not need to know the right t
 
 **What it covers**:
 - Carbon footprint: where it actually comes from for a typical household (transportation, home energy, food, goods), and which actions make a real difference versus which ones are mostly symbolic
-- Home energy upgrades that pay off: heat pumps, insulation, air sealing, windows â€” with real cost and payback estimates
-- Solar and community solar â€” how to evaluate whether it makes sense and how to find options
-- Electric vehicles â€” the actual emissions comparison, total cost of ownership, federal and state incentives
+- Home energy upgrades that pay off: heat pumps, insulation, air sealing, windows — with real cost and payback estimates
+- Solar and community solar — how to evaluate whether it makes sense and how to find options
+- Electric vehicles — the actual emissions comparison, total cost of ownership, federal and state incentives
 - Food choices and carbon: why beef is in a different category from other proteins, and what realistic dietary shifts actually accomplish
 - Carbon offsets: how to tell a credible one from a marketing product (Gold Standard, Verra, additionality)
 - Property resilience: flood-proofing, wildfire hardening, extreme heat preparation
@@ -233,7 +233,7 @@ You can talk to any agent in plain language. You do not need to know the right t
 - Science-based targets: what SBTi requires, whether it is right for your organization, and what the alternatives are
 - Energy transition within a business: renewable electricity options (PPAs, RECs, on-site solar), fleet electrification, building decarbonization
 - Supply chain engagement: how to begin reducing Scope 3 without a massive supplier program
-- The role of carbon offsets and removals in a credible net zero strategy â€” where they belong and where they do not
+- The role of carbon offsets and removals in a credible net zero strategy — where they belong and where they do not
 - How to set targets that are credible and specific rather than aspirational and vague
 - Reporting your progress: what to measure, how to track it, and how to communicate it
 
@@ -271,7 +271,7 @@ You can talk to any agent in plain language. You do not need to know the right t
 
 **What it covers**:
 - Cross-cutting sustainability questions that span climate, nature, finance, and operations
-- Background on sustainability frameworks, terminology, and concepts â€” explained without assuming prior knowledge
+- Background on sustainability frameworks, terminology, and concepts — explained without assuming prior knowledge
 - Routing assistance: if you are not sure which agent to use, this one will help you find the right starting point
 - Context on sustainability news, policy developments, and what they mean in practice
 - Historical data and trends on emissions, biodiversity, climate indicators
@@ -279,7 +279,7 @@ You can talk to any agent in plain language. You do not need to know the right t
 
 **Example questions**:
 - "What is actually happening with global emissions right now? Are they going up or down?"
-- "I keep seeing companies say they are 'carbon neutral' â€” what does that actually mean and should I believe it?"
+- "I keep seeing companies say they are 'carbon neutral' — what does that actually mean and should I believe it?"
 - "I run a small hotel. I do not know where to start with any of this. What is the first thing I should actually do?"
 
 ---
@@ -320,11 +320,11 @@ Unknown senders on DM channels receive a pairing code before any agent will resp
 
 Every channel (CLI, web, Telegram) shares the same slash command surface for managing a conversation:
 
-- `/switch <agent-id>` â€” change the specialist agent mid-conversation
-- `/persona <id>` or `/persona off` â€” adopt a tone (e.g. plain-language vs. expert depth) or clear it
-- `/new`, `/reset`, `/compact` â€” start fresh, clear history, or compress long history
-- `/status`, `/agents`, `/skills`, `/memory` â€” inspect what the agent knows and who is available
-- `/think` â€” ask the agent to reason step-by-step on the next turn
+- `/switch <agent-id>` — change the specialist agent mid-conversation
+- `/persona <id>` or `/persona off` — adopt a tone (e.g. plain-language vs. expert depth) or clear it
+- `/new`, `/reset`, `/compact` — start fresh, clear history, or compress long history
+- `/status`, `/agents`, `/skills`, `/memory` — inspect what the agent knows and who is available
+- `/think` — ask the agent to reason step-by-step on the next turn
 
 Past conversations are searchable with `seabri search "<query>"`. Recurring tasks (daily briefings, weekly summaries) can be scheduled with `seabri cron add "<natural language schedule>"` and delivered to any channel.
 
@@ -338,7 +338,7 @@ OpenSeaBri can run in two modes:
 
 **Standalone mode**: The platform runs independently using its built-in skill library and public data sources. No connection to a SeaBridgeAI account is required. This is the default when running locally.
 
-**Connected mode**: When linked to a SeaBridgeAI account, the agents can also draw on your organization's private data â€” uploaded documents, past assessments, company-specific metrics â€” in addition to the public skill library. Responses are more specific to your situation. Connected mode requires an active SeaBridgeAI subscription and API credentials configured in the `.env` file.
+**Connected mode**: When linked to a SeaBridgeAI account, the agents can also draw on your organization's private data — uploaded documents, past assessments, company-specific metrics — in addition to the public skill library. Responses are more specific to your situation. Connected mode requires an active SeaBridgeAI subscription and API credentials configured in the `.env` file.
 
 To switch between modes, set `SEABRIDGEAI_CONNECTED=true` in your environment and provide a valid `SEABRIDGEAI_API_KEY`. In standalone mode, these variables can be left unset.
 
@@ -349,9 +349,9 @@ To switch between modes, set `SEABRIDGEAI_CONNECTED=true` in your environment an
 
 ---
 
-## caveman â€” Token Compression
+## caveman — Token Compression
 
-Caveman compresses agent output ~65â€“75% using terse "caveman-style" prose that preserves full technical accuracy. Auto-activates via SessionStart hook after install.
+Caveman compresses agent output ~65–75% using terse "caveman-style" prose that preserves full technical accuracy. Auto-activates via SessionStart hook after install.
 
 **Reference:** `C:\Users\adelm\SeaBridgeAI\everything-claude-code\references\caveman\`
 
@@ -361,25 +361,23 @@ claude plugin marketplace add JuliusBrussee/caveman && claude plugin install cav
 ```
 
 Skills:
-- `/caveman` â€” activate compression (intensity: `lite` / `full` / `ultra` / `wenyan`)
-- `/caveman-commit` â€” terse commit messages
-- `/caveman-review` â€” one-line code reviews
-- `/caveman-compress` â€” compress CLAUDE.md ~46% to save input tokens every session
+- `/caveman` — activate compression (intensity: `lite` / `full` / `ultra` / `wenyan`)
+- `/caveman-commit` — terse commit messages
+- `/caveman-review` — one-line code reviews
+- `/caveman-compress` — compress CLAUDE.md ~46% to save input tokens every session
 
 Codex: use `$caveman` in prompts. Gemini: `gemini extensions install caveman`.
 
 ---
 
-## codeburn â€” Token Usage Dashboard
+## codeburn — Token Usage Dashboard
 
-Codeburn tracks AI coding token spend across Claude Code, Codex, Cursor, and others. Reads session data from disk â€” no API keys needed.
+Codeburn tracks AI coding token spend across Claude Code, Codex, Cursor, and others. Reads session data from disk — no API keys needed.
 
 **Reference:** `C:\Users\adelm\SeaBridgeAI\everything-claude-code\references\codeburn\`
 
-Install:
+Run one-shot with no global install:
 ```bash
-npm install -g codeburn
-# or one-shot:
 npx codeburn
 ```
 
@@ -396,23 +394,23 @@ codeburn export       # CSV/JSON export
 
 ---
 
-## designlang â€” Design Language Extraction
+## designlang — Design Language Extraction
 
 designlang crawls any live URL with a headless browser and generates 17+ output files (Tailwind config, CSS vars, shadcn theme, Figma variables, motion tokens, brand voice, component anatomy stubs, and an AI-optimized markdown file).
 
 **Reference:** `C:\Users\adelm\SeaBridgeAI\everything-claude-code\references\design-extract\`
 
 Skill: `/extract-design <url>` (installed at `~/.claude/skills/extract-design/`)
-CLI: `npx designlang <url>` (no install required) or `designlang <url>` (global install)
+CLI: `npx designlang <url>` (no install required); global install requires explicit approval
 
 Key flags:
-- `--full` â€” multi-page crawl (auto-discovers nav pages)
-- `--out <dir>` â€” output directory (default: `./design-extract-output`)
-- `--dark` â€” also extract dark mode
-- `--screenshots` â€” capture component screenshots
-- `--emit-agent-rules` â€” writes `CLAUDE.md.fragment` rule files
+- `--full` — multi-page crawl (auto-discovers nav pages)
+- `--out <dir>` — output directory (default: `./design-extract-output`)
+- `--dark` — also extract dark mode
+- `--screenshots` — capture component screenshots
+- `--emit-agent-rules` — writes `CLAUDE.md.fragment` rule files
 
-Dev server for extraction: `npm run dev` â†’ http://localhost:5173
+Dev server for extraction: `npm run dev` → http://localhost:5173
 Generated tokens location: `openseabri/design/`
 
 MCP server (continuous sync):

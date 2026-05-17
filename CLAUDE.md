@@ -1,4 +1,4 @@
-﻿<!-- SEABRIDGE_GOAL_PROTOCOL_START -->
+<!-- SEABRIDGE_GOAL_PROTOCOL_START -->
 ## /goal Default Operating Mode
 
 All SeaBridgeAI coding-agent tasks default to /goal.
@@ -106,27 +106,27 @@ Rules:
 
 Two tools are installed globally for token efficiency:
 
-- **caveman** â€” compresses agent output ~65â€“75% (`/caveman` skill, `claude plugin install caveman@caveman`). Reference: `everything-claude-code/references/caveman/`
-- **codeburn** â€” token usage dashboard (`npx codeburn` or `npm install -g codeburn`). Reference: `everything-claude-code/references/codeburn/`
+- **caveman** — compresses agent output ~65–75% (`/caveman` skill, `claude plugin install caveman@caveman`). Reference: `everything-claude-code/references/caveman/`
+- **codeburn** — token usage dashboard (`npx codeburn`; global install requires explicit approval). Reference: `everything-claude-code/references/codeburn/`
 
 
-## designlang â€” Design Language Extraction
+## designlang — Design Language Extraction
 
 designlang crawls any live URL with a headless browser and generates 17+ output files (Tailwind config, CSS vars, shadcn theme, Figma variables, motion tokens, brand voice, component anatomy stubs, and an AI-optimized markdown file).
 
 **Reference:** `C:\Users\adelm\SeaBridgeAI\everything-claude-code\references\design-extract\`
 
 Skill: `/extract-design <url>` (installed at `~/.claude/skills/extract-design/`)
-CLI: `npx designlang <url>` (no install required) or `designlang <url>` (global install)
+CLI: `npx designlang <url>` (no install required); global install requires explicit approval
 
 Key flags:
-- `--full` â€” multi-page crawl (auto-discovers nav pages)
-- `--out <dir>` â€” output directory (default: `./design-extract-output`)
-- `--dark` â€” also extract dark mode
-- `--screenshots` â€” capture component screenshots
-- `--emit-agent-rules` â€” writes `CLAUDE.md.fragment` rule files
+- `--full` — multi-page crawl (auto-discovers nav pages)
+- `--out <dir>` — output directory (default: `./design-extract-output`)
+- `--dark` — also extract dark mode
+- `--screenshots` — capture component screenshots
+- `--emit-agent-rules` — writes `CLAUDE.md.fragment` rule files
 
-Dev server for extraction: `npm run dev` â†’ http://localhost:5173
+Dev server for extraction: `npm run dev` → http://localhost:5173
 Generated tokens location: `openseabri/design/`
 
 MCP server (continuous sync):
