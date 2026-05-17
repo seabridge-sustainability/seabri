@@ -3,6 +3,9 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { WORKSPACE_DIR } from '../config.js'
 import type { ComplianceTag } from '../skills/schema.js'
+import { createLogger } from '../logger.js'
+
+const policyLog = createLogger('gateway.policy.audit')
 
 const OPENSEABRI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const REPO_POLICY_FILE = resolve(OPENSEABRI_ROOT, 'openseabri', 'config', 'policy.json')
@@ -47,7 +50,7 @@ const CACHE_TTL_MS = 30_000
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 
 function hasDangerousKey(obj: unknown, depth = 0): boolean {
-  if (depth > 5) return false
+  if (depth > 20) return false
   if (typeof obj !== 'object' || obj === null) return false
   for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
     if (DANGEROUS_KEYS.has(key)) return true
@@ -97,12 +100,31 @@ export async function savePolicy(policy: Policy): Promise<string> {
 export async function isAllowed(senderId: string, channel: string): Promise<boolean> {
   const policy = await loadPolicy()
   const sender = policy.perSender[senderId]
-  if (sender && sender.allow === false) return false
-  const channelPolicy = policy.channels[channel]
-  if (channelPolicy?.allowedAgents && sender?.agent) {
-    if (!channelPolicy.allowedAgents.includes(sender.agent)) return false
+  let ruleMatched: string | null = null
+  let allowed = true
+
+  if (sender && sender.allow === false) {
+    ruleMatched = 'sender_deny'
+    allowed = false
+  } else {
+    const channelPolicy = policy.channels[channel]
+    if (channelPolicy?.allowedAgents && sender?.agent) {
+      if (!channelPolicy.allowedAgents.includes(sender.agent)) {
+        ruleMatched = 'channel_agent_deny'
+        allowed = false
+      }
+    }
   }
-  return true
+
+  policyLog.info('policy_decision', {
+    result: allowed ? 'ALLOW' : 'DENY',
+    senderId,
+    channel,
+    ruleMatched,
+    ts: new Date().toISOString(),
+  })
+
+  return allowed
 }
 
 export async function getPreferredAgent(senderId: string): Promise<string> {

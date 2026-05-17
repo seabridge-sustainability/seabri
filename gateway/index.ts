@@ -99,6 +99,14 @@ function printBanner(seaBridgeConnected: boolean, telegramActive: boolean, whats
 }
 
 async function startGateway(): Promise<void> {
+  if (!ANTHROPIC_API_KEY) {
+    log.fatal('startup validation failed', {
+      code: 'missing_anthropic_key',
+      error: 'ANTHROPIC_API_KEY is required but not set',
+    })
+    process.exit(1)
+  }
+
   const startupValidation = validateStartupConfig()
   log.info('startup mode', startupValidation.summary)
   if (!startupValidation.ok) {
@@ -310,6 +318,12 @@ async function startGateway(): Promise<void> {
   rateLimitCleanup.unref()
 
   const CORS_ORIGIN = process.env.OPENSEABRI_CORS_ORIGIN || 'http://localhost:5173'
+  const _corsCheck = process.env.OPENSEABRI_CORS_ORIGIN ?? ''
+  if ((_corsCheck.includes('localhost') || _corsCheck.includes('127.0.0.1')) &&
+      process.env.NODE_ENV !== 'development') {
+    log.warn('SECURITY WARNING: CORS_ORIGIN contains localhost in non-development environment. ' +
+      'Set OPENSEABRI_CORS_ORIGIN to your production domain.')
+  }
 
   const httpServer = createServer(async (req: HttpIncomingMessage, res: ServerResponse) => {
     const clientIp = getClientIp(req)

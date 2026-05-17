@@ -1,5 +1,5 @@
 import { appendFile, mkdir } from 'fs/promises'
-import { randomInt } from 'crypto'
+import { randomInt, createHmac } from 'crypto'
 import { resolve } from 'path'
 import { WORKSPACE_DIR } from '../config.js'
 
@@ -21,6 +21,15 @@ export interface PendingAction {
   awaitingConfirmCode?: boolean
 }
 
+function signLogEntry(entry: Record<string, unknown>): string {
+  const secret = process.env.OPENSEABRI_CONSENT_LOG_SECRET ?? ''
+  const payload = JSON.stringify(entry)
+  const sig = secret
+    ? createHmac('sha256', secret).update(payload).digest('hex')
+    : ''
+  return JSON.stringify({ ...entry, sig })
+}
+
 // Serialized write queue — prevents interleaved JSONL lines under concurrent requests
 let _writeChain: Promise<void> = Promise.resolve()
 
@@ -39,7 +48,7 @@ export async function logConsent(
   }
   _writeChain = _writeChain.then(async () => {
     await mkdir(WORKSPACE_DIR, { recursive: true })
-    await appendFile(CONSENT_LOG, JSON.stringify(record) + '\n', 'utf-8')
+    await appendFile(CONSENT_LOG, signLogEntry(record as unknown as Record<string, unknown>) + '\n', 'utf-8')
   })
   return _writeChain
 }
@@ -52,14 +61,14 @@ const DOCUMENT_DAMAGE_MARKERS = ['document the damage', 'damage report', 'create
 const SCHEDULE_APPOINTMENT_MARKERS = ['schedule an appointment', 'book an appointment', 'schedule a visit', 'book a slot', 'calendly', 'schedule inspection']
 const NOTIFY_EMERGENCY_MARKERS = ['notify emergency', 'emergency services', 'call 911', 'alert emergency', 'emergency alert', 'contact 911']
 
-/** Generates a random 6-digit confirmation code for double-confirm flows. */
+/** Generates a random 8-digit confirmation code for double-confirm flows. */
 export function generateConfirmCode(): string {
-  return String(randomInt(100000, 1000000))
+  return String(randomInt(10_000_000, 100_000_000))
 }
 
-/** Returns true if the message is a valid 6-digit confirmation code. */
+/** Returns true if the message is a valid 8-digit confirmation code. */
 export function isConfirmCode(text: string): boolean {
-  return /^\s*\d{6}\s*$/.test(text)
+  return /^\s*\d{8}\s*$/.test(text)
 }
 
 /** Returns true when this action kind requires double confirmation (YES + code). */

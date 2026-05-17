@@ -1,3 +1,4 @@
+import path from 'path'
 import { TELEGRAM_TOKEN, AGENTS, APPROVAL_TTL_MS } from '../config.js'
 import { initiateOutboundCall, initiateOutboundSms } from '../seabri/outbound.js'
 import { geocodeCoordinates } from '../seabri/geocoder.js'
@@ -397,7 +398,7 @@ export async function startTelegramChannel(): Promise<void> {
         } else if (msg.document) {
           fileId = msg.document.file_id
           mimeType = msg.document.mime_type ?? 'application/octet-stream'
-          fileName = msg.document.file_name ?? 'document'
+          fileName = path.basename(msg.document.file_name ?? 'document')
         } else if (msg.voice) {
           fileId = msg.voice.file_id
           mimeType = msg.voice.mime_type ?? 'audio/ogg'

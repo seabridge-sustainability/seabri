@@ -101,9 +101,9 @@ describe('requiresDoubleConfirmation', () => {
 })
 
 describe('generateConfirmCode', () => {
-  it('returns a 6-digit string', () => {
+  it('returns an 8-digit string', () => {
     const code = generateConfirmCode()
-    expect(code).toMatch(/^\d{6}$/)
+    expect(code).toMatch(/^\d{8}$/)
   })
 
   it('generates different codes on repeated calls', () => {
@@ -113,24 +113,24 @@ describe('generateConfirmCode', () => {
 })
 
 describe('isConfirmCode', () => {
-  it('accepts exactly 6 digits', () => {
-    expect(isConfirmCode('123456')).toBe(true)
+  it('accepts exactly 8 digits', () => {
+    expect(isConfirmCode('12345678')).toBe(true)
   })
 
   it('accepts with surrounding whitespace', () => {
-    expect(isConfirmCode('  456789  ')).toBe(true)
+    expect(isConfirmCode('  45678901  ')).toBe(true)
   })
 
-  it('rejects fewer than 6 digits', () => {
-    expect(isConfirmCode('12345')).toBe(false)
-  })
-
-  it('rejects more than 6 digits', () => {
+  it('rejects fewer than 8 digits', () => {
     expect(isConfirmCode('1234567')).toBe(false)
   })
 
+  it('rejects more than 8 digits', () => {
+    expect(isConfirmCode('123456789')).toBe(false)
+  })
+
   it('rejects letters', () => {
-    expect(isConfirmCode('12345a')).toBe(false)
+    expect(isConfirmCode('1234567a')).toBe(false)
   })
 
   it('rejects empty string', () => {
