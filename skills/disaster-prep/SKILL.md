@@ -1,6 +1,7 @@
 ---
 id: disaster-prep
 name: Disaster Preparedness
+description: Generate personalised disaster preparedness plans based on location-specific climate hazards and household characteristics.
 complianceTags: [TCFD, ISSB, TNFD, GENERAL]
 costTier: free
 evidenceSource: FEMA, NOAA Weather

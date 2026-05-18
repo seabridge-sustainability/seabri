@@ -1,6 +1,7 @@
 ---
 id: hurricane-wind-risk
 name: Hurricane and Tropical Wind Risk Assessment
+description: Assess hurricane and tropical cyclone exposure using NOAA HURDAT2 historical tracks, CMIP6 projections, and the Saffir-Simpson wind scale.
 complianceTags: [TCFD, ISSB, GENERAL]
 costTier: free
 evidenceSource: NOAA HURDAT2 historical tracks; CMIP6 TC projections; IBTrACS; Saffir-Simpson scale

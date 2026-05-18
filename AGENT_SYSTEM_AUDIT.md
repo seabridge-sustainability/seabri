@@ -1,41 +1,47 @@
 # OpenSeaBri Agent System Audit
 
-Date: 2026-05-17
+Date: 2026-05-18
+Status: WARN.
 
-## Status
+## Summary
 
-WARN. OpenSeaBri has the clearest local `/goal` and auto-loop coverage across Claude Code, Codex, Gemini, OpenCode, and general agents. The primary issue is the local `skills\` catalog: it contains 30 reusable sustainability/resilience/domain skills that should be centralized in ECC or converted to repo-local wrappers.
+OpenSeaBri has the clearest local `/goal` and auto-loop coverage across Claude Code, Codex, Gemini, OpenCode, and generic agents. It also has the largest non-ECC local skill catalog: 30 domain `skills\*\SKILL.md` files plus a design skill.
+
+The key decision is whether `openseabri\skills\*` are product runtime/methodology content distributed with OpenSeaBri or reusable coding-agent skills. Reusable coding-agent content should move to ECC. Product methodology content can remain local but should not be described as canonical shared agent skills.
 
 ## Files Reviewed
 
-| File | Purpose | Target | Status |
+| File/path | Purpose | Target | Status |
 |---|---|---|---|
 | `AGENTS_SYSTEM.md` | OpenSeaBri cross-agent rules | all agents | keep |
-| `AGENTS.md` | repo execution instructions and `/goal` adapter | generic agents | keep |
-| `CLAUDE.md` | Claude Code adapter and `/goal` rules | Claude Code | keep |
-| `CODEX.md` | Codex adapter and `/goal` rules | Codex | keep |
-| `GEMINI.md` | Gemini adapter and `/goal` rules | Gemini | keep |
-| `OPENCODE.md` | OpenCode adapter and `/goal` rules | OpenCode | keep |
-| `AGENT.md`, `AGENT_SKILLS.md` | thin generic adapters | tools expecting singular files | merge/archive candidates |
-| `.codex`, `.claude`, `.gemini`, `.opencode` | adapter/config surfaces | specific tools | useful where tooling requires |
+| `AGENTS.md` | generic repo instructions and `/goal` block | general/Codex-style agents | keep |
+| `CLAUDE.md` | Claude Code adapter and `/goal` block | Claude Code | keep |
+| `CODEX.md` | Codex adapter and `/goal` block | Codex | keep |
+| `GEMINI.md` | Gemini adapter and `/goal` block | Gemini | keep |
+| `OPENCODE.md` | OpenCode adapter and `/goal` block | OpenCode | keep |
+| `.codex/*`, `.claude/*`, `.gemini/*`, `.opencode/*`, `opencode.jsonc` | tool configs | named agents | active |
+| `package.json` | packages `skills` and `AGENTS.md` | product/npm package | indicates `skills` may be product content |
 
 ## Local Skill Catalog
 
-OpenSeaBri local skills include consumer sustainability, climate-risk, insurance, product comparison, utility, local-source, resilience, legal-review, and disclosure workflows. These are reusable across SeaBridgeAI and should not remain as canonical bodies in `openseabri\skills`.
+`openseabri\skills\*` contains 30 consumer sustainability/resilience/domain methodology skills, including flood, wildfire, heat, drought, energy, utility bill, product comparison, repair/replace, insurance, grants, disclosure, and nature/climate screening workflows.
 
-Recommended migration:
+| Location | Classification | Recommended action |
+|---|---|---|
+| `skills\*\SKILL.md` | product methodology or reusable domain-agent skills | classify one by one; migrate reusable bodies to ECC |
+| `design\.claude\skills\designlang\SKILL.md` | design adapter/tooling | migrate to ECC or keep as pointer |
 
-1. Create canonical ECC skills under `everything-claude-code\skills\sea-openseabri-*` or a tighter domain naming scheme.
-2. Add `.agents` wrappers in ECC.
-3. Replace `openseabri\skills\*` with thin pointers only if local discovery requires them.
-4. Verify each migrated skill preserves no-fabricated-data and source/provenance rules.
+## Conflicts And Gaps
 
-## Conflicts
-
-- Codeburn/designlang examples were converted to `npx` or explicit approval-gated wording.
-- `AGENTS.md` and `CLAUDE.md` still reference the legacy compatibility path `docs\GOAL_PROTOCOL_DEFAULT.md`; that file exists as a pointer, but direct `protocols\GOAL_PROTOCOL.md` references are clearer.
 - Local skills can drift from ECC.
+- `AGENTS.md` still includes product-facing explanation of agents and methods; useful for OpenSeaBri, but it makes the file heavier than a thin adapter.
+- Some protocol references point to compatibility docs; direct `protocols\GOAL_PROTOCOL.md` references are clearer.
 
 ## Recommendation
 
-Keep all agent adapter files for now because OpenSeaBri supports multiple runtimes. Migrate local skill bodies into ECC in a controlled batch and leave repo-local wrappers only.
+1. Keep explicit `CLAUDE.md`, `CODEX.md`, `GEMINI.md`, and `OPENCODE.md` adapters because they provide strong cross-agent `/goal` visibility.
+2. Split product methodology from coding-agent skills:
+   - product content may remain in `openseabri\skills`;
+   - reusable coding-agent workflows move to ECC.
+3. Do not recreate repo-local `AGENT.md` or `AGENT_SKILLS.md`; standard agent files and ECC `AGENT_SKILLS.md` are sufficient.
+4. Preserve OpenSeaBri privacy, source-grounding, no-fabricated-data, and backend-proxy boundaries in local repo instructions.

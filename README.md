@@ -58,7 +58,8 @@ OpenSeaBri is free sustainability intelligence for every person on earth. It run
 git clone https://github.com/SeaBridgeAI/openseabri
 cd openseabri
 npm install
-echo "VITE_ANTHROPIC_API_KEY=your_key_here" > .env
+echo "VITE_GATEWAY_URL=ws://localhost:18790" > .env
+echo "VITE_OPENSEABRI_API_KEY=your_gateway_key_here" >> .env
 npm run dev
 # Open http://localhost:5173
 ```
@@ -220,8 +221,9 @@ seabri doctor    # Config, API keys, model, daemon, policy, channels, integratio
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `VITE_ANTHROPIC_API_KEY` | Yes (web UI) | Anthropic API key for the browser UI |
-| `ANTHROPIC_API_KEY` | Yes (CLI/gateway) | Anthropic API key for CLI and gateway |
+| `VITE_GATEWAY_URL` | Yes (web UI) | Gateway WebSocket URL for streaming chat |
+| `VITE_OPENSEABRI_API_KEY` | Yes (web UI) | Gateway API key used for authenticated pilot calls |
+| `ANTHROPIC_API_KEY` | Yes (gateway) | Anthropic API key for the server-side gateway |
 | `VITE_SEABRIDGE_API_URL` | No | SeaBridgeAI backend URL for status badge |
 | `SEABRIDGE_API_URL` | No | SeaBridgeAI backend URL for bridge layer |
 | `SEABRIDGE_API_KEY` | No | SeaBridgeAI API key |
@@ -258,6 +260,16 @@ curl -H "x-openseabri-key: $OPENSEABRI_API_KEY" http://localhost:18790/api/seabr
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). The short version: write a skill, add an agent, or add a channel. Write for the most affected person, not the most sophisticated.
+
+## Coding Agent Instructions
+
+OpenSeaBri coding-agent guidance uses `AGENTS_SYSTEM.md` plus thin per-agent adapters:
+
+- `AGENTS.md` - generic/Codex-style repo instructions.
+- `CLAUDE.md`, `CODEX.md`, `GEMINI.md`, `OPENCODE.md` - per-agent adapters with the shared `/goal` protocol.
+- `AGENTS_SYSTEM.md` - cross-agent OpenSeaBri operating rules, safety, and product boundaries.
+
+Reusable coding-agent skills and workflows live in `C:\Users\adelm\SeaBridgeAI\everything-claude-code`. Do not recreate repo-local `AGENT.md` or `AGENT_SKILLS.md`. OpenSeaBri product methodology may remain in `skills/`, but reusable coding-agent skills should be centralized in ECC.
 
 ---
 

@@ -1,4 +1,6 @@
 import path from 'path'
+import type { BaseChannel } from './base.js'
+import { Product } from '../product.js'
 import { TELEGRAM_TOKEN, AGENTS, APPROVAL_TTL_MS } from '../config.js'
 import { initiateOutboundCall, initiateOutboundSms } from '../seabri/outbound.js'
 import { geocodeCoordinates } from '../seabri/geocoder.js'
@@ -497,4 +499,22 @@ export async function startTelegramChannel(): Promise<void> {
   })
 
   console.log('[Telegram] Bot started and polling for messages.')
+}
+
+// ── BaseChannel implementation ─────────────────────────────────────────────
+// Wraps startTelegramChannel() in the registry contract so the channel
+// lifecycle is managed uniformly by gateway/channels/registry.ts.
+
+export const telegramChannel: BaseChannel = {
+  id: 'telegram',
+  displayName: 'Telegram',
+  product: Product.COMPANION,
+
+  isEnabled(): boolean {
+    return Boolean(TELEGRAM_TOKEN)
+  },
+
+  async start(): Promise<void> {
+    await startTelegramChannel()
+  },
 }

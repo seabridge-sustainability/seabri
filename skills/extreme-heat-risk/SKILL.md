@@ -1,6 +1,7 @@
 ---
 id: extreme-heat-risk
 name: Extreme Heat Risk Assessment
+description: Assess heat stress and extreme temperature risk to assets, workers, and infrastructure using NASA POWER, ERA5, and NOAA heat index data.
 complianceTags: [TCFD, ISSB, GENERAL]
 costTier: free
 evidenceSource: NASA POWER, ERA5 reanalysis, NOAA heat index data

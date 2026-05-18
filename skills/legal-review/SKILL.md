@@ -1,6 +1,7 @@
 ---
 id: legal-review
 name: Sustainability Legal Review
+description: Review sustainability disclosures and corporate reports for legal compliance with major ESG regulatory frameworks including CSRD, CSDDD, and ISSB.
 complianceTags: [TCFD, ISSB, GRESB, TNFD, CSDDD]
 costTier: low
 ---

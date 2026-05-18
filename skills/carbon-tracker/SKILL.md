@@ -1,6 +1,7 @@
 ---
 id: carbon-tracker
 name: Carbon Tracker
+description: Monitor and report greenhouse gas emissions across Scope 1, 2, and 3 categories using standardised GHG Protocol methodology.
 complianceTags: [GHG_PROTOCOL, CDP, TCFD, GENERAL]
 costTier: low
 evidenceSource: EPA GHGRP, IEA

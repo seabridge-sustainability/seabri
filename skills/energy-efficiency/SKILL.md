@@ -1,6 +1,7 @@
 ---
 id: energy-efficiency
 name: Energy Efficiency Advisor
+description: Analyse energy consumption patterns and recommend efficiency improvements with estimated savings and available incentives.
 complianceTags: [ISSB, ESRS, CDP, GRI, GENERAL]
 costTier: free
 evidenceSource: DOE, ENERGY STAR

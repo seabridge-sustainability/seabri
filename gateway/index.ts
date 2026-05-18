@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage as HttpIncomingMessage, type ServerR
 import { GATEWAY_PORT, TELEGRAM_TOKEN, WHATSAPP_PROVIDER, ANTHROPIC_API_KEY } from './config.js'
 import { initWorkspace, maybeNudgeUserModel } from './memory/memory.js'
 import { routeMessage, classifyIntent } from './agents/router.js'
-import { startTelegramChannel } from './channels/telegram.js'
+import { startOptionalChannels } from './channels/registry.js'
 import { startWhatsappChannel, handleWhatsAppWebhook } from './channels/whatsapp.js'
 import { startSmsChannel, handleSmsWebhook, smsChannel } from './channels/sms.js'
 import { startEmailChannel, handleEmailWebhook, emailChannel } from './channels/email.js'
@@ -197,18 +197,21 @@ async function startGateway(): Promise<void> {
   const configuredChannelGate = channelGateSummary()
   log.info('live channel startup gate', { enabledChannels: configuredChannelGate })
 
-  // Optionally start Telegram. Credentials alone are not enough: live channels
-  // must be explicitly allowlisted to avoid accidental polling from local .env.
+  // Start all registry-managed channels (Telegram, WhatsApp via registry,
+  // Discord, Slack, SMS, Voice) that appear in OPENSEABRI_CHANNELS_ENABLED.
+  // Telegram is now registered in channels/registry.ts and goes through this
+  // unified lifecycle path rather than a one-off direct call.
   let telegramActive = false
-  if (TELEGRAM_TOKEN && isChannelExplicitlyEnabled('telegram')) {
-    try {
-      await startTelegramChannel()
-      telegramActive = true
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      log.warn('telegram start warning', { error: message })
-    }
-  } else if (TELEGRAM_TOKEN) {
+  try {
+    await startOptionalChannels()
+    // Reflect Telegram status in the banner by checking the enablement gate.
+    telegramActive = Boolean(TELEGRAM_TOKEN) && isChannelExplicitlyEnabled('telegram')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.warn('channel registry start warning', { error: message })
+  }
+
+  if (TELEGRAM_TOKEN && !isChannelExplicitlyEnabled('telegram')) {
     log.info('telegram credentials present but channel not enabled; set OPENSEABRI_CHANNELS_ENABLED=telegram to start polling')
   }
 

@@ -32,9 +32,10 @@ SYSTEM_ID: SEABRIDGE_AGENT_SYSTEM_V1
 
 Canonical shared coding-agent system: C:\Users\adelm\SeaBridgeAI\everything-claude-code
 
-Use the central system above as the source of truth for reusable skills, workflows, checklists, and cross-agent compatibility. Superpowers is embedded there as an adapted local methodology through the SeaBridgeAI sea-* skills; Claude Code also has user-scope local plugin `superpowers@superpowers-dev` installed from ECC. Do not add, update, remove, or reinstall Superpowers globally or through a marketplace unless explicitly approved.
-
-Full callable SeaBridgeAI skill catalog: sea-senior-dev-workflow, sea-brainstorming-and-spec-refinement, sea-task-orchestration, sea-test-driven-development, sea-systematic-debugging, sea-verification-before-completion, sea-code-review-response, sea-git-worktree-isolation, sea-parallel-agent-dispatch, sea-finishing-development-branch, sea-backend-api-verification, sea-frontend-design, sea-ai-data-integrity, sea-sustainability-domain-review, sea-context-hygiene, sea-cross-repo-handoff, sea-skill-creator-protocol, sea-knowledge-vault, sea-gsd-controlled-execution, sea-local-llm-training.
+Use the central system above as the source of truth for reusable skills,
+workflows, checklists, and cross-agent compatibility. Discover skills
+dynamically from ECC during non-trivial work instead of relying on a copied
+static catalog.
 
 Repo-local guidance remains authoritative only for this repo's specific runtime, product, and safety overrides. Do not copy central skill bodies into this repo.
 
@@ -53,7 +54,9 @@ without duplicating the canonical protocol body.
 
 Repo structure, build/test/lint/typecheck/startup commands, recurring lessons, and artifact policy are local here and in ECC `repo-integrations/openseabri.md`. All coding agents must follow ECC self-verification, controlled auto mode, and review collaboration: plan before edits, update tests when practical, prove red/green when practical, run targeted checks, broaden checks when risk warrants it, document skipped tests, and never claim completion from code changes alone. Allowed auto steps are formatting, lint/typecheck fixes, test discovery, import cleanup, small tested refactors, approved report/log moves, docs path fixes, and read-only scans. Commits, pushes, dependency installs, migrations, production data changes, auth/security changes, billing changes, destructive file operations, yolo/autonomous/dangerous modes, global installs, and long-running training jobs require explicit approval.
 
-Shared skills, Harness Engineering, Agent Shield, and Strix are inherited from ECC. Load ECC `AGENT_SKILLS.md` for `grill-me`, `ubiquitous-language`, `improve-codebase-architecture`, `sea-*` skills, and Harness reviewer skills. Load ECC `docs/harness/HARNESS_ENGINEERING.md` and `scripts/check-harness.ps1` for baseline-aware guardrails. Full vulnerability scans must use the approved ECC wrapper so Agent Shield and Strix run together only on approved local/staging scope.
+Shared skills, Harness Engineering, Agent Shield, and Strix are inherited from
+ECC. Inspect ECC `AGENT_SKILLS.md`, `.agents/skills/`, `skills/`, workflows,
+and checklists only when they materially improve the task.
 
 ## Cross-Agent Skill Contract
 
@@ -72,21 +75,9 @@ This repository uses centralized SeaBridgeAI coding-agent skills from:
 SYSTEM_ID: SEABRIDGE_AGENT_SYSTEM_V1
 
 Before non-trivial changes, load `SEABRIDGE_CODING_AGENT_SYSTEM.md`,
-`repo-integrations/openseabri.md`, and the smallest relevant callable skill
-from either ECC `skills/sea-*` or `.agents/skills/sea-*`, then use the matching
-`workflows/` and `checklists/` files.
-
-Callable skill names: `sea-senior-dev-workflow`,
-`sea-brainstorming-and-spec-refinement`, `sea-task-orchestration`,
-`sea-test-driven-development`, `sea-systematic-debugging`,
-`sea-verification-before-completion`, `sea-code-review-response`,
-`sea-git-worktree-isolation`, `sea-parallel-agent-dispatch`,
-`sea-finishing-development-branch`, `sea-backend-api-verification`,
-`sea-frontend-design`, `sea-ai-data-integrity`,
-`sea-sustainability-domain-review`, `sea-context-hygiene`,
-`sea-cross-repo-handoff`, `sea-skill-creator-protocol`,
-`sea-knowledge-vault`, `sea-gsd-controlled-execution`,
-`sea-local-llm-training`.
+`repo-integrations/openseabri.md`, and inspect ECC skill frontmatter to select
+the smallest relevant skill/workflow/checklist set. Do not load every skill. If
+a task is simple, proceed without skills and state that no skill was needed.
 
 Keep reusable guidance in ECC and place only OpenSeaBri-specific overrides here.
 

@@ -1,6 +1,7 @@
 ---
 id: insurance-claim-intake
 name: Insurance Claim Intake
+description: Guide homeowners through the insurance claim process after climate-related property damage, ensuring complete documentation and timely filing.
 complianceTags: [GENERAL]
 costTier: free
 ---

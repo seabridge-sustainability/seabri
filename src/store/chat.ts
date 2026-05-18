@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Agent, Message, Session } from '../types/openseabri'
-import { streamAnthropicMessage, type RawAttachment } from '../lib/anthropic'
+import { type RawAttachment } from '../lib/anthropic'
 import { DEFAULT_AGENT_ID, getAgent } from '../lib/agents'
 import { uid } from '../lib/id'
 
@@ -383,7 +383,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (!userText || get().isStreaming) return
 
       const useGateway = Boolean(gatewayUrl)
-      if (!useGateway && !apiKey) {
+      if (!useGateway) {
         set({ apiError: 'missing_key' })
         return
       }
@@ -466,17 +466,9 @@ export const useChatStore = create<ChatState>((set, get) => {
             controller.signal,
           )
         } else {
-          await streamAnthropicMessage({
-            apiKey,
-            systemPrompt: agent.systemPrompt,
-            history,
-            attachments,
-            signal: controller.signal,
-            onDelta: (delta) => {
-              accumulated += delta
-              patchAssistant({ content: accumulated })
-            },
-          })
+          // Gateway path is required — direct browser API calls are disabled.
+          // This branch is unreachable because !useGateway returns early above.
+          throw new Error('Gateway URL required. Configure VITE_GATEWAY_URL.')
         }
       } catch (err) {
         const e = err as Error

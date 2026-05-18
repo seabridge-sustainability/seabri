@@ -42,7 +42,6 @@ function SeabriMascot() {
   )
 }
 
-const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY ?? ''
 const GATEWAY_URL = (import.meta.env.VITE_GATEWAY_URL as string | undefined) ?? ''
 const GATEWAY_API_KEY = (import.meta.env.VITE_OPENSEABRI_API_KEY as string | undefined) ?? ''
 
@@ -332,8 +331,9 @@ function MissingKeyCard() {
         lineHeight: 1.5,
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--sb-signal-risk, #B1454A)' }}>API key not configured</div>
-      Set <code style={{ fontFamily: 'var(--font-mono)' }}>VITE_ANTHROPIC_API_KEY</code> in{' '}
+      <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--sb-signal-risk, #B1454A)' }}>Gateway not configured</div>
+      Set <code style={{ fontFamily: 'var(--font-mono)' }}>VITE_GATEWAY_URL</code> and{' '}
+      <code style={{ fontFamily: 'var(--font-mono)' }}>VITE_OPENSEABRI_API_KEY</code> in{' '}
       <code style={{ fontFamily: 'var(--font-mono)' }}>.env.local</code> and restart the dev server to enable streaming chat.
     </div>
   )
@@ -874,7 +874,7 @@ function ChatShell({
   }, [session.messages, isStreaming])
 
   const lastAssistantId = [...session.messages].reverse().find((m) => m.role === 'assistant')?.id
-  const hasKey = Boolean(API_KEY) || Boolean(GATEWAY_URL)
+  const hasKey = Boolean(GATEWAY_URL)
 
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
@@ -977,7 +977,7 @@ function ChatShell({
           )}
 
           {session.messages.length === 0 ? (
-            <StarterChips agent={agent} onPick={(q) => sendMessage(q, API_KEY, GATEWAY_URL || undefined)} />
+            <StarterChips agent={agent} onPick={(q) => sendMessage(q, '', GATEWAY_URL || undefined)} />
           ) : (
             session.messages.map((m) => (
               <MessageBubble
@@ -997,7 +997,7 @@ function ChatShell({
         </div>
       )}
       <Composer
-        onSend={(t, atts) => sendMessage(t, API_KEY, GATEWAY_URL || undefined, atts)}
+        onSend={(t, atts) => sendMessage(t, '', GATEWAY_URL || undefined, atts)}
         disabled={!hasKey || isStreaming}
         streaming={isStreaming}
         onAbort={abort}

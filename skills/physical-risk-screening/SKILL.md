@@ -1,6 +1,7 @@
 ---
 id: physical-risk-screening
 name: Physical Risk Screening
+description: Multi-peril climate physical risk assessment using public APIs and heuristic models covering flood, wildfire, heat, hurricane, and drought hazards for US addresses.
 complianceTags: [TCFD, ISSB, GENERAL]
 costTier: free
 version: "1.0"

@@ -7,6 +7,92 @@ import { createLogger } from '../logger.js'
 
 const log = createLogger('gateway.cron')
 
+// ── Redis distributed lock ─────────────────────────────────────────────────
+// Prevents duplicate cron job execution across multiple gateway instances.
+// Falls back gracefully when Redis is unavailable (single-instance mode).
+
+let _cronRedisClient: {
+  set(key: string, value: string, options: { NX: boolean; PX: number }): Promise<string | null>
+  del(key: string): Promise<number>
+} | null = null
+
+let _cronRedisAttempted = false
+
+async function getCronRedisClient(): Promise<typeof _cronRedisClient> {
+  if (_cronRedisAttempted) return _cronRedisClient
+  _cronRedisAttempted = true
+
+  const redisUrl = process.env.REDIS_URL || process.env.OPENSEABRI_REDIS_URL
+  if (!redisUrl) return null
+
+  try {
+    const loadRedis = new Function('specifier', 'return import(specifier)') as (
+      specifier: string,
+    ) => Promise<{
+      createClient: (opts: { url: string }) => {
+        connect(): Promise<void>
+        set(key: string, value: string, options: { NX: boolean; PX: number }): Promise<string | null>
+        del(key: string): Promise<number>
+        on(event: string, cb: (err: unknown) => void): void
+      }
+    }>
+    const { createClient } = await loadRedis('redis')
+    const client = createClient({ url: redisUrl })
+    client.on('error', (err: unknown) => {
+      log.warn('redis cron client error — cron distributed lock disabled', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+      _cronRedisClient = null
+    })
+    await client.connect()
+    _cronRedisClient = client
+    log.info('redis connected — cron distributed lock enabled')
+  } catch (err: unknown) {
+    log.warn('redis unavailable — cron distributed lock disabled (single-instance mode)', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    _cronRedisClient = null
+  }
+  return _cronRedisClient
+}
+
+/**
+ * Acquire a distributed Redis lock.
+ * Returns the lock key if acquired, or null if another instance holds it.
+ *
+ * @param lockKey Unique key for this cron slot (e.g. `cron:jobName:YYYY-MM-DD-HH-MM`)
+ * @param ttlMs   Lock TTL in milliseconds — should exceed max expected job runtime
+ */
+async function acquireLock(lockKey: string, ttlMs: number): Promise<string | null> {
+  const redis = await getCronRedisClient()
+  if (!redis) return lockKey // no Redis — always proceed in single-instance mode
+
+  try {
+    const result = await redis.set(lockKey, '1', { NX: true, PX: ttlMs })
+    return result === 'OK' ? lockKey : null
+  } catch (err: unknown) {
+    log.warn('cron lock acquire failed — proceeding without lock', {
+      lockKey,
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return lockKey // fail-open: better to risk a duplicate than to skip the job
+  }
+}
+
+/**
+ * Release a distributed lock acquired by acquireLock().
+ * Safe to call even when Redis is unavailable.
+ */
+async function releaseLock(lockKey: string): Promise<void> {
+  const redis = await getCronRedisClient()
+  if (!redis) return
+  try {
+    await redis.del(lockKey)
+  } catch {
+    // Non-fatal — lock will expire via TTL
+  }
+}
+
 const CRONS_FILE = resolve(WORKSPACE_DIR, 'crons.json')
 
 export interface CronJob {
@@ -162,7 +248,29 @@ function scheduleJob(job: CronJob): void {
 }
 
 async function runJob(job: CronJob): Promise<void> {
-  log.info('running job', { description: job.description })
+  // Build a lock key scoped to this job and the current minute so each
+  // scheduled slot is executed at most once across all gateway instances.
+  const now = new Date()
+  const slot =
+    `${now.getUTCFullYear()}-` +
+    `${String(now.getUTCMonth() + 1).padStart(2, '0')}-` +
+    `${String(now.getUTCDate()).padStart(2, '0')}-` +
+    `${String(now.getUTCHours()).padStart(2, '0')}-` +
+    `${String(now.getUTCMinutes()).padStart(2, '0')}`
+  const lockKey = `cron:${job.id}:${slot}`
+  // TTL = 5 minutes, which exceeds any reasonable single job runtime.
+  const lockTtlMs = 5 * 60 * 1000
+
+  const lock = await acquireLock(lockKey, lockTtlMs)
+  if (!lock) {
+    log.info('cron job skipped — lock held by another instance', {
+      description: job.description,
+      lockKey,
+    })
+    return
+  }
+
+  log.info('running job', { description: job.description, lockKey })
 
   // Dynamically import router to avoid circular deps at module load time
   try {
@@ -174,17 +282,19 @@ async function runJob(job: CronJob): Promise<void> {
     }
     // Telegram delivery would happen here if integrated
 
-    const now = Date.now()
-    job.lastRun = now
+    const nowMs = Date.now()
+    job.lastRun = nowMs
     const store = await loadStore()
     const idx = store.jobs.findIndex((j) => j.id === job.id)
     if (idx !== -1) {
-      store.jobs[idx] = { ...store.jobs[idx], lastRun: now }
+      store.jobs[idx] = { ...store.jobs[idx], lastRun: nowMs }
       await saveStore(store)
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     log.error('job failed', { description: job.description, error: message })
+  } finally {
+    await releaseLock(lockKey)
   }
 }
 

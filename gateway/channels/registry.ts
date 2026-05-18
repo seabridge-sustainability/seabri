@@ -5,15 +5,15 @@
  * enabled channel, so adding a new channel is a one-line import change here.
  *
  * OPENSEABRI_CHANNELS_ENABLED env var is a comma-separated allowlist of
- * channel ids (e.g. "discord,slack"). When unset/empty every channel whose
- * own isEnabled() returns true is started — preserves previous behavior.
- * When set, only ids in the list are considered; everything else is skipped
- * even if its token is present. This is the operator-side gate for the
- * multi-channel gateway.
+ * channel ids (e.g. "discord,slack,telegram"). When unset/empty the registry
+ * does not auto-start anything — channels are opt-in via the allowlist.
+ * When set to "all", every channel whose own isEnabled() returns true is
+ * started. This is the operator-side gate for the multi-channel gateway.
  *
- * Telegram is NOT listed here because it predates the BaseChannel contract
- * and is still wired directly from gateway/index.ts. Migrating it is a
- * mechanical refactor for a later pass.
+ * Telegram is now registered here alongside all other channels and goes
+ * through the same startOptionalChannels() lifecycle.
+ * Set OPENSEABRI_CHANNELS_ENABLED=telegram (or include it in a comma list)
+ * to enable Telegram polling.
  */
 
 import { whatsappChannel } from './whatsapp.js'
@@ -21,10 +21,12 @@ import { discordChannel } from './discord.js'
 import { slackChannel } from './slack.js'
 import { smsChannel } from './sms.js'
 import { voiceChannel } from './voice.js'
+import { telegramChannel } from './telegram.js'
 import type { BaseChannel } from './base.js'
 import { enabledChannelSet } from './enablement.js'
 
 export const CHANNELS: readonly BaseChannel[] = [
+  telegramChannel,
   whatsappChannel,
   discordChannel,
   slackChannel,

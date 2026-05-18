@@ -1,6 +1,7 @@
 ---
 id: drought-risk
 name: Drought Risk Assessment
+description: Assess water scarcity and drought exposure using standardised drought indices, FAO water data, and IPCC climate projections.
 complianceTags: [TNFD, TCFD, GENERAL]
 costTier: free
 evidenceSource: PDSI, SPI, SPEI drought indices; FAO AQUASTAT; IPCC AR6 water cycle projections

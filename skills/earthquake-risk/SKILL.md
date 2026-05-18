@@ -1,6 +1,7 @@
 ---
 id: earthquake-risk
 name: Earthquake Risk Assessment
+description: Evaluate seismic risk and earthquake hazard exposure using USGS, GEM OpenQuake, and site amplification data for assets and properties.
 complianceTags: [TCFD, GENERAL]
 costTier: free
 evidenceSource: USGS National Seismic Hazard Model; GSHAP; Global Earthquake Model (GEM) OpenQuake; Vs30 site amplification data

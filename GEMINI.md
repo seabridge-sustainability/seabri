@@ -1,5 +1,7 @@
 ﻿# SeaBridgeAI Gemini Instructions
 
+SYSTEM_ID: SEABRIDGE_AGENT_SYSTEM_V1
+
 <!-- SEABRIDGE_GOAL_PROTOCOL_START -->
 ## /goal Default Operating Mode
 
