@@ -43,7 +43,7 @@ Repo-local guidance remains authoritative only for this repo's specific runtime,
 
 For non-trivial OpenSeaBri work, `/goal` is the default operating contract. Load
 ECC `goal-default` and
-`C:\Users\adelm\SeaBridgeAI\everything-claude-code\docs\GOAL_PROTOCOL_DEFAULT.md`
+`C:\Users\adelm\SeaBridgeAI\everything-claude-code\protocols\GOAL_PROTOCOL.md`
 to frame the request with Definition of Done, validation plan, risks,
 dependencies, scope, blockers, and artifacts, then continue until validated or
 blocked. OpenSeaBri should apply the protocol to homeowner goals, resilience
