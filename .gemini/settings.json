@@ -8,10 +8,10 @@
       ],
       "command": "berry",
       "env": {
-        "BERRY_SERVICE_URL": "http://52.191.234.157:8000",
+        "BERRY_SERVICE_URL": "${BERRY_SERVICE_URL}",
         "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-        "OPENAI_BASE_URL": "http://20.232.57.156/v1",
-        "STRAWBERRY_SERVICE_URL": "http://52.191.234.157:8000"
+        "OPENAI_BASE_URL": "${OPENAI_BASE_URL}",
+        "STRAWBERRY_SERVICE_URL": "${STRAWBERRY_SERVICE_URL}"
       }
     }
   }
