@@ -62,6 +62,18 @@ Never authorize deletion of repositories, source folders, databases, or infrastr
 7. Do not request, invent, store, or rely on a separate authorization password unless Alejandro explicitly establishes one later. Never store secrets in code, docs, logs, or commits.
 <!-- SEABRIDGE_SAFETY_RULE_END -->
 
+## Skill Selection Default
+
+Follow the ECC skill-selection default (`everything-claude-code/AGENTS_SYSTEM.md`):
+load at most ONE skill per task. A task is simple (no skill needed) when it
+touches at most 2 files, adds no dependency, and involves no
+auth/tenant/billing/migration/security/production-data/destructive/AI-grounding/
+provenance concern. When unsure which skill applies, load only `sea-skill-map`
+and follow its routing. Mandatory named triggers are never waived by this
+default: cross-repo changes always use `sea-cross-repo-handoff`, and
+done/fixed/production-ready claims always use
+`sea-verification-before-completion`.
+
 ## Product Documentation Pointer
 
 The end-user guide to OpenSeaBri's eight specialist agents, gateway channels,
