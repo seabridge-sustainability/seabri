@@ -76,6 +76,21 @@ describe('SeaBri core API', () => {
     expect(res.status).toBe(401)
   })
 
+  it('limits browser client key to client-safe routes', async () => {
+    process.env.OPENSEABRI_API_KEY = 'admin-key'
+    process.env.OPENSEABRI_CLIENT_KEY = 'client-key'
+
+    const adminRes = await rawFetch(`${baseUrl()}/api/seabri/admin/provider-readiness`, {
+      headers: { 'x-openseabri-key': 'client-key' },
+    })
+    expect(adminRes.status).toBe(403)
+
+    const safeRes = await rawFetch(`${baseUrl()}/api/seabri/registry-snapshot`, {
+      headers: { 'x-openseabri-key': 'client-key' },
+    })
+    expect(safeRes.status).toBe(200)
+  })
+
   // ── Agents ────────────────────────────────────────────────────────────
 
   it('GET /api/seabri/agents returns agents array', async () => {

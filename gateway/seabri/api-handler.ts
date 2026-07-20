@@ -227,16 +227,33 @@ async function parseJsonWithSchema<T>(
   return { ok: true, value: result.data }
 }
 
-function isAuthorized(req: IncomingMessage): boolean {
-  const apiKey = process.env.OPENSEABRI_API_KEY
-  if (!apiKey) return false
-  const header = req.headers['x-openseabri-key'] as string | undefined
-  if (!header) return false
+type AuthScope = 'admin' | 'client'
+
+function safeEquals(left: string, right: string): boolean {
   try {
-    return timingSafeEqual(Buffer.from(header), Buffer.from(apiKey))
+    return timingSafeEqual(Buffer.from(left), Buffer.from(right))
   } catch {
     return false
   }
+}
+
+function authScope(req: IncomingMessage): AuthScope | null {
+  const header = req.headers['x-openseabri-key'] as string | undefined
+  if (!header) return null
+  const apiKey = process.env.OPENSEABRI_API_KEY
+  if (apiKey && safeEquals(header, apiKey)) return 'admin'
+  const clientKey = process.env.OPENSEABRI_CLIENT_KEY
+  if (clientKey && safeEquals(header, clientKey)) return 'client'
+  return null
+}
+
+function isClientAllowed(url: string, method: string): boolean {
+  if (method === 'POST' && (url === '/api/seabri/profile' || url === '/api/seabri/update_profile')) return true
+  if (method === 'DELETE' && (url.startsWith('/api/seabri/profile') || url.startsWith('/api/seabri/delete_profile'))) return true
+  if (method === 'GET' && url === '/api/seabri/registry-snapshot') return true
+  if (method === 'POST' && url.startsWith('/api/seabri/living-companion/')) return true
+  if (method === 'POST' && url === '/api/seabri/harness/optimize-sustainable-compute') return true
+  return false
 }
 
 function queryParams(url: string): URLSearchParams {
@@ -287,8 +304,13 @@ export async function handleSeabriApiRequest(
 
   if (!url.startsWith('/api/seabri')) return false
 
-  if (!isAuthorized(req)) {
+  const scope = authScope(req)
+  if (!scope) {
     json(res, 401, { error: 'Unauthorized' })
+    return true
+  }
+  if (scope === 'client' && !isClientAllowed(url, method)) {
+    json(res, 403, { error: 'Forbidden' })
     return true
   }
 

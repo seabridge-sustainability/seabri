@@ -43,7 +43,7 @@ function SeabriMascot() {
 }
 
 const GATEWAY_URL = (import.meta.env.VITE_GATEWAY_URL as string | undefined) ?? ''
-const GATEWAY_API_KEY = (import.meta.env.VITE_OPENSEABRI_API_KEY as string | undefined) ?? ''
+const GATEWAY_CLIENT_KEY = (import.meta.env.VITE_OPENSEABRI_CLIENT_KEY as string | undefined) ?? ''
 
 function SiteHeader({ onNav, activeView }: { onNav?: (v: AppView) => void; activeView?: AppView }) {
   const navLink = (label: string, view: AppView, href?: string) => {
@@ -333,7 +333,7 @@ function MissingKeyCard() {
     >
       <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--sb-signal-risk, #B1454A)' }}>Gateway not configured</div>
       Set <code style={{ fontFamily: 'var(--font-mono)' }}>VITE_GATEWAY_URL</code> and{' '}
-      <code style={{ fontFamily: 'var(--font-mono)' }}>VITE_OPENSEABRI_API_KEY</code> in{' '}
+      <code style={{ fontFamily: 'var(--font-mono)' }}>VITE_OPENSEABRI_CLIENT_KEY</code> in{' '}
       <code style={{ fontFamily: 'var(--font-mono)' }}>.env.local</code> and restart the dev server to enable streaming chat.
     </div>
   )
@@ -1344,10 +1344,10 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
 
   const callGateway = async <T,>(path: string, body?: unknown, method = 'POST'): Promise<T> => {
     if (!base) throw new Error('Set VITE_GATEWAY_URL to call the local gateway.')
-    if (!GATEWAY_API_KEY) throw new Error('Set VITE_OPENSEABRI_API_KEY for authenticated pilot calls.')
+    if (!GATEWAY_CLIENT_KEY) throw new Error('Set VITE_OPENSEABRI_CLIENT_KEY for browser-safe pilot calls.')
     const res = await fetch(`${base}${path}`, {
       method,
-      headers: { 'content-type': 'application/json', 'x-openseabri-key': GATEWAY_API_KEY },
+      headers: { 'content-type': 'application/json', 'x-openseabri-key': GATEWAY_CLIENT_KEY },
       body: body ? JSON.stringify(body) : undefined,
     })
     const json = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
@@ -1358,8 +1358,8 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
   const saveProfile = async () => {
     const payload = profilePayload(profile)
     try {
-      if (base && GATEWAY_API_KEY) await callGateway('/api/seabri/profile', payload)
-      setStatus(base && GATEWAY_API_KEY ? 'Profile saved to the pilot gateway.' : 'Profile saved locally. Configure gateway env to sync.')
+      if (base && GATEWAY_CLIENT_KEY) await callGateway('/api/seabri/profile', payload)
+      setStatus(base && GATEWAY_CLIENT_KEY ? 'Profile saved to the pilot gateway.' : 'Profile saved locally. Configure gateway env to sync.')
       pushActivity({ workflow: 'profile', title: 'Profile updated', detail: 'Pilot profile saved for workflow continuity.' })
     } catch {
       setStatus('Profile stayed local because the gateway returned a safe error.')
@@ -1369,7 +1369,7 @@ function DemosView({ onNav }: { onNav: (v: AppView) => void }) {
 
   const deleteProfile = async () => {
     try {
-      if (base && GATEWAY_API_KEY) {
+      if (base && GATEWAY_CLIENT_KEY) {
         await callGateway(`/api/seabri/profile?userId=${encodeURIComponent(profile.userId)}&channel=web`, undefined, 'DELETE')
       }
     } catch {

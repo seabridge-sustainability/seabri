@@ -82,9 +82,10 @@ describe('OPENKB_TOOLS', () => {
     expect(OPENKB_TOOLS).toHaveLength(4)
   })
 
-  it('all require approval_token', () => {
+  it('all require a tenant-bound approval context', () => {
     for (const tool of OPENKB_TOOLS) {
       expect(tool.input_schema.required).toContain('approval_token')
+      expect(tool.input_schema.required).toContain('tenant_id')
     }
   })
 

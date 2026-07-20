@@ -77,7 +77,7 @@ export function validateStartupConfig(env: EnvLike = process.env): StartupValida
   const persistence = resolvePersistenceAdapter(env)
 
   if (production) {
-    for (const key of ['OPENSEABRI_API_KEY', 'SEABRI_WS_TOKEN', 'OPENSEABRI_CORS_ORIGIN', 'OPENSEABRI_RATE_LIMIT']) {
+    for (const key of ['OPENSEABRI_API_KEY', 'SEABRI_WS_TOKEN', 'OPENSEABRI_ATTACHMENT_TOKEN', 'OPENSEABRI_CORS_ORIGIN', 'OPENSEABRI_RATE_LIMIT']) {
       if (!value(env, key)) errors.push(issue('missing_required_secret_or_config', `${key} is required in production.`))
     }
     if (canvasEnabled && !value(env, 'OPENSEABRI_CANVAS_WS_TOKEN')) {

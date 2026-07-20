@@ -50,6 +50,7 @@ describe('startup production config validation', () => {
       NODE_ENV: 'production',
       OPENSEABRI_API_KEY: 'api-key',
       SEABRI_WS_TOKEN: 'ws-token',
+      OPENSEABRI_ATTACHMENT_TOKEN: 'attachment-token',
       OPENSEABRI_CORS_ORIGIN: 'https://example.com',
       OPENSEABRI_RATE_LIMIT: '120',
       OPENSEABRI_PERSISTENCE_ADAPTER: 'database',
@@ -66,6 +67,7 @@ describe('startup production config validation', () => {
       NODE_ENV: 'production',
       OPENSEABRI_API_KEY: 'api-key',
       SEABRI_WS_TOKEN: 'ws-token',
+      OPENSEABRI_ATTACHMENT_TOKEN: 'attachment-token',
       OPENSEABRI_CORS_ORIGIN: 'https://example.com',
       OPENSEABRI_RATE_LIMIT: '120',
       OPENSEABRI_PERSISTENCE_ADAPTER: 'database',
@@ -81,6 +83,7 @@ describe('startup production config validation', () => {
       NODE_ENV: 'production',
       OPENSEABRI_API_KEY: 'api-key',
       SEABRI_WS_TOKEN: 'ws-token',
+      OPENSEABRI_ATTACHMENT_TOKEN: 'attachment-token',
       OPENSEABRI_CORS_ORIGIN: 'https://example.com',
       OPENSEABRI_RATE_LIMIT: '120',
       OPENSEABRI_CHANNELS_ENABLED: '',
@@ -92,5 +95,19 @@ describe('startup production config validation', () => {
       OPENSEABRI_PERSISTENCE_ADAPTER: 'mock',
       OPENSEABRI_ALLOW_MOCK_PERSISTENCE_FOR_TESTS: 'true',
     }).ok).toBe(true)
+  })
+
+  it('requires attachment token in production', () => {
+    const result = validateStartupConfig({
+      NODE_ENV: 'production',
+      OPENSEABRI_API_KEY: 'api-key',
+      SEABRI_WS_TOKEN: 'ws-token',
+      OPENSEABRI_CORS_ORIGIN: 'https://example.com',
+      OPENSEABRI_RATE_LIMIT: '120',
+      OPENSEABRI_PERSISTENCE_ADAPTER: 'database',
+      DATABASE_URL: 'postgres://example',
+    })
+    expect(result.ok).toBe(false)
+    expect(result.errors.map((e) => e.message)).toContain('OPENSEABRI_ATTACHMENT_TOKEN is required in production.')
   })
 })

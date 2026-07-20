@@ -35,15 +35,8 @@ function savePersisted(state: Persisted): void {
   }
 }
 
-const WS_TOKEN = import.meta.env.VITE_WS_TOKEN as string | undefined
-
 function httpToWs(url: string): string {
-  const base = url.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:').replace(/\/$/, '')
-  if (WS_TOKEN) {
-    const sep = base.includes('?') ? '&' : '?'
-    return `${base}${sep}token=${encodeURIComponent(WS_TOKEN)}`
-  }
-  return base
+  return url.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:').replace(/\/$/, '')
 }
 
 export interface ActionCard {

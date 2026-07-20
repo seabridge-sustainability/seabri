@@ -94,9 +94,8 @@ declare global {
     readonly VITE_ANTHROPIC_API_KEY?: string
     readonly VITE_ANTHROPIC_MODEL?: string
     readonly VITE_GATEWAY_URL?: string
-    readonly VITE_OPENSEABRI_API_KEY?: string
+    readonly VITE_OPENSEABRI_CLIENT_KEY?: string
     readonly VITE_CANVAS_WS_URL?: string
-    readonly VITE_WS_TOKEN?: string
   }
   interface ImportMeta {
     readonly env: ImportMetaEnv

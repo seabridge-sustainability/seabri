@@ -27,6 +27,6 @@ export interface StreamOptions {
 export async function streamAnthropicMessage(_opts: StreamOptions): Promise<void> {
   throw new Error(
     'Direct browser Anthropic API calls are disabled. ' +
-    'Configure VITE_GATEWAY_URL and VITE_OPENSEABRI_API_KEY to use the gateway.',
+    'Configure VITE_GATEWAY_URL and VITE_OPENSEABRI_CLIENT_KEY to use browser-safe gateway routes.',
   )
 }

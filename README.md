@@ -59,7 +59,7 @@ git clone https://github.com/SeaBridgeAI/openseabri
 cd openseabri
 npm install
 echo "VITE_GATEWAY_URL=ws://localhost:18790" > .env
-echo "VITE_OPENSEABRI_API_KEY=your_gateway_key_here" >> .env
+echo "VITE_OPENSEABRI_CLIENT_KEY=your_browser_limited_client_key_here" >> .env
 npm run dev
 # Open http://localhost:5173
 ```
@@ -222,7 +222,7 @@ seabri doctor    # Config, API keys, model, daemon, policy, channels, integratio
 | Variable | Required | Purpose |
 |---|---|---|
 | `VITE_GATEWAY_URL` | Yes (web UI) | Gateway WebSocket URL for streaming chat |
-| `VITE_OPENSEABRI_API_KEY` | Yes (web UI) | Gateway API key used for authenticated pilot calls |
+| `VITE_OPENSEABRI_CLIENT_KEY` | Optional (web UI) | Limited browser key for client-safe pilot calls; never use `OPENSEABRI_API_KEY` here |
 | `ANTHROPIC_API_KEY` | Yes (gateway) | Anthropic API key for the server-side gateway |
 | `VITE_SEABRIDGE_API_URL` | No | SeaBridgeAI backend URL for status badge |
 | `SEABRIDGE_API_URL` | No | SeaBridgeAI backend URL for bridge layer |
@@ -231,7 +231,9 @@ seabri doctor    # Config, API keys, model, daemon, policy, channels, integratio
 | `TAVILY_API_KEY` | No | Web search for research loop |
 | `GATEWAY_PORT` | No | Gateway WebSocket port (default 18790) |
 | `OPENSEABRI_API_KEY` | Production | Required for `/api/seabri/*` via `x-openseabri-key` |
+| `OPENSEABRI_CLIENT_KEY` | Optional web profile/demos | Limited key accepted only for browser-safe gateway routes |
 | `SEABRI_WS_TOKEN` | Production | Required for gateway WebSocket auth |
+| `OPENSEABRI_ATTACHMENT_TOKEN` | Production | Required for attachment upload/download routes |
 | `OPENSEABRI_CANVAS_WS_TOKEN` | Production if canvas enabled | Required for canvas WebSocket auth |
 | `OPENSEABRI_CORS_ORIGIN` | Production | Allowed browser origin |
 | `OPENSEABRI_RATE_LIMIT` | Production | Per-IP requests/minute budget |

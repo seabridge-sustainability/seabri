@@ -87,9 +87,10 @@ export const OPENKB_TOOLS: AnthropicTool[] = [
       type: 'object',
       properties: {
         approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        tenant_id: { type: 'string', description: 'Tenant bound to the mcp:<tenant> approval token' },
         kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
       },
-      required: ['approval_token'],
+      required: ['approval_token', 'tenant_id'],
     },
   },
   {
@@ -100,10 +101,11 @@ export const OPENKB_TOOLS: AnthropicTool[] = [
       type: 'object',
       properties: {
         approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        tenant_id: { type: 'string', description: 'Tenant bound to the mcp:<tenant> approval token' },
         source_path: { type: 'string', description: 'Approved source file or directory path' },
         kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
       },
-      required: ['approval_token', 'source_path'],
+      required: ['approval_token', 'tenant_id', 'source_path'],
     },
   },
   {
@@ -114,10 +116,11 @@ export const OPENKB_TOOLS: AnthropicTool[] = [
       type: 'object',
       properties: {
         approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        tenant_id: { type: 'string', description: 'Tenant bound to the mcp:<tenant> approval token' },
         question: { type: 'string', description: 'Question to ask the compiled wiki knowledge base' },
         kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
       },
-      required: ['approval_token', 'question'],
+      required: ['approval_token', 'tenant_id', 'question'],
     },
   },
   {
@@ -128,9 +131,10 @@ export const OPENKB_TOOLS: AnthropicTool[] = [
       type: 'object',
       properties: {
         approval_token: { type: 'string', description: 'HMAC approval token scoped to mcp' },
+        tenant_id: { type: 'string', description: 'Tenant bound to the mcp:<tenant> approval token' },
         kb_name: { type: 'string', description: 'Optional knowledge base name under OPENKB_ROOT' },
       },
-      required: ['approval_token'],
+      required: ['approval_token', 'tenant_id'],
     },
   },
 ]
@@ -292,6 +296,12 @@ function getOptionalKbName(input: Record<string, unknown>): string | undefined {
     : undefined
 }
 
+function getTenantId(input: Record<string, unknown>): string | null {
+  return typeof input.tenant_id === 'string' && input.tenant_id.trim() !== ''
+    ? input.tenant_id.trim()
+    : null
+}
+
 async function callOpenKbProxy(
   toolName: string,
   input: Record<string, unknown>,
@@ -301,8 +311,16 @@ async function callOpenKbProxy(
   if (!approvalToken) {
     return 'OpenKB unavailable: backend MCP approval token is required before OpenKB can run.'
   }
+  const tenantId = getTenantId(input)
+  if (!tenantId) {
+    return 'OpenKB unavailable: a tenant_id matching the mcp approval token is required.'
+  }
   const kbName = getOptionalKbName(input)
-  const result = await callMcpTool(toolName, { ...args, ...(kbName ? { kb_name: kbName } : {}) }, approvalToken)
+  const result = await callMcpTool(
+    toolName,
+    { tenant_id: tenantId, ...args, ...(kbName ? { kb_name: kbName } : {}) },
+    approvalToken,
+  )
   if (!result) {
     return 'OpenKB unavailable: SeaBridgeAI backend MCP proxy is disabled, unreachable, or denied the request.'
   }
