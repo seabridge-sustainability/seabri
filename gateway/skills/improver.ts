@@ -10,7 +10,7 @@ import {
   SkillValidationError,
 } from './schema.js'
 
-const ANTHROPIC_MODEL = 'claude-sonnet-4-5'
+const ANTHROPIC_MODEL = 'claude-sonnet-5'
 
 const OPENSEABRI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const SKILLS_DIR = resolve(OPENSEABRI_ROOT, 'openseabri', 'skills')
@@ -93,6 +93,8 @@ If no methodology worth saving: respond with exactly the text "SKIP" and nothing
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
+        // Sonnet 5 thinks by default and thinking spends max_tokens; keep the prior behaviour.
+        thinking: { type: 'disabled' },
         max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }],
       }),

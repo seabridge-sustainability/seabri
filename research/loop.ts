@@ -26,7 +26,7 @@ const RESEARCH_AGENDA_PATH = join(OPENSEABRI_ROOT, 'research', 'program.md');
 const FINDINGS_DIR = join(OPENSEABRI_ROOT, 'research', 'findings');
 const DISCARDED_DIR = join(OPENSEABRI_ROOT, 'research', 'discarded');
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_MODEL = 'claude-sonnet-4-5';
+const ANTHROPIC_MODEL = 'claude-sonnet-5';
 const TAVILY_API_URL = 'https://api.tavily.com/search';
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY ?? '';
@@ -223,6 +223,8 @@ Be specific, cite the basis for claims (e.g., "NOAA data shows...", "First Stree
 
   const body = JSON.stringify({
     model: ANTHROPIC_MODEL,
+    // Sonnet 5 thinks by default and thinking spends max_tokens; keep the prior behaviour.
+    thinking: { type: 'disabled' },
     max_tokens: 2048,
     messages,
   });
@@ -299,6 +301,7 @@ Rules:
 
   const body = JSON.stringify({
     model: ANTHROPIC_MODEL,
+    thinking: { type: 'disabled' },
     max_tokens: 1024,
     messages,
   });
