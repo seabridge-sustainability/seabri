@@ -41,22 +41,12 @@ describe('MCP_SERVERS config', () => {
     expect(nanobot.tools).toContain('langdetect')
   })
 
-  it('keeps gbrain disabled unless explicitly feature-flagged', () => {
-    const gbrain = MCP_SERVERS.find(s => s.id === 'gbrain')
-    expect(gbrain).toBeUndefined()
-  })
-
-  it('gbrain uses the central SeaBridgeAI wrapper when feature-flagged', async () => {
+  it('has no gbrain server, even with the retired feature flag set', async () => {
     vi.resetModules()
     vi.stubEnv('OPENSEABRI_GBRAIN_MCP_ENABLED', '1')
-    const { MCP_SERVERS: enabledServers } = await import('./client.js')
-    const gbrain = enabledServers.find(s => s.id === 'gbrain')!
+    const { MCP_SERVERS: servers } = await import('./client.js')
 
-    expect(gbrain).toBeDefined()
-    expect(gbrain.command).toBe('powershell')
-    expect(gbrain.args).toContain('scripts/gbrain.ps1')
-    expect(gbrain.args).toContain('serve')
-    expect(gbrain.tools).toContain('code-def')
+    expect(servers.find(s => s.id === 'gbrain')).toBeUndefined()
 
     vi.unstubAllEnvs()
   })

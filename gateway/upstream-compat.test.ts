@@ -74,15 +74,6 @@ describe('Upstream Compatibility — nanobot MCP Integration', () => {
     const client = new McpClient(config)
     expect(client).toBeDefined()
   })
-
-  it('gbrain MCP server conditionally configured', () => {
-    const hasGbrain = MCP_SERVERS.some(s => s.id === 'gbrain')
-    if (process.env.OPENSEABRI_GBRAIN_MCP_ENABLED === '1') {
-      expect(hasGbrain).toBe(true)
-    } else {
-      expect(hasGbrain).toBe(false)
-    }
-  })
 })
 
 describe('Upstream Compatibility — hermes-agent SKILL.md Format', () => {

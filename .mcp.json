@@ -6,7 +6,7 @@
         "/c",
         "npx",
         "-y",
-        "@falkordb/mcpserver@latest"
+        "@falkordb/mcpserver@1.3.0"
       ],
       "env": {
         "FALKORDB_HOST": "localhost",
@@ -25,18 +25,6 @@
       "command": "npx",
       "args": ["designlang", "mcp", "--out", "./design"],
       "description": "Live design token server - colors, typography, spacing, components"
-    },
-    "gbrain": {
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "C:/Users/adelm/SeaBridgeAI/everything-claude-code/scripts/gbrain.ps1",
-        "serve"
-      ],
-      "description": "Optional local GBrain stdio MCP server for SeaBridgeAI coding-agent memory and code lookup"
     }
   }
 }

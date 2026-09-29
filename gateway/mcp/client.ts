@@ -12,7 +12,7 @@ export interface McpServerConfig {
   tools: string[]
 }
 
-const baseMcpServers: McpServerConfig[] = [
+export const MCP_SERVERS: McpServerConfig[] = [
   {
     id: 'nanobot',
     command: 'python',
@@ -20,25 +20,6 @@ const baseMcpServers: McpServerConfig[] = [
     tools: ['langdetect', 'skill_creator', 'classify_intent'],
   },
 ]
-
-const gbrainMcpServer: McpServerConfig = {
-    id: 'gbrain',
-    command: 'powershell',
-    args: [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-File',
-      process.env.OPENSEABRI_GBRAIN_PS1_PATH || 'scripts/gbrain.ps1',
-      'serve',
-    ],
-    tools: ['query', 'search', 'get', 'put', 'code-def', 'code-refs', 'code-callers'],
-}
-
-export const MCP_SERVERS: McpServerConfig[] =
-  process.env.OPENSEABRI_GBRAIN_MCP_ENABLED === '1'
-    ? [...baseMcpServers, gbrainMcpServer]
-    : baseMcpServers
 
 interface Pending {
   resolve: (v: unknown) => void

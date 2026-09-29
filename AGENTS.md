@@ -54,7 +54,7 @@ This is a single-branch repo: normal agent work lands on `main`, unlike backend/
 |---|---|
 | Architecture or codebase questions | `graphify-out/GRAPH_REPORT.md` (and its wiki index if present); after code edits run `graphify update .` (AST-only, no API cost) |
 | Emergency playbooks, incident, contractor or local-authority notes, wikilinks, `.base` or `.canvas` files | `scripts/knowledge-vault.ps1` (dry-run checks, diffs, backed-up writes) |
-| GBrain code lookup or shared agent memory | ECC skill `gbrain`, then `C:\Users\adelm\SeaBridgeAI\SeaBridgeAI\tools\gbrain\seabridge-gbrain.ps1` with `check`, `mcp` or `index-plan`. Initializing a brain, indexing, syncing sources or starting jobs needs explicit approval. |
+| Saving or finding cross-session agent knowledge | ECC skill `knowledge-ops` (routes to the ECC Memory Vault or governed docs) |
 | A change that depends on a backend contract | ECC `skills/sea-cross-repo-handoff/SKILL.md` |
 | caveman, codeburn, designlang usage | ECC `docs/tools/ECC_TOOLING_REFERENCE.md` |
 
