@@ -74,3 +74,5 @@ graphify-out/cache/
 graphify-out/manifest.json
 graphify-out/cost.json
 graphify-obsidian/
+# All graphify output is generated; freshness lives in graphify-out/BUILD_INFO.json (2026-09-29).
+graphify-out/
