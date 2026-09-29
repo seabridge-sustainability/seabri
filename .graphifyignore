@@ -29,3 +29,19 @@ dist/
 imports/
 LICENSES/
 images/
+
+# SeaBridgeAI knowledge boundary (2026-09-29, knowledge-ops): graphs hold code
+# structure only. No reports, run artifacts, logs, local data, vendored or
+# upstream code; reports and artifacts can quote customer data.
+docs/reports/
+reports/
+artifacts/
+logs/
+/data/
+**/site-packages/
+_upstream/
+references/
+vendor/
+third_party/
+*.env
+.env.*

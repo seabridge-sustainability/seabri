@@ -52,7 +52,7 @@ This is a single-branch repo: normal agent work lands on `main`, unlike backend/
 
 | When | Use |
 |---|---|
-| Architecture or codebase questions | `graphify-out/GRAPH_REPORT.md` (and its wiki index if present); after code edits run `graphify update .` (AST-only, no API cost) |
+| Architecture or codebase questions | Grep first for targeted lookups; for relationships or impact use `graphify query "<q>" --budget 2000` or `graphify affected "<symbol>"` (check freshness with ECC `scripts/knowledge-freshness.js graphs .`); skim `GRAPH_REPORT.md` only to orient (measured 2026-09-29). After code edits run `graphify update .` (AST-only, no API cost) |
 | Emergency playbooks, incident, contractor or local-authority notes, wikilinks, `.base` or `.canvas` files | `scripts/knowledge-vault.ps1` (dry-run checks, diffs, backed-up writes) |
 | Saving or finding cross-session agent knowledge | ECC skill `knowledge-ops` (routes to the ECC Memory Vault or governed docs) |
 | A change that depends on a backend contract | ECC `skills/sea-cross-repo-handoff/SKILL.md` |
