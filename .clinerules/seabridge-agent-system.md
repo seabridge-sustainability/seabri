@@ -1,7 +1,8 @@
----
-description: SeaBridgeAI repository contract and risk-scaled verification
----
+# SeaBridgeAI core instruction loader
 
-Read and follow the root `AGENTS.md` as the sole repository contract. Load
-task-specific ECC skills only when their triggers fit; do not introduce fixed
-TDD, coverage, delegation, or full-suite requirements.
+SYSTEM_ID: SEABRIDGE_AGENT_SYSTEM_V1
+
+<!-- SEABRIDGE_CORE_ENTRY: ../../manageesg-backend/AGENTS.md -->
+
+Read ../../manageesg-backend/AGENTS.md and its AGENTS_SYSTEM.md import.
+This is a compatibility loader, not an independent policy.
